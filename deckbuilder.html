@@ -332,7 +332,7 @@ async function handleLogin() {
   if (existing) {
     currentPlayer = existing;
   } else {
-    const { data: created, error: createErr } = await supabase
+    const { data: created, error: createErr } = await supabaseClient
       .from("players")
       .insert({ display_name: name })
       .select()
@@ -422,7 +422,7 @@ function renderCardGrid() {
 
 // ---- Deck management ----
 async function loadDecksForPlayer() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("decks")
     .select("*")
     .eq("player_id", currentPlayer.id)
@@ -458,7 +458,7 @@ document.getElementById("new-deck-btn").addEventListener("click", async () => {
 });
 
 async function createNewDeck(name) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("decks")
     .insert({ player_id: currentPlayer.id, deck_name: name })
     .select()
@@ -488,7 +488,7 @@ document.getElementById("delete-deck-btn").addEventListener("click", async () =>
 });
 
 async function loadDeckCards() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("deck_cards")
     .select("card_id, quantity")
     .eq("deck_id", currentDeckId);
@@ -534,7 +534,7 @@ async function addCardToDeck(card) {
   const currentQty = currentDeckCards[card.id] || 0;
   const newQty = currentQty + 1;
 
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from("deck_cards")
     .upsert({ deck_id: currentDeckId, card_id: card.id, quantity: newQty }, { onConflict: "deck_id,card_id" });
 
@@ -555,7 +555,7 @@ async function removeCardFromDeck(cardId) {
     if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
     delete currentDeckCards[cardId];
   } else {
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from("deck_cards")
       .upsert({ deck_id: currentDeckId, card_id: cardId, quantity: newQty }, { onConflict: "deck_id,card_id" });
     if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
