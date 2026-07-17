@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Deck Editor</title>
+<style>
+  :root {
+    --mat-green: #1d4d3a;
+    --mat-green-light: #245a44;
+    --card-cream: #fdf6e3;
+    --card-border: #d9b25c;
+    --accent: #d8e04a;
+    --text-light: #cfe8db;
+    --text-muted: #9fc7ae;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f2e22;
+    color: #eee;
+    min-height: 100vh;
+  }
+  header {
+    background: var(--mat-green);
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 2px solid var(--card-border);
+  }
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--accent);
+  }
+  #player-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  #player-bar input, #player-bar select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    font-size: 14px;
+  }
+  button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    color: #3a2f1a;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: #f5e3b3; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    border-color: #a8b32e;
+  }
+  button.primary:hover { background: #c7ce3f; }
+
+  #main {
+    display: none;
+    padding: 16px 24px 60px;
+  }
+  #deck-select-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  #deck-select-bar select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    font-size: 14px;
+    min-width: 180px;
+  }
+  .layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  #browse-panel { flex: 3; }
+  #deck-panel {
+    flex: 1;
+    min-width: 240px;
+    background: var(--mat-green);
+    border-radius: 10px;
+    padding: 14px;
+    position: sticky;
+    top: 16px;
+  }
+  #deck-panel h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: var(--accent);
+  }
+  #deck-count {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-bottom: 10px;
+  }
+  #deck-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .deck-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.06);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .deck-row .name { color: var(--text-light); }
+  .deck-row .qty-controls { display: flex; align-items: center; gap: 6px; }
+  .deck-row .qty-controls button {
+    padding: 2px 8px;
+    font-size: 13px;
+  }
+
+  #filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  #filters input, #filters select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    font-size: 14px;
+  }
+
+  #card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 14px;
+  }
+  .card-tile {
+    background: var(--card-cream);
+    border: 2px solid var(--card-border);
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    text-align: center;
+    color: #3a2f1a;
+    position: relative;
+    transition: transform 0.08s ease;
+    user-select: none;
+  }
+  .card-tile:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card-tile img {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #e4d3a5;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .card-tile .name { font-size: 12px; font-weight: 600; line-height: 1.2; }
+  .card-tile .meta { font-size: 10px; color: #7a6a45; margin-top: 2px; }
+  .card-tile .badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--accent);
+    color: #2a2a10;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid #a8b32e;
+    display: none;
+    z-index: 2;
+  }
+  .card-tile.in-deck .badge { display: block; }
+  .card-tile .minus-btn {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    line-height: 1;
+    font-size: 14px;
+    border-radius: 50%;
+    display: none;
+    z-index: 2;
+  }
+  .card-tile.in-deck .minus-btn { display: block; }
+
+  #status-msg {
+    font-size: 13px;
+    color: var(--text-muted);
+    min-height: 18px;
+    margin-top: 8px;
+  }
+
+  #login-screen {
+    max-width: 420px;
+    margin: 80px auto;
+    background: var(--mat-green);
+    padding: 28px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  #login-screen h2 { color: var(--accent); margin-top: 0; }
+  #login-screen input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    font-size: 15px;
+    margin: 12px 0;
+    box-sizing: border-box;
+  }
+  #login-screen p { color: var(--text-light); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🃏 Bakemon Deck Editor</h1>
+  <div id="player-bar"></div>
+</header>
+
+<div id="login-screen">
+  <h2>Who's building a deck?</h2>
+  <input type="text" id="name-input" placeholder="Type your name..." list="known-players">
+  <datalist id="known-players"></datalist>
+  <button class="primary" id="login-btn">Continue</button>
+  <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
+</div>
+
+<div id="main">
+  <div id="deck-select-bar">
+    <label style="font-size:14px;">Deck:</label>
+    <select id="deck-select"></select>
+    <button id="new-deck-btn">+ New Deck</button>
+    <button id="rename-deck-btn">Rename</button>
+    <button id="delete-deck-btn">Delete</button>
+  </div>
+
+  <div class="layout">
+    <div id="browse-panel">
+      <div id="filters">
+        <input type="text" id="search-input" placeholder="Search by name...">
+        <select id="type-filter">
+          <option value="">All types</option>
+        </select>
+      </div>
+      <div id="card-grid"></div>
+    </div>
+
+    <div id="deck-panel">
+      <h2>Current Deck</h2>
+      <div id="deck-count">0 cards</div>
+      <div id="deck-list"></div>
+      <div id="status-msg"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ---- Supabase setup ----
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CARD_IMAGE_BASE = "/bakemon/cards/";
+
+let allCards = [];
+let currentPlayer = null;
+let currentDeckId = null;
+let currentDeckCards = {}; // card_id -> quantity
+
+// ---- Login flow ----
+document.getElementById("login-btn").addEventListener("click", handleLogin);
+document.getElementById("name-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") handleLogin();
+});
+
+async function loadKnownPlayers() {
+  const { data, error } = await supabaseClient.from("players").select("display_name").order("display_name");
+  if (error) return;
+  const datalist = document.getElementById("known-players");
+  datalist.innerHTML = "";
+  data.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.display_name;
+    datalist.appendChild(opt);
+  });
+}
+
+async function handleLogin() {
+  const nameInput = document.getElementById("name-input");
+  const name = nameInput.value.trim();
+  if (!name) return;
+
+  let { data: existing, error } = await supabaseClient
+    .from("players")
+    .select("*")
+    .ilike("display_name", name)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    alert("Something went wrong loading your profile. Try again?");
+    return;
+  }
+
+  if (existing) {
+    currentPlayer = existing;
+  } else {
+    const { data: created, error: createErr } = await supabase
+      .from("players")
+      .insert({ display_name: name })
+      .select()
+      .single();
+    if (createErr) {
+      console.error(createErr);
+      alert("Couldn't create a profile. Try again?");
+      return;
+    }
+    currentPlayer = created;
+  }
+
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("main").style.display = "block";
+  document.getElementById("player-bar").innerHTML =
+    `<span>Playing as <strong>${escapeHtml(currentPlayer.display_name)}</strong></span> <button id="switch-player-btn">Switch</button>`;
+  document.getElementById("switch-player-btn").addEventListener("click", () => location.reload());
+
+  await loadCards();
+  await loadDecksForPlayer();
+}
+
+// ---- Card data ----
+async function loadCards() {
+  const { data, error } = await supabaseClient.from("cards").select("*").order("card_number");
+  if (error) {
+    console.error(error);
+    document.getElementById("status-msg").textContent = "Couldn't load cards from the database.";
+    return;
+  }
+  allCards = data;
+  populateTypeFilter();
+  renderCardGrid();
+}
+
+function populateTypeFilter() {
+  const types = new Set();
+  allCards.forEach(c => {
+    if (c.type_1) types.add(c.type_1);
+    if (c.type_2) types.add(c.type_2);
+  });
+  const sel = document.getElementById("type-filter");
+  [...types].sort().forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("search-input").addEventListener("input", renderCardGrid);
+document.getElementById("type-filter").addEventListener("change", renderCardGrid);
+
+function renderCardGrid() {
+  const search = document.getElementById("search-input").value.toLowerCase();
+  const typeFilter = document.getElementById("type-filter").value;
+  const grid = document.getElementById("card-grid");
+  grid.innerHTML = "";
+
+  const filtered = allCards.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(search);
+    const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  filtered.forEach(card => {
+    const qty = currentDeckCards[card.id] || 0;
+    const tile = document.createElement("div");
+    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    tile.innerHTML = `
+      <span class="badge">x${qty}</span>
+      <button class="minus-btn" title="Remove one">−</button>
+      <img src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}"
+           onerror="this.style.opacity=0.3;">
+      <div class="name">${escapeHtml(card.name)}</div>
+      <div class="meta">HP ${card.hp} · ${card.type_1}${card.type_2 ? '/' + card.type_2 : ''}</div>
+    `;
+    tile.addEventListener("click", () => addCardToDeck(card));
+    const minusBtn = tile.querySelector(".minus-btn");
+    minusBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeCardFromDeck(card.id);
+    });
+    grid.appendChild(tile);
+  });
+}
+
+// ---- Deck management ----
+async function loadDecksForPlayer() {
+  const { data, error } = await supabase
+    .from("decks")
+    .select("*")
+    .eq("player_id", currentPlayer.id)
+    .order("created_at");
+  if (error) { console.error(error); return; }
+
+  const sel = document.getElementById("deck-select");
+  sel.innerHTML = "";
+  if (data.length === 0) {
+    await createNewDeck("My First Deck");
+    return;
+  }
+  data.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = d.deck_name;
+    sel.appendChild(opt);
+  });
+  currentDeckId = data[0].id;
+  sel.value = currentDeckId;
+  await loadDeckCards();
+}
+
+document.getElementById("deck-select").addEventListener("change", async (e) => {
+  currentDeckId = e.target.value;
+  await loadDeckCards();
+});
+
+document.getElementById("new-deck-btn").addEventListener("click", async () => {
+  const name = prompt("Name for the new deck:");
+  if (!name) return;
+  await createNewDeck(name);
+});
+
+async function createNewDeck(name) {
+  const { data, error } = await supabase
+    .from("decks")
+    .insert({ player_id: currentPlayer.id, deck_name: name })
+    .select()
+    .single();
+  if (error) { console.error(error); alert("Couldn't create deck."); return; }
+  await loadDecksForPlayer();
+  currentDeckId = data.id;
+  document.getElementById("deck-select").value = currentDeckId;
+  await loadDeckCards();
+}
+
+document.getElementById("rename-deck-btn").addEventListener("click", async () => {
+  const sel = document.getElementById("deck-select");
+  const newName = prompt("New name for this deck:", sel.options[sel.selectedIndex]?.textContent || "");
+  if (!newName) return;
+  const { error } = await supabaseClient.from("decks").update({ deck_name: newName, updated_at: new Date().toISOString() }).eq("id", currentDeckId);
+  if (error) { console.error(error); alert("Couldn't rename deck."); return; }
+  await loadDecksForPlayer();
+  document.getElementById("deck-select").value = currentDeckId;
+});
+
+document.getElementById("delete-deck-btn").addEventListener("click", async () => {
+  if (!confirm("Delete this deck permanently?")) return;
+  const { error } = await supabaseClient.from("decks").delete().eq("id", currentDeckId);
+  if (error) { console.error(error); alert("Couldn't delete deck."); return; }
+  await loadDecksForPlayer();
+});
+
+async function loadDeckCards() {
+  const { data, error } = await supabase
+    .from("deck_cards")
+    .select("card_id, quantity")
+    .eq("deck_id", currentDeckId);
+  if (error) { console.error(error); return; }
+  currentDeckCards = {};
+  data.forEach(row => { currentDeckCards[row.card_id] = row.quantity; });
+  renderCardGrid();
+  renderDeckPanel();
+}
+
+function renderDeckPanel() {
+  const list = document.getElementById("deck-list");
+  const countEl = document.getElementById("deck-count");
+  list.innerHTML = "";
+  let total = 0;
+
+  const entries = Object.entries(currentDeckCards)
+    .map(([cardId, qty]) => ({ card: allCards.find(c => c.id === cardId), qty }))
+    .filter(e => e.card)
+    .sort((a, b) => a.card.name.localeCompare(b.card.name));
+
+  entries.forEach(({ card, qty }) => {
+    total += qty;
+    const row = document.createElement("div");
+    row.className = "deck-row";
+    row.innerHTML = `
+      <span class="name">${escapeHtml(card.name)}</span>
+      <span class="qty-controls">
+        <button data-action="minus">-</button>
+        <span>${qty}</span>
+        <button data-action="plus">+</button>
+      </span>
+    `;
+    row.querySelector('[data-action="minus"]').addEventListener("click", () => removeCardFromDeck(card.id));
+    row.querySelector('[data-action="plus"]').addEventListener("click", () => addCardToDeck(card));
+    list.appendChild(row);
+  });
+
+  countEl.textContent = `${total} card${total === 1 ? '' : 's'}`;
+}
+
+async function addCardToDeck(card) {
+  const currentQty = currentDeckCards[card.id] || 0;
+  const newQty = currentQty + 1;
+
+  const { error } = await supabase
+    .from("deck_cards")
+    .upsert({ deck_id: currentDeckId, card_id: card.id, quantity: newQty }, { onConflict: "deck_id,card_id" });
+
+  if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
+  currentDeckCards[card.id] = newQty;
+  renderCardGrid();
+  renderDeckPanel();
+  setStatus(`Added ${card.name}.`);
+}
+
+async function removeCardFromDeck(cardId) {
+  const currentQty = currentDeckCards[cardId] || 0;
+  if (currentQty <= 0) return;
+  const newQty = currentQty - 1;
+
+  if (newQty === 0) {
+    const { error } = await supabaseClient.from("deck_cards").delete().eq("deck_id", currentDeckId).eq("card_id", cardId);
+    if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
+    delete currentDeckCards[cardId];
+  } else {
+    const { error } = await supabase
+      .from("deck_cards")
+      .upsert({ deck_id: currentDeckId, card_id: cardId, quantity: newQty }, { onConflict: "deck_id,card_id" });
+    if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
+    currentDeckCards[cardId] = newQty;
+  }
+  renderCardGrid();
+  renderDeckPanel();
+}
+
+function setStatus(msg) {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg;
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 2000);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+loadKnownPlayers();
+</script>
+
+</body>
+</html>

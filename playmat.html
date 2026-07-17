@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Battle Mat</title>
+<style>
+  :root {
+    --mat-green: #1d4d3a;
+    --mat-green-light: #245a44;
+    --card-cream: #fdf6e3;
+    --card-border: #d9b25c;
+    --accent: #d8e04a;
+    --text-light: #cfe8db;
+    --text-muted: #9fc7ae;
+    --panel-brown: #b98a5f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f2e22;
+    color: #eee;
+    min-height: 100vh;
+  }
+  header {
+    background: var(--mat-green);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 2px solid var(--card-border);
+  }
+  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
+  button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    color: #3a2f1a;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: #f5e3b3; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: #a8b32e; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  input, select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    font-size: 14px;
+  }
+
+  /* ---- Setup screen ---- */
+  #setup-screen {
+    max-width: 460px;
+    margin: 60px auto;
+    background: var(--mat-green);
+    padding: 28px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  #setup-screen h2 { color: var(--accent); margin-top: 0; }
+  #setup-screen .field { margin: 14px 0; text-align: left; }
+  #setup-screen label { display: block; font-size: 13px; color: var(--text-light); margin-bottom: 4px; }
+  #setup-screen input, #setup-screen select { width: 100%; }
+  #setup-screen .divider { margin: 20px 0; color: var(--text-muted); font-size: 12px; }
+  #setup-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; }
+
+  /* ---- Battle mat ---- */
+  #mat-screen { display: none; padding: 12px; max-width: 900px; margin: 0 auto; }
+  .mat {
+    display: flex;
+    gap: 12px;
+  }
+  .field-col { flex: 1; }
+  .hand-col {
+    width: 130px;
+    background: #164634;
+    border-radius: 10px;
+    border: 0.5px solid var(--card-border);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+  }
+  .hand-col h3 { font-size: 12px; margin: 0; color: var(--accent); }
+  .hand-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 70vh;
+    overflow-y: auto;
+    width: 100%;
+    align-items: center;
+    padding: 2px 0;
+  }
+  .field {
+    background: var(--mat-green);
+    border-radius: 12px;
+    padding: 14px;
+    border: 0.5px solid var(--card-border);
+  }
+  .row-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-light);
+    margin-bottom: 8px;
+  }
+  .bench-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  .bench-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .active-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+  }
+  .divider-line { height: 1px; background: rgba(255,255,255,0.15); margin: 10px 0; }
+
+  .card-face {
+    width: 64px;
+    height: 90px;
+    border-radius: 6px;
+    background: var(--card-cream);
+    border: 1.5px solid var(--card-border);
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    color: #3a2f1a;
+  }
+  .card-face.empty {
+    background: rgba(255,255,255,0.03);
+    border: 1.5px dashed #6fae8d;
+    cursor: pointer;
+  }
+  .card-face.active-size { width: 84px; height: 118px; }
+  .card-face img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .card-face .label {
+    position: relative;
+    z-index: 1;
+    background: rgba(253,246,227,0.92);
+    font-size: 9px;
+    padding: 2px 3px;
+    line-height: 1.15;
+    text-align: center;
+  }
+  .card-face.selected { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .card-face.hand-card { width: 80px; height: 112px; flex-shrink: 0; }
+
+  .status-badges {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    display: flex;
+    gap: 2px;
+    z-index: 2;
+  }
+  .status-badge {
+    font-size: 9px;
+    padding: 1px 3px;
+    border-radius: 4px;
+    background: #7a2e2e;
+    color: #fff;
+  }
+
+  .side-panel {
+    width: 82px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-brown);
+    background: rgba(255,255,255,0.04);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+    font-size: 10px;
+    color: #e0c9a8;
+  }
+  .side-panel .row { display: flex; align-items: center; gap: 4px; }
+  .side-panel .dmg-controls { display: flex; align-items: center; gap: 4px; }
+  .side-panel .dmg-controls button { padding: 1px 6px; font-size: 11px; }
+  .side-panel .remaining { font-size: 12px; font-weight: 600; color: #fdf6e3; }
+  .energy-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 60px; }
+  .energy-dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 7px; color: #222; cursor: pointer; border: 1px solid rgba(0,0,0,0.2);
+  }
+
+  .bench-tray {
+    width: 56px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1px solid var(--panel-brown);
+    background: rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: pointer;
+  }
+  .bench-tray .energy-dot { width: 9px; height: 9px; }
+
+  #action-bar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin: 10px 0;
+    flex-wrap: wrap;
+  }
+  #zone-counts {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  #selection-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--accent);
+    min-height: 16px;
+    margin: 4px 0;
+  }
+  #energy-picker {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--mat-green);
+    border-top: 2px solid var(--card-border);
+    padding: 12px;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    z-index: 50;
+  }
+  #status-picker {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--mat-green);
+    border-top: 2px solid var(--card-border);
+    padding: 12px;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    z-index: 50;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚔️ Bakemon Battle Mat</h1>
+  <div id="header-controls"></div>
+</header>
+
+<div id="setup-screen">
+  <h2>Enter the Battle</h2>
+  <div class="field">
+    <label>Your name</label>
+    <input type="text" id="player-name-input" list="known-players" placeholder="Type your name...">
+    <datalist id="known-players"></datalist>
+  </div>
+  <div class="field">
+    <label>Deck to bring</label>
+    <select id="deck-select-setup"><option>Enter your name first...</option></select>
+  </div>
+  <div class="divider">— then —</div>
+  <div class="field">
+    <label>Room code (share this with your opponent)</label>
+    <input type="text" id="room-code-input" placeholder="e.g. RUBYTOWER">
+  </div>
+  <button class="primary" id="join-btn">Create / Join Table</button>
+  <div id="setup-status"></div>
+</div>
+
+<div id="mat-screen">
+  <div id="action-bar"></div>
+  <div id="selection-hint"></div>
+  <div class="mat">
+    <div class="field-col">
+      <div class="field">
+        <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
+        <div class="bench-row" id="opp-bench"></div>
+        <div class="active-row" id="opp-active-row"></div>
+        <div class="divider-line"></div>
+        <div class="active-row" id="my-active-row"></div>
+        <div class="bench-row" id="my-bench" style="margin-top:10px;"></div>
+        <div class="row-label" id="my-zone-counts"></div>
+        <div style="display:flex; justify-content:center; margin-top:6px;">
+          <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed;">
+            <div class="label" id="discard-label">Discard</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="hand-col">
+      <h3>Your Hand</h3>
+      <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
+      <div class="hand-list" id="hand-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="energy-picker"></div>
+<div id="status-picker"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const CARD_IMAGE_BASE = "/bakemon/cards/";
+const ENERGY_TYPES = [
+  { key: "fighting", color: "#e0997b" },
+  { key: "grass", color: "#97c459" },
+  { key: "fire", color: "#e8734a" },
+  { key: "water", color: "#5fa8d3" },
+  { key: "dark", color: "#6b5b7a" },
+  { key: "psychic", color: "#c77dd4" },
+  { key: "steel", color: "#a8b0b8" },
+  { key: "electric", color: "#e8d24a" },
+  { key: "dragon", color: "#7a6de0" },
+  { key: "fairy", color: "#f2a8d0" },
+  { key: "normal", color: "#c9c2a8" }
+];
+const STATUS_TYPES = ["poison", "burn", "sleep", "paralysis"];
+
+let allCards = {};       // card_id -> card row
+let currentPlayer = null;
+let currentDeckId = null;
+let tableId = null;
+let roomCode = null;
+let mySeat = null;       // "player_1" or "player_2"
+let oppSeat = null;
+let tableState = null;   // full row from battle_tables
+let selection = null;    // { seat, zone, index } of currently selected card
+let realtimeChannel = null;
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+// ---------- Setup screen ----------
+async function loadKnownPlayers() {
+  const { data } = await supabaseClient.from("players").select("display_name").order("display_name");
+  const dl = document.getElementById("known-players");
+  dl.innerHTML = "";
+  (data || []).forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.display_name;
+    dl.appendChild(opt);
+  });
+}
+
+document.getElementById("player-name-input").addEventListener("change", async (e) => {
+  const name = e.target.value.trim();
+  if (!name) return;
+  const { data: player } = await supabaseClient.from("players").select("*").ilike("display_name", name).maybeSingle();
+  if (!player) {
+    document.getElementById("deck-select-setup").innerHTML = "<option>No decks yet — build one in the deck editor first</option>";
+    return;
+  }
+  currentPlayer = player;
+  const { data: decks } = await supabaseClient.from("decks").select("*").eq("player_id", player.id).order("created_at");
+  const sel = document.getElementById("deck-select-setup");
+  sel.innerHTML = "";
+  if (!decks || decks.length === 0) {
+    sel.innerHTML = "<option>No decks yet — build one in the deck editor first</option>";
+    return;
+  }
+  decks.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d.id;
+    opt.textContent = d.deck_name;
+    sel.appendChild(opt);
+  });
+});
+
+document.getElementById("join-btn").addEventListener("click", handleJoinTable);
+
+async function handleJoinTable() {
+  const name = document.getElementById("player-name-input").value.trim();
+  const deckId = document.getElementById("deck-select-setup").value;
+  const code = document.getElementById("room-code-input").value.trim().toUpperCase();
+  const statusEl = document.getElementById("setup-status");
+
+  if (!name) { statusEl.textContent = "Enter your name first."; return; }
+  if (!code) { statusEl.textContent = "Enter a room code to create or join a table."; return; }
+  if (!currentPlayer) {
+    statusEl.textContent = "Couldn't find that player — check the deck editor first.";
+    return;
+  }
+  if (!deckId || deckId.startsWith("No decks")) {
+    statusEl.textContent = "Pick a deck — build one in the deck editor if you don't have one.";
+    return;
+  }
+  currentDeckId = deckId;
+  roomCode = code;
+
+  statusEl.textContent = "Loading card data...";
+  const { data: cards } = await supabaseClient.from("cards").select("*");
+  (cards || []).forEach(c => { allCards[c.id] = c; });
+
+  statusEl.textContent = "Connecting to table...";
+  let { data: existingTable } = await supabaseClient.from("battle_tables").select("*").eq("room_code", code).maybeSingle();
+
+  if (!existingTable) {
+    const { data: created, error } = await supabaseClient.from("battle_tables").insert({
+      room_code: code,
+      player_1_id: currentPlayer.id,
+      state: { player_1: null, player_2: null }
+    }).select().single();
+    if (error) { statusEl.textContent = "Couldn't create table: " + error.message; return; }
+    existingTable = created;
+    mySeat = "player_1";
+    oppSeat = "player_2";
+  } else if (existingTable.player_1_id === currentPlayer.id) {
+    mySeat = "player_1";
+    oppSeat = "player_2";
+  } else if (!existingTable.player_2_id) {
+    const { data: updated, error } = await supabaseClient.from("battle_tables")
+      .update({ player_2_id: currentPlayer.id })
+      .eq("id", existingTable.id).select().single();
+    if (error) { statusEl.textContent = "Couldn't join table: " + error.message; return; }
+    existingTable = updated;
+    mySeat = "player_2";
+    oppSeat = "player_1";
+  } else if (existingTable.player_2_id === currentPlayer.id) {
+    mySeat = "player_2";
+    oppSeat = "player_1";
+  } else {
+    statusEl.textContent = "That table already has two players.";
+    return;
+  }
+
+  tableId = existingTable.id;
+  tableState = existingTable;
+
+  if (!tableState.state[mySeat]) {
+    await loadDeckIntoSeat();
+  }
+
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("mat-screen").style.display = "block";
+  buildActionBar();
+  subscribeToTable();
+  renderMat();
+}
+
+async function loadDeckIntoSeat() {
+  const { data: deckCards } = await supabaseClient.from("deck_cards").select("card_id, quantity").eq("deck_id", currentDeckId);
+  let pile = [];
+  (deckCards || []).forEach(row => {
+    for (let i = 0; i < row.quantity; i++) pile.push(row.card_id);
+  });
+  // shuffle
+  for (let i = pile.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pile[i], pile[j]] = [pile[j], pile[i]];
+  }
+  const newSeatState = {
+    active: null,
+    bench: [null, null, null],
+    hand: [],
+    deck: pile,
+    discard: []
+  };
+  const newState = { ...tableState.state, [mySeat]: newSeatState };
+  await pushState(newState);
+}
+
+// ---------- Realtime sync ----------
+function subscribeToTable() {
+  realtimeChannel = supabaseClient
+    .channel(`battle_table_${tableId}`)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
+      (payload) => {
+        tableState = payload.new;
+        renderMat();
+      })
+    .subscribe();
+}
+
+async function pushState(newState) {
+  tableState = { ...tableState, state: newState };
+  const { error } = await supabaseClient.from("battle_tables")
+    .update({ state: newState, updated_at: new Date().toISOString() })
+    .eq("id", tableId);
+  if (error) console.error("Failed to save state:", error);
+  renderMat();
+}
+
+// ---------- Rendering ----------
+function buildActionBar() {
+  const bar = document.getElementById("action-bar");
+  bar.innerHTML = `
+    <button id="draw-btn">Draw Card</button>
+    <button id="shuffle-hand-btn">Shuffle Hand Into Deck</button>
+  `;
+  document.getElementById("draw-btn").addEventListener("click", drawCard);
+  document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
+}
+
+function cardHtml(cardId, opts = {}) {
+  const card = allCards[cardId];
+  if (!card) return `<div class="card-face empty"></div>`;
+  const img = card.image_filename ? `<img src="${CARD_IMAGE_BASE}${card.image_filename}" onerror="this.style.display='none'">` : "";
+  return `${img}<div class="label">${escapeHtml(card.name)}</div>`;
+}
+
+function renderSidePanel(seat, zone, index, slot) {
+  if (!slot || !slot.card_id) return "";
+  const card = allCards[slot.card_id];
+  const maxHp = card ? card.hp : 0;
+  const remaining = Math.max(0, maxHp - (slot.damage || 0));
+  const energyDots = (slot.energy || []).map((e, i) => {
+    const meta = ENERGY_TYPES.find(t => t.key === e) || { color: "#999" };
+    return `<span class="energy-dot" style="background:${meta.color}" data-remove-energy="${i}" title="${e} (click to remove)"></span>`;
+  }).join("");
+  const statusBadges = (slot.status || []).map(s => `<span class="status-badge" data-remove-status="${s}" title="click to clear">${s}</span>`).join("");
+  return `
+    <div class="side-panel" data-seat="${seat}" data-zone="${zone}" data-index="${index}">
+      <div class="row" style="width:100%; justify-content:space-between;">${statusBadges}</div>
+      <div>Energy</div>
+      <div class="energy-dots" data-energy-target="${seat}:${zone}:${index}">${energyDots}<span class="energy-dot" style="background:transparent; border:1px dashed #e0c9a8;" data-add-energy="1">+</span></div>
+      <div class="divider-line" style="width:100%;"></div>
+      <div class="dmg-controls">
+        <button data-dmg-minus="1">-</button>
+        <span>${slot.damage || 0}</span>
+        <button data-dmg-plus="1">+</button>
+      </div>
+      <div class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></div>
+      <button class="small" data-add-status="1" style="margin-top:2px;">+ status</button>
+    </div>
+  `;
+}
+
+function renderMat() {
+  if (!tableState) return;
+  const myState = tableState.state[mySeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
+  const oppState = tableState.state[oppSeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
+
+  document.getElementById("opp-zone-counts").textContent =
+    `Deck ${ (oppState.deck||[]).length } · Discard ${ (oppState.discard||[]).length } · Hand ${ (oppState.hand||[]).length }`;
+  document.getElementById("my-zone-counts").innerHTML =
+    `<span>You</span><span>Deck ${ (myState.deck||[]).length } · Discard ${ (myState.discard||[]).length }</span>`;
+
+  // Opponent bench (read-only, no side panel to keep it compact, but energy/status visible via badges)
+  document.getElementById("opp-bench").innerHTML = (oppState.bench || [null,null,null]).map((slot, i) => `
+    <div class="bench-slot">
+      <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">${slot ? cardHtml(slot.card_id) : ''}</div>
+      <div class="bench-tray" data-view-only="1">${(slot && slot.energy || []).map(e => {
+        const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
+        return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
+      }).join('')}</div>
+    </div>
+  `).join("");
+
+  document.getElementById("opp-active-row").innerHTML = `
+    <div class="card-face active-size" data-seat="${oppSeat}" data-zone="active" data-index="0">
+      ${oppState.active ? `<div class="status-badges">${(oppState.active.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(oppState.active.card_id)}` : ''}
+    </div>
+  `;
+
+  document.getElementById("my-active-row").innerHTML = `
+    <div class="card-face active-size selectable ${selection && selection.seat===mySeat && selection.zone==='active' ? 'selected' : ''}"
+         data-seat="${mySeat}" data-zone="active" data-index="0">
+      ${myState.active ? cardHtml(myState.active.card_id) : ''}
+    </div>
+    ${renderSidePanel(mySeat, 'active', 0, myState.active)}
+  `;
+
+  document.getElementById("my-bench").innerHTML = (myState.bench || [null,null,null]).map((slot, i) => `
+    <div class="bench-slot">
+      <div class="card-face ${slot ? '' : 'empty'} ${selection && selection.seat===mySeat && selection.zone==='bench' && selection.index===i ? 'selected' : ''}"
+           data-seat="${mySeat}" data-zone="bench" data-index="${i}">
+        ${slot ? cardHtml(slot.card_id) : ''}
+      </div>
+      <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}" data-bench-energy="1">
+        ${(slot && slot.energy || []).map(e => {
+          const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
+          return `<span class="energy-dot" style="background:${meta.color}"></span>`;
+        }).join('')}
+      </div>
+    </div>
+  `).join("");
+
+  document.getElementById("hand-count").textContent = `${(myState.hand||[]).length} cards`;
+  document.getElementById("hand-list").innerHTML = (myState.hand || []).map((cardId, i) => `
+    <div class="card-face hand-card ${selection && selection.seat===mySeat && selection.zone==='hand' && selection.index===i ? 'selected' : ''}"
+         data-seat="${mySeat}" data-zone="hand" data-index="${i}">
+      ${cardHtml(cardId)}
+    </div>
+  `).join("");
+
+  document.getElementById("my-discard-pile").innerHTML = (myState.discard && myState.discard.length)
+    ? cardHtml(myState.discard[myState.discard.length - 1]) + `<div class="label" style="position:absolute; bottom:0; width:100%;">${myState.discard.length} in discard</div>`
+    : `<div class="label">Discard<br>(empty)</div>`;
+
+  updateSelectionHint();
+  attachHandlers();
+}
+
+function updateSelectionHint() {
+  const hint = document.getElementById("selection-hint");
+  if (!selection) {
+    hint.textContent = "Click a card to select it, then click where you want to move it.";
+  } else {
+    hint.textContent = `Selected a card from ${selection.zone}. Click a destination (hand, bench, active, or discard) to move it there. Click the same card again to cancel.`;
+  }
+}
+
+// ---------- Interaction ----------
+function attachHandlers() {
+  document.querySelectorAll(".card-face[data-seat]:not([data-view-only])").forEach(el => {
+    if (el.dataset.seat === "__discard__") {
+      el.addEventListener("click", () => handleDiscardClick());
+    } else {
+      el.addEventListener("click", () => handleCardClick(el.dataset.seat, el.dataset.zone, parseInt(el.dataset.index)));
+    }
+  });
+  document.querySelectorAll("[data-dmg-plus]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
+  });
+  document.querySelectorAll("[data-dmg-minus]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), -10); });
+  });
+  document.querySelectorAll("[data-add-energy]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); openEnergyPicker(e.target.closest(".side-panel")); });
+  });
+  document.querySelectorAll("[data-remove-energy]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); removeEnergy(e.target.closest(".side-panel"), parseInt(e.target.dataset.removeEnergy)); });
+  });
+  document.querySelectorAll("[data-add-status]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); openStatusPicker(e.target.closest(".side-panel")); });
+  });
+  document.querySelectorAll("[data-remove-status]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); removeStatus(e.target.closest(".side-panel"), e.target.dataset.removeStatus); });
+  });
+  document.querySelectorAll(".bench-tray[data-bench-energy]").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openEnergyPicker({ dataset: { seat: el.dataset.seat, zone: el.dataset.zone, index: el.dataset.index } });
+    });
+  });
+}
+
+function getSlot(state, zone, index) {
+  if (zone === "active") return state.active;
+  if (zone === "bench") return (state.bench || [])[index];
+  return null;
+}
+function setSlot(state, zone, index, value) {
+  if (zone === "active") state.active = value;
+  else if (zone === "bench") { state.bench = state.bench || [null,null,null]; state.bench[index] = value; }
+}
+
+function handleDiscardClick() {
+  if (!selection) return; // nothing selected, clicking discard alone does nothing
+  moveSelectedCardTo("discard", 0);
+}
+
+function handleCardClick(seat, zone, index) {
+  if (seat !== mySeat) return; // can't interact with opponent's cards
+
+  const myState = tableState.state[mySeat];
+
+  if (!selection) {
+    // Selecting a card to move — must have something there (or be hand, which is inherently non-empty if clicked)
+    if (zone === "hand" && myState.hand[index] !== undefined) {
+      selection = { seat, zone, index };
+    } else if ((zone === "active" || zone === "bench") && getSlot(myState, zone, index)) {
+      selection = { seat, zone, index };
+    }
+    renderMat();
+    return;
+  }
+
+  // Clicking the same spot again cancels
+  if (selection.zone === zone && selection.index === index) {
+    selection = null;
+    renderMat();
+    return;
+  }
+
+  moveSelectedCardTo(zone, index);
+}
+
+function moveSelectedCardTo(destZone, destIndex) {
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const myState = newState[mySeat];
+
+  // Get the card_id being moved, and remove it from its source
+  let cardId = null;
+  if (selection.zone === "hand") {
+    cardId = myState.hand[selection.index];
+    myState.hand.splice(selection.index, 1);
+  } else {
+    const slot = getSlot(myState, selection.zone, selection.index);
+    if (slot) {
+      cardId = slot.card_id;
+      setSlot(myState, selection.zone, selection.index, null);
+    }
+  }
+
+  if (!cardId) { selection = null; pushState(newState); return; }
+
+  // Place it at the destination
+  if (destZone === "hand") {
+    myState.hand.push(cardId);
+  } else if (destZone === "discard") {
+    myState.discard = myState.discard || [];
+    myState.discard.push(cardId);
+  } else if (destZone === "active" || destZone === "bench") {
+    const existing = getSlot(myState, destZone, destIndex);
+    if (existing) {
+      // swap: put existing card back to hand to avoid losing it
+      myState.hand.push(existing.card_id);
+    }
+    setSlot(myState, destZone, destIndex, { card_id: cardId, damage: 0, energy: [], status: [] });
+  }
+
+  selection = null;
+  pushState(newState);
+}
+
+async function drawCard() {
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const myState = newState[mySeat];
+  if (!myState.deck || myState.deck.length === 0) return;
+  const drawn = myState.deck.shift();
+  myState.hand.push(drawn);
+  pushState(newState);
+}
+
+async function shuffleHandIntoDeck() {
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const myState = newState[mySeat];
+  myState.deck = [...(myState.deck||[]), ...(myState.hand||[])];
+  myState.hand = [];
+  for (let i = myState.deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [myState.deck[i], myState.deck[j]] = [myState.deck[j], myState.deck[i]];
+  }
+  pushState(newState);
+}
+
+function adjustDamage(panelEl, delta) {
+  if (!panelEl) return;
+  const { seat, zone, index } = panelEl.dataset;
+  if (seat !== mySeat) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], zone, parseInt(index));
+  if (!slot) return;
+  slot.damage = Math.max(0, (slot.damage || 0) + delta);
+  pushState(newState);
+}
+
+let energyPickerTarget = null;
+function openEnergyPicker(panelEl) {
+  if (!panelEl) return;
+  const { seat, zone, index } = panelEl.dataset;
+  if (seat !== mySeat) return;
+  energyPickerTarget = { seat, zone, index: parseInt(index) };
+  const picker = document.getElementById("energy-picker");
+  picker.innerHTML = ENERGY_TYPES.map(t =>
+    `<button style="background:${t.color}; border-color:#0003;" data-energy-type="${t.key}">${t.key}</button>`
+  ).join("") + `<button id="energy-picker-close">Cancel</button>`;
+  picker.style.display = "flex";
+  picker.querySelectorAll("[data-energy-type]").forEach(b => {
+    b.addEventListener("click", () => addEnergy(b.dataset.energyType));
+  });
+  document.getElementById("energy-picker-close").addEventListener("click", () => { picker.style.display = "none"; });
+}
+function addEnergy(type) {
+  const { seat, zone, index } = energyPickerTarget;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], zone, index);
+  if (!slot) return;
+  slot.energy = slot.energy || [];
+  slot.energy.push(type);
+  document.getElementById("energy-picker").style.display = "none";
+  pushState(newState);
+}
+function removeEnergy(panelEl, energyIndex) {
+  if (!panelEl) return;
+  const { seat, zone, index } = panelEl.dataset;
+  if (seat !== mySeat) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], zone, parseInt(index));
+  if (!slot || !slot.energy) return;
+  slot.energy.splice(energyIndex, 1);
+  pushState(newState);
+}
+
+let statusPickerTarget = null;
+function openStatusPicker(panelEl) {
+  if (!panelEl) return;
+  const { seat, zone, index } = panelEl.dataset;
+  if (seat !== mySeat) return;
+  statusPickerTarget = { seat, zone, index: parseInt(index) };
+  const picker = document.getElementById("status-picker");
+  picker.innerHTML = STATUS_TYPES.map(s => `<button data-status-type="${s}">${s}</button>`).join("") + `<button id="status-picker-close">Cancel</button>`;
+  picker.style.display = "flex";
+  picker.querySelectorAll("[data-status-type]").forEach(b => {
+    b.addEventListener("click", () => addStatus(b.dataset.statusType));
+  });
+  document.getElementById("status-picker-close").addEventListener("click", () => { picker.style.display = "none"; });
+}
+function addStatus(statusType) {
+  const { seat, zone, index } = statusPickerTarget;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], zone, index);
+  if (!slot) return;
+  slot.status = slot.status || [];
+  if (!slot.status.includes(statusType)) slot.status.push(statusType);
+  document.getElementById("status-picker").style.display = "none";
+  pushState(newState);
+}
+function removeStatus(panelEl, statusType) {
+  if (!panelEl) return;
+  const { seat, zone, index } = panelEl.dataset;
+  if (seat !== mySeat) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], zone, parseInt(index));
+  if (!slot || !slot.status) return;
+  slot.status = slot.status.filter(s => s !== statusType);
+  pushState(newState);
+}
+
+loadKnownPlayers();
+</script>
+
+</body>
+</html>
