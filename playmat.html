@@ -297,7 +297,6 @@
 </div>
 
 <div id="mat-screen">
-  <div id="action-bar"></div>
   <div id="selection-hint"></div>
   <div class="mat">
     <div class="field-col">
@@ -307,13 +306,14 @@
         <div class="active-row" id="opp-active-row"></div>
         <div class="divider-line"></div>
         <div class="active-row" id="my-active-row"></div>
-        <div class="bench-row" id="my-bench" style="margin-top:10px;"></div>
-        <div class="row-label" id="my-zone-counts"></div>
-        <div style="display:flex; justify-content:center; margin-top:6px;">
-          <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed;">
+        <div class="my-zone-row" style="display:flex; align-items:center; justify-content:center; gap:16px; margin-top:10px; flex-wrap:wrap;">
+          <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed; flex-shrink:0;">
             <div class="label" id="discard-label">Discard</div>
           </div>
+          <div class="bench-row" id="my-bench" style="margin:0;"></div>
+          <div id="action-bar" style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;"></div>
         </div>
+        <div class="row-label" id="my-zone-counts"></div>
       </div>
     </div>
     <div class="hand-col">
@@ -520,8 +520,8 @@ async function pushState(newState) {
 function buildActionBar() {
   const bar = document.getElementById("action-bar");
   bar.innerHTML = `
-    <button id="draw-btn">Draw Card</button>
-    <button id="shuffle-hand-btn">Shuffle Hand Into Deck</button>
+    <button id="draw-btn" class="small">Draw Card</button>
+    <button id="shuffle-hand-btn" class="small">Shuffle Hand<br>Into Deck</button>
   `;
   document.getElementById("draw-btn").addEventListener("click", drawCard);
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
