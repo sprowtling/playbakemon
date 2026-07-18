@@ -16,6 +16,7 @@
     --panel-brown: #b98a5f;
   }
   * { box-sizing: border-box; }
+  #mat-screen { zoom: 1.25; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -306,11 +307,13 @@
         <div class="active-row" id="opp-active-row"></div>
         <div class="divider-line"></div>
         <div class="active-row" id="my-active-row"></div>
-        <div class="my-zone-row" style="display:flex; align-items:center; justify-content:center; gap:16px; margin-top:10px; flex-wrap:wrap;">
+        <div class="my-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-top:16px; flex-wrap:wrap;">
           <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed; flex-shrink:0;">
             <div class="label" id="discard-label">Discard</div>
           </div>
+          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
           <div class="bench-row" id="my-bench" style="margin:0;"></div>
+          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
           <div id="action-bar" style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;"></div>
         </div>
         <div class="row-label" id="my-zone-counts"></div>
@@ -522,9 +525,11 @@ function buildActionBar() {
   bar.innerHTML = `
     <button id="draw-btn" class="small">Draw Card</button>
     <button id="shuffle-hand-btn" class="small">Shuffle Hand<br>Into Deck</button>
+    <button id="reshuffle-discard-btn" class="small">Reshuffle Discard<br>Into Deck</button>
   `;
   document.getElementById("draw-btn").addEventListener("click", drawCard);
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
+  document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
 }
 
 function cardHtml(cardId, opts = {}) {
@@ -764,6 +769,19 @@ async function shuffleHandIntoDeck() {
   const myState = newState[mySeat];
   myState.deck = [...(myState.deck||[]), ...(myState.hand||[])];
   myState.hand = [];
+  for (let i = myState.deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [myState.deck[i], myState.deck[j]] = [myState.deck[j], myState.deck[i]];
+  }
+  pushState(newState);
+}
+
+async function reshuffleDiscardIntoDeck() {
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const myState = newState[mySeat];
+  if (!myState.discard || myState.discard.length === 0) return;
+  myState.deck = [...(myState.deck||[]), ...myState.discard];
+  myState.discard = [];
   for (let i = myState.deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [myState.deck[i], myState.deck[j]] = [myState.deck[j], myState.deck[i]];
