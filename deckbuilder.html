@@ -322,7 +322,7 @@ const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const CARD_IMAGE_BASE = "/bakemon/cards/";
+const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
 
 let allCards = [];
 let currentPlayer = null;
@@ -467,7 +467,7 @@ function renderCardGrid() {
       // Only swap once, to avoid a loop if cardback.png is itself missing
       if (img.dataset.fallenBack) return;
       img.dataset.fallenBack = "1";
-      img.src = CARD_IMAGE_BASE + "cardback.png";
+      img.src = CARD_IMAGE_BASE + "https://hxa.neocities.org/bakemon/cardback.png";
       nameEl.textContent = "???";
     });
 
