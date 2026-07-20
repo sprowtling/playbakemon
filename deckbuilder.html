@@ -67,7 +67,7 @@
     border-color: #a8b32e;
   }
   button.primary:hover { background: #c7ce3f; }
- 
+
   #main {
     display: none;
     padding: 16px 24px 60px;
@@ -134,7 +134,7 @@
     padding: 2px 8px;
     font-size: 13px;
   }
- 
+
   #filters {
     display: flex;
     gap: 10px;
@@ -148,11 +148,19 @@
     background: var(--card-cream);
     font-size: 14px;
   }
- 
-  #card-grid {
+
+  #card-grid, #collection-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 14px;
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: #a8b32e;
   }
   .card-tile {
     background: var(--card-cream);
@@ -207,6 +215,8 @@
     z-index: 2;
   }
   .card-tile.in-deck .minus-btn { display: block; }
+  .card-tile.at-max { opacity: 0.6; cursor: not-allowed; }
+  .card-tile.at-max:hover { transform: none; border-color: var(--card-border); }
   .card-tile .zoom-btn {
     position: absolute;
     bottom: 4px;
@@ -220,7 +230,7 @@
     z-index: 2;
     background: rgba(253,246,227,0.9);
   }
- 
+
   #lightbox-overlay {
     display: none;
     position: fixed;
@@ -238,14 +248,14 @@
     border: 3px solid var(--card-border);
     box-shadow: 0 10px 40px rgba(0,0,0,0.5);
   }
- 
+
   #status-msg {
     font-size: 13px;
     color: var(--text-muted);
     min-height: 18px;
     margin-top: 8px;
   }
- 
+
   #login-screen {
     max-width: 420px;
     margin: 80px auto;
@@ -268,12 +278,12 @@
 </style>
 </head>
 <body>
- 
+
 <header>
   <h1>🃏 Bakemon Deck Editor</h1>
   <div id="player-bar"></div>
 </header>
- 
+
 <div id="login-screen">
   <h2>Who's building a deck?</h2>
   <input type="text" id="name-input" placeholder="Type your name..." list="known-players">
@@ -281,61 +291,84 @@
   <button class="primary" id="login-btn">Continue</button>
   <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
 </div>
- 
+
 <div id="lightbox-overlay">
   <img id="lightbox-img" src="" alt="">
 </div>
- 
+
 <div id="main">
-  <div id="deck-select-bar">
-    <label style="font-size:14px;">Deck:</label>
-    <select id="deck-select"></select>
-    <button id="new-deck-btn">+ New Deck</button>
-    <button id="rename-deck-btn">Rename</button>
-    <button id="delete-deck-btn">Delete</button>
+  <div id="view-tabs" style="display:flex; gap:8px; margin-bottom:16px;">
+    <button id="tab-collection" class="tab-btn">My Collection</button>
+    <button id="tab-deckbuilder" class="tab-btn">Deck Builder</button>
   </div>
- 
-  <div class="layout">
-    <div id="browse-panel">
-      <div id="filters">
-        <input type="text" id="search-input" placeholder="Search by name...">
-        <select id="type-filter">
-          <option value="">All types</option>
-        </select>
-      </div>
-      <div id="card-grid"></div>
+
+  <div id="collection-view">
+    <div style="margin-bottom:12px; font-size:13px; color:var(--text-light);">
+      Click a card to add a copy you've found. Use the minus button to remove one (e.g. if traded away or lost).
     </div>
- 
-    <div id="deck-panel">
-      <h2>Current Deck</h2>
-      <div id="deck-count">0 cards</div>
-      <div id="deck-list"></div>
-      <div id="status-msg"></div>
+    <div id="filters">
+      <input type="text" id="collection-search-input" placeholder="Search by name...">
+      <select id="collection-type-filter"><option value="">All types</option></select>
+    </div>
+    <div id="collection-grid" class="card-grid"></div>
+  </div>
+
+  <div id="deckbuilder-view" style="display:none;">
+    <div id="deck-select-bar">
+      <label style="font-size:14px;">Deck:</label>
+      <select id="deck-select"></select>
+      <button id="new-deck-btn">+ New Deck</button>
+      <button id="rename-deck-btn">Rename</button>
+      <button id="delete-deck-btn">Delete</button>
+    </div>
+
+    <div class="layout">
+      <div id="browse-panel">
+        <div id="filters">
+          <input type="text" id="search-input" placeholder="Search by name...">
+          <select id="type-filter">
+            <option value="">All types</option>
+          </select>
+        </div>
+        <div id="no-cards-message" style="display:none; color:var(--text-muted); font-size:13px; padding:20px; text-align:center;">
+          You don't own any cards yet — add some in the "My Collection" tab first.
+        </div>
+        <div id="card-grid"></div>
+      </div>
+
+      <div id="deck-panel">
+        <h2>Current Deck</h2>
+        <div id="deck-count">0 cards</div>
+        <div id="deck-list"></div>
+        <div id="status-msg"></div>
+      </div>
     </div>
   </div>
 </div>
- 
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ---- Supabase setup ----
 const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
- 
+
 const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
 const CARDBACK_URL = "https://hxa.neocities.org/bakemon/cardback.png";
- 
+
 let allCards = [];
+let revealedCardIds = new Set(); // populated as images successfully load in the grid
 let currentPlayer = null;
 let currentDeckId = null;
 let currentDeckCards = {}; // card_id -> quantity
- 
+let playerCollection = {}; // card_id -> quantity owned
+
 // ---- Login flow ----
 document.getElementById("login-btn").addEventListener("click", handleLogin);
 document.getElementById("name-input").addEventListener("keydown", e => {
   if (e.key === "Enter") handleLogin();
 });
- 
+
 async function loadKnownPlayers() {
   const { data, error } = await supabaseClient.from("players").select("display_name").order("display_name");
   if (error) return;
@@ -347,24 +380,24 @@ async function loadKnownPlayers() {
     datalist.appendChild(opt);
   });
 }
- 
+
 async function handleLogin() {
   const nameInput = document.getElementById("name-input");
   const name = nameInput.value.trim();
   if (!name) return;
- 
+
   let { data: existing, error } = await supabaseClient
     .from("players")
     .select("*")
     .ilike("display_name", name)
     .maybeSingle();
- 
+
   if (error) {
     console.error(error);
     alert("Something went wrong loading your profile. Try again?");
     return;
   }
- 
+
   if (existing) {
     currentPlayer = existing;
   } else {
@@ -380,17 +413,154 @@ async function handleLogin() {
     }
     currentPlayer = created;
   }
- 
+
   document.getElementById("login-screen").style.display = "none";
   document.getElementById("main").style.display = "block";
   document.getElementById("player-bar").innerHTML =
     `<span>Playing as <strong>${escapeHtml(currentPlayer.display_name)}</strong></span> <button id="switch-player-btn">Switch</button>`;
   document.getElementById("switch-player-btn").addEventListener("click", () => location.reload());
- 
+
   await loadCards();
+  await loadPlayerCollection();
   await loadDecksForPlayer();
+  setupTabs();
 }
- 
+
+// ---- Tabs ----
+function setupTabs() {
+  document.getElementById("tab-collection").addEventListener("click", () => switchTab("collection"));
+  document.getElementById("tab-deckbuilder").addEventListener("click", () => switchTab("deckbuilder"));
+  switchTab("collection");
+}
+
+function switchTab(tab) {
+  const collectionView = document.getElementById("collection-view");
+  const deckbuilderView = document.getElementById("deckbuilder-view");
+  const collectionTab = document.getElementById("tab-collection");
+  const deckbuilderTab = document.getElementById("tab-deckbuilder");
+
+  if (tab === "collection") {
+    collectionView.style.display = "block";
+    deckbuilderView.style.display = "none";
+    collectionTab.classList.add("active");
+    deckbuilderTab.classList.remove("active");
+    renderCollectionGrid();
+  } else {
+    collectionView.style.display = "none";
+    deckbuilderView.style.display = "block";
+    collectionTab.classList.remove("active");
+    deckbuilderTab.classList.add("active");
+    renderCardGrid();
+  }
+}
+
+// ---- Player collection ----
+async function loadPlayerCollection() {
+  const { data, error } = await supabaseClient
+    .from("player_cards")
+    .select("card_id, quantity")
+    .eq("player_id", currentPlayer.id);
+  if (error) { console.error(error); return; }
+  playerCollection = {};
+  (data || []).forEach(row => { playerCollection[row.card_id] = row.quantity; });
+}
+
+function populateCollectionTypeFilter() {
+  const types = new Set();
+  allCards.forEach(c => {
+    if (c.type_1) types.add(c.type_1);
+    if (c.type_2) types.add(c.type_2);
+  });
+  const sel = document.getElementById("collection-type-filter");
+  sel.innerHTML = '<option value="">All types</option>';
+  [...types].sort().forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("collection-search-input").addEventListener("input", renderCollectionGrid);
+document.getElementById("collection-type-filter").addEventListener("change", renderCollectionGrid);
+
+function renderCollectionGrid() {
+  const search = document.getElementById("collection-search-input").value.toLowerCase();
+  const typeFilter = document.getElementById("collection-type-filter").value;
+  const grid = document.getElementById("collection-grid");
+  grid.innerHTML = "";
+
+  const filtered = allCards.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(search);
+    const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  filtered.forEach(card => {
+    const qty = playerCollection[card.id] || 0;
+    const tile = document.createElement("div");
+    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    const imgId = `coll-img-${card.id}`;
+    const nameId = `coll-name-${card.id}`;
+    tile.innerHTML = `
+      <span class="badge">x${qty}</span>
+      <button class="minus-btn" title="Remove one">−</button>
+      <button class="zoom-btn" title="View larger">🔍</button>
+      <img id="${imgId}" src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">
+      <div class="name" id="${nameId}">${escapeHtml(card.name)}</div>
+      <div class="meta">#${escapeHtml(card.card_number)}</div>
+    `;
+    tile.addEventListener("click", () => addToCollection(card));
+    tile.querySelector(".minus-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeFromCollection(card.id);
+    });
+    tile.querySelector(".zoom-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openLightbox(document.getElementById(imgId).src, card.name);
+    });
+
+    const img = tile.querySelector("img");
+    const nameEl = tile.querySelector(".name");
+    img.addEventListener("load", () => {
+      if (!img.dataset.fallenBack && !revealedCardIds.has(card.id)) {
+        revealedCardIds.add(card.id);
+        renderDeckPanel();
+      }
+    });
+    img.addEventListener("error", () => {
+      if (img.dataset.fallenBack) return;
+      img.dataset.fallenBack = "1";
+      img.src = CARDBACK_URL;
+      nameEl.textContent = "???";
+    });
+
+    grid.appendChild(tile);
+  });
+}
+
+async function addToCollection(card) {
+  const newQty = (playerCollection[card.id] || 0) + 1;
+  const { error } = await supabaseClient
+    .from("player_cards")
+    .upsert({ player_id: currentPlayer.id, card_id: card.id, quantity: newQty }, { onConflict: "player_id,card_id" });
+  if (error) { console.error(error); return; }
+  playerCollection[card.id] = newQty;
+  renderCollectionGrid();
+}
+
+async function removeFromCollection(cardId) {
+  const currentQty = playerCollection[cardId] || 0;
+  if (currentQty <= 0) return;
+  const newQty = currentQty - 1;
+  const { error } = await supabaseClient
+    .from("player_cards")
+    .upsert({ player_id: currentPlayer.id, card_id: cardId, quantity: newQty }, { onConflict: "player_id,card_id" });
+  if (error) { console.error(error); return; }
+  playerCollection[cardId] = newQty;
+  renderCollectionGrid();
+}
+
 // ---- Card data ----
 async function loadCards() {
   const { data, error } = await supabaseClient.from("cards").select("*").order("card_number");
@@ -401,9 +571,10 @@ async function loadCards() {
   }
   allCards = data;
   populateTypeFilter();
+  populateCollectionTypeFilter();
   renderCardGrid();
 }
- 
+
 function populateTypeFilter() {
   const types = new Set();
   allCards.forEach(c => {
@@ -418,26 +589,32 @@ function populateTypeFilter() {
     sel.appendChild(opt);
   });
 }
- 
+
 document.getElementById("search-input").addEventListener("input", renderCardGrid);
 document.getElementById("type-filter").addEventListener("change", renderCardGrid);
- 
+
 function renderCardGrid() {
   const search = document.getElementById("search-input").value.toLowerCase();
   const typeFilter = document.getElementById("type-filter").value;
   const grid = document.getElementById("card-grid");
   grid.innerHTML = "";
- 
+
   const filtered = allCards.filter(c => {
+    const owned = playerCollection[c.id] || 0;
+    if (owned <= 0) return false; // only show cards this player actually owns
     const matchesSearch = c.name.toLowerCase().includes(search);
     const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
     return matchesSearch && matchesType;
   });
- 
+
+  document.getElementById("no-cards-message").style.display = (allCards.some(c => (playerCollection[c.id] || 0) > 0)) ? "none" : "block";
+
   filtered.forEach(card => {
     const qty = currentDeckCards[card.id] || 0;
+    const owned = playerCollection[card.id] || 0;
+    const atMax = qty >= owned;
     const tile = document.createElement("div");
-    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "") + (atMax ? " at-max" : "");
     const imgId = `card-img-${card.id}`;
     const metaId = `card-meta-${card.id}`;
     tile.innerHTML = `
@@ -446,24 +623,30 @@ function renderCardGrid() {
       <button class="zoom-btn" title="View larger">🔍</button>
       <img id="${imgId}" src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">
       <div class="name">${escapeHtml(card.name)}</div>
-      <div class="meta" id="${metaId}">#${escapeHtml(card.card_number)}</div>
+      <div class="meta" id="${metaId}">#${escapeHtml(card.card_number)} · own ${owned}</div>
     `;
     tile.addEventListener("click", () => addCardToDeck(card));
- 
+
     const minusBtn = tile.querySelector(".minus-btn");
     minusBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       removeCardFromDeck(card.id);
     });
- 
+
     const zoomBtn = tile.querySelector(".zoom-btn");
     zoomBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       openLightbox(document.getElementById(imgId).src, card.name);
     });
- 
+
     const img = tile.querySelector("img");
     const nameEl = tile.querySelector(".name");
+    img.addEventListener("load", () => {
+      if (!img.dataset.fallenBack && !revealedCardIds.has(card.id)) {
+        revealedCardIds.add(card.id);
+        renderDeckPanel(); // in case this card is already in the deck panel, update its name now that we know it's revealed
+      }
+    });
     img.addEventListener("error", () => {
       // Only swap once, to avoid a loop if cardback.png is itself missing
       if (img.dataset.fallenBack) return;
@@ -471,11 +654,11 @@ function renderCardGrid() {
       img.src = CARDBACK_URL;
       nameEl.textContent = "???";
     });
- 
+
     grid.appendChild(tile);
   });
 }
- 
+
 function openLightbox(src, alt) {
   const overlay = document.getElementById("lightbox-overlay");
   const img = document.getElementById("lightbox-img");
@@ -489,7 +672,7 @@ document.getElementById("lightbox-overlay").addEventListener("click", () => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
 });
- 
+
 // ---- Deck management ----
 async function loadDecksForPlayer() {
   const { data, error } = await supabaseClient
@@ -498,7 +681,7 @@ async function loadDecksForPlayer() {
     .eq("player_id", currentPlayer.id)
     .order("created_at");
   if (error) { console.error(error); return; }
- 
+
   const sel = document.getElementById("deck-select");
   sel.innerHTML = "";
   if (data.length === 0) {
@@ -515,18 +698,18 @@ async function loadDecksForPlayer() {
   sel.value = currentDeckId;
   await loadDeckCards();
 }
- 
+
 document.getElementById("deck-select").addEventListener("change", async (e) => {
   currentDeckId = e.target.value;
   await loadDeckCards();
 });
- 
+
 document.getElementById("new-deck-btn").addEventListener("click", async () => {
   const name = prompt("Name for the new deck:");
   if (!name) return;
   await createNewDeck(name);
 });
- 
+
 async function createNewDeck(name) {
   const { data, error } = await supabaseClient
     .from("decks")
@@ -539,7 +722,7 @@ async function createNewDeck(name) {
   document.getElementById("deck-select").value = currentDeckId;
   await loadDeckCards();
 }
- 
+
 document.getElementById("rename-deck-btn").addEventListener("click", async () => {
   const sel = document.getElementById("deck-select");
   const newName = prompt("New name for this deck:", sel.options[sel.selectedIndex]?.textContent || "");
@@ -549,14 +732,14 @@ document.getElementById("rename-deck-btn").addEventListener("click", async () =>
   await loadDecksForPlayer();
   document.getElementById("deck-select").value = currentDeckId;
 });
- 
+
 document.getElementById("delete-deck-btn").addEventListener("click", async () => {
   if (!confirm("Delete this deck permanently?")) return;
   const { error } = await supabaseClient.from("decks").delete().eq("id", currentDeckId);
   if (error) { console.error(error); alert("Couldn't delete deck."); return; }
   await loadDecksForPlayer();
 });
- 
+
 async function loadDeckCards() {
   const { data, error } = await supabaseClient
     .from("deck_cards")
@@ -568,24 +751,25 @@ async function loadDeckCards() {
   renderCardGrid();
   renderDeckPanel();
 }
- 
+
 function renderDeckPanel() {
   const list = document.getElementById("deck-list");
   const countEl = document.getElementById("deck-count");
   list.innerHTML = "";
   let total = 0;
- 
+
   const entries = Object.entries(currentDeckCards)
     .map(([cardId, qty]) => ({ card: allCards.find(c => c.id === cardId), qty }))
     .filter(e => e.card)
     .sort((a, b) => a.card.name.localeCompare(b.card.name));
- 
+
   entries.forEach(({ card, qty }) => {
     total += qty;
     const row = document.createElement("div");
     row.className = "deck-row";
+    const displayName = revealedCardIds.has(card.id) ? escapeHtml(card.name) : `??? (#${escapeHtml(card.card_number)})`;
     row.innerHTML = `
-      <span class="name">${escapeHtml(card.name)}</span>
+      <span class="name">${displayName}</span>
       <span class="qty-controls">
         <button data-action="minus">-</button>
         <span>${qty}</span>
@@ -596,30 +780,35 @@ function renderDeckPanel() {
     row.querySelector('[data-action="plus"]').addEventListener("click", () => addCardToDeck(card));
     list.appendChild(row);
   });
- 
+
   countEl.textContent = `${total} card${total === 1 ? '' : 's'}`;
 }
- 
+
 async function addCardToDeck(card) {
   const currentQty = currentDeckCards[card.id] || 0;
+  const owned = playerCollection[card.id] || 0;
+  if (currentQty >= owned) {
+    setStatus(`You only have ${owned} of this card.`);
+    return;
+  }
   const newQty = currentQty + 1;
- 
+
   const { error } = await supabaseClient
     .from("deck_cards")
     .upsert({ deck_id: currentDeckId, card_id: card.id, quantity: newQty }, { onConflict: "deck_id,card_id" });
- 
+
   if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
   currentDeckCards[card.id] = newQty;
   renderCardGrid();
   renderDeckPanel();
   setStatus(`Added ${card.name}.`);
 }
- 
+
 async function removeCardFromDeck(cardId) {
   const currentQty = currentDeckCards[cardId] || 0;
   if (currentQty <= 0) return;
   const newQty = currentQty - 1;
- 
+
   if (newQty === 0) {
     const { error } = await supabaseClient.from("deck_cards").delete().eq("deck_id", currentDeckId).eq("card_id", cardId);
     if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
@@ -634,21 +823,21 @@ async function removeCardFromDeck(cardId) {
   renderCardGrid();
   renderDeckPanel();
 }
- 
+
 function setStatus(msg) {
   const el = document.getElementById("status-msg");
   el.textContent = msg;
   setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 2000);
 }
- 
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
 }
- 
+
 loadKnownPlayers();
 </script>
- 
+
 </body>
 </html>
