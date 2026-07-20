@@ -309,6 +309,11 @@
     <div id="filters">
       <input type="text" id="collection-search-input" placeholder="Search by name...">
       <select id="collection-type-filter"><option value="">All types</option></select>
+      <select id="collection-owned-filter">
+        <option value="all">All cards</option>
+        <option value="owned">Owned only</option>
+        <option value="unowned">Not yet owned</option>
+      </select>
     </div>
     <div id="collection-grid" class="card-grid"></div>
   </div>
@@ -483,17 +488,21 @@ function populateCollectionTypeFilter() {
 
 document.getElementById("collection-search-input").addEventListener("input", renderCollectionGrid);
 document.getElementById("collection-type-filter").addEventListener("change", renderCollectionGrid);
+document.getElementById("collection-owned-filter").addEventListener("change", renderCollectionGrid);
 
 function renderCollectionGrid() {
   const search = document.getElementById("collection-search-input").value.toLowerCase();
   const typeFilter = document.getElementById("collection-type-filter").value;
+  const ownedFilter = document.getElementById("collection-owned-filter").value;
   const grid = document.getElementById("collection-grid");
   grid.innerHTML = "";
 
   const filtered = allCards.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(search);
     const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
-    return matchesSearch && matchesType;
+    const owned = playerCollection[c.id] || 0;
+    const matchesOwned = ownedFilter === "all" || (ownedFilter === "owned" && owned > 0) || (ownedFilter === "unowned" && owned === 0);
+    return matchesSearch && matchesType && matchesOwned;
   });
 
   filtered.forEach(card => {
