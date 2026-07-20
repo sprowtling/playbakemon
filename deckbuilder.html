@@ -15,7 +15,6 @@
     --text-muted: #9fc7ae;
   }
   * { box-sizing: border-box; }
-  #mat-screen { zoom: 1.25; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -208,6 +207,37 @@
     z-index: 2;
   }
   .card-tile.in-deck .minus-btn { display: block; }
+  .card-tile .zoom-btn {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    font-size: 13px;
+    border-radius: 50%;
+    z-index: 2;
+    background: rgba(253,246,227,0.9);
+  }
+
+  #lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+  #lightbox-overlay img {
+    max-width: 80vw;
+    max-height: 80vh;
+    border-radius: 12px;
+    border: 3px solid var(--card-border);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
 
   #status-msg {
     font-size: 13px;
@@ -252,6 +282,10 @@
   <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
 </div>
 
+<div id="lightbox-overlay">
+  <img id="lightbox-img" src="" alt="">
+</div>
+
 <div id="main">
   <div id="deck-select-bar">
     <label style="font-size:14px;">Deck:</label>
@@ -288,7 +322,7 @@ const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
+const CARD_IMAGE_BASE = "/bakemon/cards/";
 
 let allCards = [];
 let currentPlayer = null;
@@ -403,23 +437,57 @@ function renderCardGrid() {
     const qty = currentDeckCards[card.id] || 0;
     const tile = document.createElement("div");
     tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    const imgId = `card-img-${card.id}`;
+    const metaId = `card-meta-${card.id}`;
     tile.innerHTML = `
       <span class="badge">x${qty}</span>
       <button class="minus-btn" title="Remove one">−</button>
-      <img src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}"
-           onerror="this.style.opacity=0.3;">
+      <button class="zoom-btn" title="View larger">🔍</button>
+      <img id="${imgId}" src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">
       <div class="name">${escapeHtml(card.name)}</div>
-      <div class="meta">HP ${card.hp} · ${card.type_1}${card.type_2 ? '/' + card.type_2 : ''}</div>
+      <div class="meta" id="${metaId}">#${escapeHtml(card.card_number)}</div>
     `;
     tile.addEventListener("click", () => addCardToDeck(card));
+
     const minusBtn = tile.querySelector(".minus-btn");
     minusBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       removeCardFromDeck(card.id);
     });
+
+    const zoomBtn = tile.querySelector(".zoom-btn");
+    zoomBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openLightbox(document.getElementById(imgId).src, card.name);
+    });
+
+    const img = tile.querySelector("img");
+    const nameEl = tile.querySelector(".name");
+    img.addEventListener("error", () => {
+      // Only swap once, to avoid a loop if cardback.png is itself missing
+      if (img.dataset.fallenBack) return;
+      img.dataset.fallenBack = "1";
+      img.src = CARD_IMAGE_BASE + "cardback.png";
+      nameEl.textContent = "???";
+    });
+
     grid.appendChild(tile);
   });
 }
+
+function openLightbox(src, alt) {
+  const overlay = document.getElementById("lightbox-overlay");
+  const img = document.getElementById("lightbox-img");
+  img.src = src;
+  img.alt = alt;
+  overlay.style.display = "flex";
+}
+document.getElementById("lightbox-overlay").addEventListener("click", () => {
+  document.getElementById("lightbox-overlay").style.display = "none";
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
+});
 
 // ---- Deck management ----
 async function loadDecksForPlayer() {
