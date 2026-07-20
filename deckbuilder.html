@@ -134,6 +134,15 @@
     padding: 2px 8px;
     font-size: 13px;
   }
+  .deck-row.over-owned {
+    background: rgba(200,90,60,0.18);
+    border: 1px solid rgba(220,120,80,0.5);
+  }
+  .warning-tag {
+    font-size: 10px;
+    color: #f0b088;
+    font-weight: 600;
+  }
 
   #filters {
     display: flex;
@@ -286,10 +295,10 @@
 
 <div id="login-screen">
   <h2>Who's building a deck?</h2>
-  <input type="text" id="name-input" placeholder="Type your name...">
+  <input type="text" id="name-input" placeholder="Type your name..." list="known-players">
   <datalist id="known-players"></datalist>
   <button class="primary" id="login-btn">Continue</button>
-  <p>Enter your character's name to create your profile/login. Your decks are saved permanently.</p>
+  <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
 </div>
 
 <div id="lightbox-overlay">
@@ -775,10 +784,12 @@ function renderDeckPanel() {
   entries.forEach(({ card, qty }) => {
     total += qty;
     const row = document.createElement("div");
-    row.className = "deck-row";
+    const owned = playerCollection[card.id] || 0;
+    const overOwned = qty > owned;
+    row.className = "deck-row" + (overOwned ? " over-owned" : "");
     const displayName = revealedCardIds.has(card.id) ? escapeHtml(card.name) : `??? (#${escapeHtml(card.card_number)})`;
     row.innerHTML = `
-      <span class="name">${displayName}</span>
+      <span class="name">${displayName}${overOwned ? ` <span class="warning-tag" title="You only own ${owned} — this deck has more than you have">⚠️ own ${owned}</span>` : ''}</span>
       <span class="qty-controls">
         <button data-action="minus">-</button>
         <span>${qty}</span>
