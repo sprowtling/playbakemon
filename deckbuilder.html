@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bakemon Battle Mat</title>
+<title>Bakemon Deck Editor</title>
 <style>
   :root {
     --mat-green: #1d4d3a;
@@ -13,10 +13,8 @@
     --accent: #d8e04a;
     --text-light: #cfe8db;
     --text-muted: #9fc7ae;
-    --panel-brown: #b98a5f;
   }
   * { box-sizing: border-box; }
-  #mat-screen { zoom: 1.25; }
   body {
     margin: 0;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -26,30 +24,124 @@
   }
   header {
     background: var(--mat-green);
-    padding: 12px 24px;
+    padding: 16px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 12px;
     border-bottom: 2px solid var(--card-border);
   }
-  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
+  header h1 {
+    margin: 0;
+    font-size: 20px;
+    color: var(--accent);
+  }
+  #player-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  #player-bar input, #player-bar select {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    font-size: 14px;
+  }
   button {
     padding: 6px 14px;
     border-radius: 6px;
     border: 1px solid var(--card-border);
     background: var(--card-cream);
     color: #3a2f1a;
-    font-size: 13px;
+    font-size: 14px;
     cursor: pointer;
     font-weight: 500;
   }
   button:hover { background: #f5e3b3; }
-  button:disabled { opacity: 0.45; cursor: not-allowed; }
-  button.primary { background: var(--accent); border-color: #a8b32e; }
-  button.small { padding: 3px 8px; font-size: 12px; }
-  input, select {
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    border-color: #a8b32e;
+  }
+  button.primary:hover { background: #c7ce3f; }
+
+  #main {
+    display: none;
+    padding: 16px 24px 60px;
+  }
+  #deck-select-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  #deck-select-bar select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    font-size: 14px;
+    min-width: 180px;
+  }
+  .layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  #browse-panel { flex: 3; }
+  #deck-panel {
+    flex: 1;
+    min-width: 240px;
+    background: var(--mat-green);
+    border-radius: 10px;
+    padding: 14px;
+    position: sticky;
+    top: 16px;
+  }
+  #deck-panel h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    color: var(--accent);
+  }
+  #deck-count {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-bottom: 10px;
+  }
+  #deck-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .deck-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.06);
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .deck-row .name { color: var(--text-light); }
+  .deck-row .qty-controls { display: flex; align-items: center; gap: 6px; }
+  .deck-row .qty-controls button {
+    padding: 2px 8px;
+    font-size: 13px;
+  }
+
+  #filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  #filters input, #filters select {
     padding: 8px 12px;
     border-radius: 6px;
     border: 1px solid var(--card-border);
@@ -57,819 +149,502 @@
     font-size: 14px;
   }
 
-  /* ---- Setup screen ---- */
-  #setup-screen {
-    max-width: 460px;
-    margin: 60px auto;
+  #card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 14px;
+  }
+  .card-tile {
+    background: var(--card-cream);
+    border: 2px solid var(--card-border);
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    text-align: center;
+    color: #3a2f1a;
+    position: relative;
+    transition: transform 0.08s ease;
+    user-select: none;
+  }
+  .card-tile:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card-tile img {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #e4d3a5;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .card-tile .name { font-size: 12px; font-weight: 600; line-height: 1.2; }
+  .card-tile .meta { font-size: 10px; color: #7a6a45; margin-top: 2px; }
+  .card-tile .badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--accent);
+    color: #2a2a10;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid #a8b32e;
+    display: none;
+    z-index: 2;
+  }
+  .card-tile.in-deck .badge { display: block; }
+  .card-tile .minus-btn {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    line-height: 1;
+    font-size: 14px;
+    border-radius: 50%;
+    display: none;
+    z-index: 2;
+  }
+  .card-tile.in-deck .minus-btn { display: block; }
+  .card-tile .zoom-btn {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    font-size: 13px;
+    border-radius: 50%;
+    z-index: 2;
+    background: rgba(253,246,227,0.9);
+  }
+
+  #lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+  #lightbox-overlay img {
+    max-width: 80vw;
+    max-height: 80vh;
+    border-radius: 12px;
+    border: 3px solid var(--card-border);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
+
+  #status-msg {
+    font-size: 13px;
+    color: var(--text-muted);
+    min-height: 18px;
+    margin-top: 8px;
+  }
+
+  #login-screen {
+    max-width: 420px;
+    margin: 80px auto;
     background: var(--mat-green);
     padding: 28px;
     border-radius: 12px;
     text-align: center;
   }
-  #setup-screen h2 { color: var(--accent); margin-top: 0; }
-  #setup-screen .field { margin: 14px 0; text-align: left; }
-  #setup-screen label { display: block; font-size: 13px; color: var(--text-light); margin-bottom: 4px; }
-  #setup-screen input, #setup-screen select { width: 100%; }
-  #setup-screen .divider { margin: 20px 0; color: var(--text-muted); font-size: 12px; }
-  #setup-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; }
-
-  /* ---- Battle mat ---- */
-  #mat-screen { display: none; padding: 12px; max-width: 900px; margin: 0 auto; }
-  .mat {
-    display: flex;
-    gap: 12px;
-  }
-  .field-col { flex: 1; }
-  .hand-col {
-    width: 130px;
-    background: #164634;
-    border-radius: 10px;
-    border: 0.5px solid var(--card-border);
-    padding: 10px 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: center;
-  }
-  .hand-col h3 { font-size: 12px; margin: 0; color: var(--accent); }
-  .hand-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 70vh;
-    overflow-y: auto;
+  #login-screen h2 { color: var(--accent); margin-top: 0; }
+  #login-screen input {
     width: 100%;
-    align-items: center;
-    padding: 2px 0;
-  }
-  .field {
-    background: var(--mat-green);
-    border-radius: 12px;
-    padding: 14px;
-    border: 0.5px solid var(--card-border);
-  }
-  .row-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--text-light);
-    margin-bottom: 8px;
-  }
-  .bench-row {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin-bottom: 10px;
-  }
-  .bench-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-  .active-row {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    align-items: center;
-  }
-  .divider-line { height: 1px; background: rgba(255,255,255,0.15); margin: 10px 0; }
-
-  .card-face {
-    width: 64px;
-    height: 90px;
+    padding: 10px 12px;
     border-radius: 6px;
-    background: var(--card-cream);
-    border: 1.5px solid var(--card-border);
-    position: relative;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    overflow: hidden;
-    color: #3a2f1a;
+    border: 1px solid var(--card-border);
+    font-size: 15px;
+    margin: 12px 0;
+    box-sizing: border-box;
   }
-  .card-face.empty {
-    background: rgba(255,255,255,0.03);
-    border: 1.5px dashed #6fae8d;
-    cursor: pointer;
-  }
-  .card-face.active-size { width: 84px; height: 118px; }
-  .card-face img {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .card-face .label {
-    position: relative;
-    z-index: 1;
-    background: rgba(253,246,227,0.92);
-    font-size: 9px;
-    padding: 2px 3px;
-    line-height: 1.15;
-    text-align: center;
-  }
-  .card-face.selected { outline: 3px solid var(--accent); outline-offset: 1px; }
-  .card-face.hand-card { width: 80px; height: 112px; flex-shrink: 0; }
-
-  .status-badges {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    display: flex;
-    gap: 2px;
-    z-index: 2;
-  }
-  .status-badge {
-    font-size: 9px;
-    padding: 1px 3px;
-    border-radius: 4px;
-    background: #7a2e2e;
-    color: #fff;
-  }
-
-  .side-panel {
-    width: 82px;
-    border-radius: 6px;
-    border: 1px solid var(--panel-brown);
-    background: rgba(255,255,255,0.04);
-    padding: 6px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    align-items: center;
-    font-size: 10px;
-    color: #e0c9a8;
-  }
-  .side-panel .row { display: flex; align-items: center; gap: 4px; }
-  .side-panel .dmg-controls { display: flex; align-items: center; gap: 4px; }
-  .side-panel .dmg-controls button { padding: 1px 6px; font-size: 11px; }
-  .side-panel .remaining { font-size: 12px; font-weight: 600; color: #fdf6e3; }
-  .energy-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 60px; }
-  .energy-dot {
-    width: 11px; height: 11px; border-radius: 50%;
-    display: inline-flex; align-items: center; justify-content: center;
-    font-size: 7px; color: #222; cursor: pointer; border: 1px solid rgba(0,0,0,0.2);
-  }
-
-  .bench-tray {
-    width: 56px;
-    height: 15px;
-    border-radius: 4px;
-    border: 1px solid var(--panel-brown);
-    background: rgba(255,255,255,0.04);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    cursor: pointer;
-  }
-  .bench-tray .energy-dot { width: 9px; height: 9px; }
-
-  #action-bar {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin: 10px 0;
-    flex-wrap: wrap;
-  }
-  #zone-counts {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-bottom: 6px;
-  }
-  #selection-hint {
-    text-align: center;
-    font-size: 12px;
-    color: var(--accent);
-    min-height: 16px;
-    margin: 4px 0;
-  }
-  #energy-picker {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--mat-green);
-    border-top: 2px solid var(--card-border);
-    padding: 12px;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    z-index: 50;
-  }
-  #status-picker {
-    display: none;
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    background: var(--mat-green);
-    border-top: 2px solid var(--card-border);
-    padding: 12px;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    z-index: 50;
-  }
+  #login-screen p { color: var(--text-light); font-size: 13px; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>⚔️ Bakemon Battle Mat</h1>
-  <div id="header-controls"></div>
+  <h1>🃏 Bakemon Deck Editor</h1>
+  <div id="player-bar"></div>
 </header>
 
-<div id="setup-screen">
-  <h2>Enter the Battle</h2>
-  <div class="field">
-    <label>Your name</label>
-    <input type="text" id="player-name-input" list="known-players" placeholder="Type your name...">
-    <datalist id="known-players"></datalist>
-  </div>
-  <div class="field">
-    <label>Deck to bring</label>
-    <select id="deck-select-setup"><option>Enter your name first...</option></select>
-  </div>
-  <div class="divider">— then —</div>
-  <div class="field">
-    <label>Room code (share this with your opponent)</label>
-    <input type="text" id="room-code-input" placeholder="e.g. RUBYTOWER">
-  </div>
-  <button class="primary" id="join-btn">Create / Join Table</button>
-  <div id="setup-status"></div>
+<div id="login-screen">
+  <h2>Who's building a deck?</h2>
+  <input type="text" id="name-input" placeholder="Type your name..." list="known-players">
+  <datalist id="known-players"></datalist>
+  <button class="primary" id="login-btn">Continue</button>
+  <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
 </div>
 
-<div id="mat-screen">
-  <div id="selection-hint"></div>
-  <div class="mat">
-    <div class="field-col">
-      <div class="field">
-        <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
-        <div class="bench-row" id="opp-bench"></div>
-        <div class="active-row" id="opp-active-row"></div>
-        <div class="divider-line"></div>
-        <div class="active-row" id="my-active-row"></div>
-        <div class="my-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-top:16px; flex-wrap:wrap;">
-          <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed; flex-shrink:0;">
-            <div class="label" id="discard-label">Discard</div>
-          </div>
-          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
-          <div class="bench-row" id="my-bench" style="margin:0;"></div>
-          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
-          <div id="action-bar" style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;"></div>
-        </div>
-        <div class="row-label" id="my-zone-counts"></div>
+<div id="lightbox-overlay">
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<div id="main">
+  <div id="deck-select-bar">
+    <label style="font-size:14px;">Deck:</label>
+    <select id="deck-select"></select>
+    <button id="new-deck-btn">+ New Deck</button>
+    <button id="rename-deck-btn">Rename</button>
+    <button id="delete-deck-btn">Delete</button>
+  </div>
+
+  <div class="layout">
+    <div id="browse-panel">
+      <div id="filters">
+        <input type="text" id="search-input" placeholder="Search by name...">
+        <select id="type-filter">
+          <option value="">All types</option>
+        </select>
       </div>
+      <div id="card-grid"></div>
     </div>
-    <div class="hand-col">
-      <h3>Your Hand</h3>
-      <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
-      <div class="hand-list" id="hand-list"></div>
+
+    <div id="deck-panel">
+      <h2>Current Deck</h2>
+      <div id="deck-count">0 cards</div>
+      <div id="deck-list"></div>
+      <div id="status-msg"></div>
     </div>
   </div>
 </div>
-
-<div id="energy-picker"></div>
-<div id="status-picker"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+// ---- Supabase setup ----
 const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
-const ENERGY_TYPES = [
-  { key: "fighting", color: "#e0997b" },
-  { key: "grass", color: "#97c459" },
-  { key: "fire", color: "#e8734a" },
-  { key: "water", color: "#5fa8d3" },
-  { key: "dark", color: "#6b5b7a" },
-  { key: "psychic", color: "#c77dd4" },
-  { key: "steel", color: "#a8b0b8" },
-  { key: "electric", color: "#e8d24a" },
-  { key: "dragon", color: "#7a6de0" },
-  { key: "fairy", color: "#f2a8d0" },
-  { key: "normal", color: "#c9c2a8" }
-];
-const STATUS_TYPES = ["poison", "burn", "sleep", "paralysis"];
+const CARDBACK_URL = "https://hxa.neocities.org/bakemon/cardback.png";
 
-let allCards = {};       // card_id -> card row
+let allCards = [];
 let currentPlayer = null;
 let currentDeckId = null;
-let tableId = null;
-let roomCode = null;
-let mySeat = null;       // "player_1" or "player_2"
-let oppSeat = null;
-let tableState = null;   // full row from battle_tables
-let selection = null;    // { seat, zone, index } of currently selected card
-let realtimeChannel = null;
+let currentDeckCards = {}; // card_id -> quantity
 
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str || "";
-  return div.innerHTML;
-}
+// ---- Login flow ----
+document.getElementById("login-btn").addEventListener("click", handleLogin);
+document.getElementById("name-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") handleLogin();
+});
 
-// ---------- Setup screen ----------
 async function loadKnownPlayers() {
-  const { data } = await supabaseClient.from("players").select("display_name").order("display_name");
-  const dl = document.getElementById("known-players");
-  dl.innerHTML = "";
-  (data || []).forEach(p => {
+  const { data, error } = await supabaseClient.from("players").select("display_name").order("display_name");
+  if (error) return;
+  const datalist = document.getElementById("known-players");
+  datalist.innerHTML = "";
+  data.forEach(p => {
     const opt = document.createElement("option");
     opt.value = p.display_name;
-    dl.appendChild(opt);
+    datalist.appendChild(opt);
   });
 }
 
-document.getElementById("player-name-input").addEventListener("change", async (e) => {
-  const name = e.target.value.trim();
+async function handleLogin() {
+  const nameInput = document.getElementById("name-input");
+  const name = nameInput.value.trim();
   if (!name) return;
-  const { data: player } = await supabaseClient.from("players").select("*").ilike("display_name", name).maybeSingle();
-  if (!player) {
-    document.getElementById("deck-select-setup").innerHTML = "<option>No decks yet — build one in the deck editor first</option>";
+
+  let { data: existing, error } = await supabaseClient
+    .from("players")
+    .select("*")
+    .ilike("display_name", name)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    alert("Something went wrong loading your profile. Try again?");
     return;
   }
-  currentPlayer = player;
-  const { data: decks } = await supabaseClient.from("decks").select("*").eq("player_id", player.id).order("created_at");
-  const sel = document.getElementById("deck-select-setup");
+
+  if (existing) {
+    currentPlayer = existing;
+  } else {
+    const { data: created, error: createErr } = await supabaseClient
+      .from("players")
+      .insert({ display_name: name })
+      .select()
+      .single();
+    if (createErr) {
+      console.error(createErr);
+      alert("Couldn't create a profile. Try again?");
+      return;
+    }
+    currentPlayer = created;
+  }
+
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("main").style.display = "block";
+  document.getElementById("player-bar").innerHTML =
+    `<span>Playing as <strong>${escapeHtml(currentPlayer.display_name)}</strong></span> <button id="switch-player-btn">Switch</button>`;
+  document.getElementById("switch-player-btn").addEventListener("click", () => location.reload());
+
+  await loadCards();
+  await loadDecksForPlayer();
+}
+
+// ---- Card data ----
+async function loadCards() {
+  const { data, error } = await supabaseClient.from("cards").select("*").order("card_number");
+  if (error) {
+    console.error(error);
+    document.getElementById("status-msg").textContent = "Couldn't load cards from the database.";
+    return;
+  }
+  allCards = data;
+  populateTypeFilter();
+  renderCardGrid();
+}
+
+function populateTypeFilter() {
+  const types = new Set();
+  allCards.forEach(c => {
+    if (c.type_1) types.add(c.type_1);
+    if (c.type_2) types.add(c.type_2);
+  });
+  const sel = document.getElementById("type-filter");
+  [...types].sort().forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("search-input").addEventListener("input", renderCardGrid);
+document.getElementById("type-filter").addEventListener("change", renderCardGrid);
+
+function renderCardGrid() {
+  const search = document.getElementById("search-input").value.toLowerCase();
+  const typeFilter = document.getElementById("type-filter").value;
+  const grid = document.getElementById("card-grid");
+  grid.innerHTML = "";
+
+  const filtered = allCards.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(search);
+    const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
+  filtered.forEach(card => {
+    const qty = currentDeckCards[card.id] || 0;
+    const tile = document.createElement("div");
+    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    const imgId = `card-img-${card.id}`;
+    const metaId = `card-meta-${card.id}`;
+    tile.innerHTML = `
+      <span class="badge">x${qty}</span>
+      <button class="minus-btn" title="Remove one">−</button>
+      <button class="zoom-btn" title="View larger">🔍</button>
+      <img id="${imgId}" src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">
+      <div class="name">${escapeHtml(card.name)}</div>
+      <div class="meta" id="${metaId}">#${escapeHtml(card.card_number)}</div>
+    `;
+    tile.addEventListener("click", () => addCardToDeck(card));
+
+    const minusBtn = tile.querySelector(".minus-btn");
+    minusBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeCardFromDeck(card.id);
+    });
+
+    const zoomBtn = tile.querySelector(".zoom-btn");
+    zoomBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openLightbox(document.getElementById(imgId).src, card.name);
+    });
+
+    const img = tile.querySelector("img");
+    const nameEl = tile.querySelector(".name");
+    img.addEventListener("error", () => {
+      // Only swap once, to avoid a loop if cardback.png is itself missing
+      if (img.dataset.fallenBack) return;
+      img.dataset.fallenBack = "1";
+      img.src = CARDBACK_URL;
+      nameEl.textContent = "???";
+    });
+
+    grid.appendChild(tile);
+  });
+}
+
+function openLightbox(src, alt) {
+  const overlay = document.getElementById("lightbox-overlay");
+  const img = document.getElementById("lightbox-img");
+  img.src = src;
+  img.alt = alt;
+  overlay.style.display = "flex";
+}
+document.getElementById("lightbox-overlay").addEventListener("click", () => {
+  document.getElementById("lightbox-overlay").style.display = "none";
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
+});
+
+// ---- Deck management ----
+async function loadDecksForPlayer() {
+  const { data, error } = await supabaseClient
+    .from("decks")
+    .select("*")
+    .eq("player_id", currentPlayer.id)
+    .order("created_at");
+  if (error) { console.error(error); return; }
+
+  const sel = document.getElementById("deck-select");
   sel.innerHTML = "";
-  if (!decks || decks.length === 0) {
-    sel.innerHTML = "<option>No decks yet — build one in the deck editor first</option>";
+  if (data.length === 0) {
+    await createNewDeck("My First Deck");
     return;
   }
-  decks.forEach(d => {
+  data.forEach(d => {
     const opt = document.createElement("option");
     opt.value = d.id;
     opt.textContent = d.deck_name;
     sel.appendChild(opt);
   });
+  currentDeckId = data[0].id;
+  sel.value = currentDeckId;
+  await loadDeckCards();
+}
+
+document.getElementById("deck-select").addEventListener("change", async (e) => {
+  currentDeckId = e.target.value;
+  await loadDeckCards();
 });
 
-document.getElementById("join-btn").addEventListener("click", handleJoinTable);
+document.getElementById("new-deck-btn").addEventListener("click", async () => {
+  const name = prompt("Name for the new deck:");
+  if (!name) return;
+  await createNewDeck(name);
+});
 
-async function handleJoinTable() {
-  const name = document.getElementById("player-name-input").value.trim();
-  const deckId = document.getElementById("deck-select-setup").value;
-  const code = document.getElementById("room-code-input").value.trim().toUpperCase();
-  const statusEl = document.getElementById("setup-status");
+async function createNewDeck(name) {
+  const { data, error } = await supabaseClient
+    .from("decks")
+    .insert({ player_id: currentPlayer.id, deck_name: name })
+    .select()
+    .single();
+  if (error) { console.error(error); alert("Couldn't create deck."); return; }
+  await loadDecksForPlayer();
+  currentDeckId = data.id;
+  document.getElementById("deck-select").value = currentDeckId;
+  await loadDeckCards();
+}
 
-  if (!name) { statusEl.textContent = "Enter your name first."; return; }
-  if (!code) { statusEl.textContent = "Enter a room code to create or join a table."; return; }
-  if (!currentPlayer) {
-    statusEl.textContent = "Couldn't find that player — check the deck editor first.";
-    return;
-  }
-  if (!deckId || deckId.startsWith("No decks")) {
-    statusEl.textContent = "Pick a deck — build one in the deck editor if you don't have one.";
-    return;
-  }
-  currentDeckId = deckId;
-  roomCode = code;
+document.getElementById("rename-deck-btn").addEventListener("click", async () => {
+  const sel = document.getElementById("deck-select");
+  const newName = prompt("New name for this deck:", sel.options[sel.selectedIndex]?.textContent || "");
+  if (!newName) return;
+  const { error } = await supabaseClient.from("decks").update({ deck_name: newName, updated_at: new Date().toISOString() }).eq("id", currentDeckId);
+  if (error) { console.error(error); alert("Couldn't rename deck."); return; }
+  await loadDecksForPlayer();
+  document.getElementById("deck-select").value = currentDeckId;
+});
 
-  statusEl.textContent = "Loading card data...";
-  const { data: cards } = await supabaseClient.from("cards").select("*");
-  (cards || []).forEach(c => { allCards[c.id] = c; });
+document.getElementById("delete-deck-btn").addEventListener("click", async () => {
+  if (!confirm("Delete this deck permanently?")) return;
+  const { error } = await supabaseClient.from("decks").delete().eq("id", currentDeckId);
+  if (error) { console.error(error); alert("Couldn't delete deck."); return; }
+  await loadDecksForPlayer();
+});
 
-  statusEl.textContent = "Connecting to table...";
-  let { data: existingTable } = await supabaseClient.from("battle_tables").select("*").eq("room_code", code).maybeSingle();
+async function loadDeckCards() {
+  const { data, error } = await supabaseClient
+    .from("deck_cards")
+    .select("card_id, quantity")
+    .eq("deck_id", currentDeckId);
+  if (error) { console.error(error); return; }
+  currentDeckCards = {};
+  data.forEach(row => { currentDeckCards[row.card_id] = row.quantity; });
+  renderCardGrid();
+  renderDeckPanel();
+}
 
-  if (!existingTable) {
-    const { data: created, error } = await supabaseClient.from("battle_tables").insert({
-      room_code: code,
-      player_1_id: currentPlayer.id,
-      state: { player_1: null, player_2: null }
-    }).select().single();
-    if (error) { statusEl.textContent = "Couldn't create table: " + error.message; return; }
-    existingTable = created;
-    mySeat = "player_1";
-    oppSeat = "player_2";
-  } else if (existingTable.player_1_id === currentPlayer.id) {
-    mySeat = "player_1";
-    oppSeat = "player_2";
-  } else if (!existingTable.player_2_id) {
-    const { data: updated, error } = await supabaseClient.from("battle_tables")
-      .update({ player_2_id: currentPlayer.id })
-      .eq("id", existingTable.id).select().single();
-    if (error) { statusEl.textContent = "Couldn't join table: " + error.message; return; }
-    existingTable = updated;
-    mySeat = "player_2";
-    oppSeat = "player_1";
-  } else if (existingTable.player_2_id === currentPlayer.id) {
-    mySeat = "player_2";
-    oppSeat = "player_1";
+function renderDeckPanel() {
+  const list = document.getElementById("deck-list");
+  const countEl = document.getElementById("deck-count");
+  list.innerHTML = "";
+  let total = 0;
+
+  const entries = Object.entries(currentDeckCards)
+    .map(([cardId, qty]) => ({ card: allCards.find(c => c.id === cardId), qty }))
+    .filter(e => e.card)
+    .sort((a, b) => a.card.name.localeCompare(b.card.name));
+
+  entries.forEach(({ card, qty }) => {
+    total += qty;
+    const row = document.createElement("div");
+    row.className = "deck-row";
+    row.innerHTML = `
+      <span class="name">${escapeHtml(card.name)}</span>
+      <span class="qty-controls">
+        <button data-action="minus">-</button>
+        <span>${qty}</span>
+        <button data-action="plus">+</button>
+      </span>
+    `;
+    row.querySelector('[data-action="minus"]').addEventListener("click", () => removeCardFromDeck(card.id));
+    row.querySelector('[data-action="plus"]').addEventListener("click", () => addCardToDeck(card));
+    list.appendChild(row);
+  });
+
+  countEl.textContent = `${total} card${total === 1 ? '' : 's'}`;
+}
+
+async function addCardToDeck(card) {
+  const currentQty = currentDeckCards[card.id] || 0;
+  const newQty = currentQty + 1;
+
+  const { error } = await supabaseClient
+    .from("deck_cards")
+    .upsert({ deck_id: currentDeckId, card_id: card.id, quantity: newQty }, { onConflict: "deck_id,card_id" });
+
+  if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
+  currentDeckCards[card.id] = newQty;
+  renderCardGrid();
+  renderDeckPanel();
+  setStatus(`Added ${card.name}.`);
+}
+
+async function removeCardFromDeck(cardId) {
+  const currentQty = currentDeckCards[cardId] || 0;
+  if (currentQty <= 0) return;
+  const newQty = currentQty - 1;
+
+  if (newQty === 0) {
+    const { error } = await supabaseClient.from("deck_cards").delete().eq("deck_id", currentDeckId).eq("card_id", cardId);
+    if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
+    delete currentDeckCards[cardId];
   } else {
-    statusEl.textContent = "That table already has two players.";
-    return;
+    const { error } = await supabaseClient
+      .from("deck_cards")
+      .upsert({ deck_id: currentDeckId, card_id: cardId, quantity: newQty }, { onConflict: "deck_id,card_id" });
+    if (error) { console.error(error); setStatus("Couldn't save — try again."); return; }
+    currentDeckCards[cardId] = newQty;
   }
-
-  tableId = existingTable.id;
-  tableState = existingTable;
-
-  if (!tableState.state[mySeat]) {
-    await loadDeckIntoSeat();
-  }
-
-  document.getElementById("setup-screen").style.display = "none";
-  document.getElementById("mat-screen").style.display = "block";
-  buildActionBar();
-  subscribeToTable();
-  renderMat();
+  renderCardGrid();
+  renderDeckPanel();
 }
 
-async function loadDeckIntoSeat() {
-  const { data: deckCards } = await supabaseClient.from("deck_cards").select("card_id, quantity").eq("deck_id", currentDeckId);
-  let pile = [];
-  (deckCards || []).forEach(row => {
-    for (let i = 0; i < row.quantity; i++) pile.push(row.card_id);
-  });
-  // shuffle
-  for (let i = pile.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [pile[i], pile[j]] = [pile[j], pile[i]];
-  }
-  const newSeatState = {
-    active: null,
-    bench: [null, null, null],
-    hand: [],
-    deck: pile,
-    discard: []
-  };
-  const newState = { ...tableState.state, [mySeat]: newSeatState };
-  await pushState(newState);
+function setStatus(msg) {
+  const el = document.getElementById("status-msg");
+  el.textContent = msg;
+  setTimeout(() => { if (el.textContent === msg) el.textContent = ""; }, 2000);
 }
 
-// ---------- Realtime sync ----------
-function subscribeToTable() {
-  realtimeChannel = supabaseClient
-    .channel(`battle_table_${tableId}`)
-    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
-      (payload) => {
-        tableState = payload.new;
-        renderMat();
-      })
-    .subscribe();
-}
-
-async function pushState(newState) {
-  tableState = { ...tableState, state: newState };
-  const { error } = await supabaseClient.from("battle_tables")
-    .update({ state: newState, updated_at: new Date().toISOString() })
-    .eq("id", tableId);
-  if (error) console.error("Failed to save state:", error);
-  renderMat();
-}
-
-// ---------- Rendering ----------
-function buildActionBar() {
-  const bar = document.getElementById("action-bar");
-  bar.innerHTML = `
-    <button id="draw-btn" class="small">Draw Card</button>
-    <button id="shuffle-hand-btn" class="small">Shuffle Hand<br>Into Deck</button>
-    <button id="reshuffle-discard-btn" class="small">Reshuffle Discard<br>Into Deck</button>
-  `;
-  document.getElementById("draw-btn").addEventListener("click", drawCard);
-  document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
-  document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
-}
-
-function cardHtml(cardId, opts = {}) {
-  const card = allCards[cardId];
-  if (!card) return `<div class="card-face empty"></div>`;
-  const img = card.image_filename ? `<img src="${CARD_IMAGE_BASE}${card.image_filename}" onerror="this.style.display='none'">` : "";
-  return `${img}<div class="label">${escapeHtml(card.name)}</div>`;
-}
-
-function renderSidePanel(seat, zone, index, slot) {
-  if (!slot || !slot.card_id) return "";
-  const card = allCards[slot.card_id];
-  const maxHp = card ? card.hp : 0;
-  const remaining = Math.max(0, maxHp - (slot.damage || 0));
-  const energyDots = (slot.energy || []).map((e, i) => {
-    const meta = ENERGY_TYPES.find(t => t.key === e) || { color: "#999" };
-    return `<span class="energy-dot" style="background:${meta.color}" data-remove-energy="${i}" title="${e} (click to remove)"></span>`;
-  }).join("");
-  const statusBadges = (slot.status || []).map(s => `<span class="status-badge" data-remove-status="${s}" title="click to clear">${s}</span>`).join("");
-  return `
-    <div class="side-panel" data-seat="${seat}" data-zone="${zone}" data-index="${index}">
-      <div class="row" style="width:100%; justify-content:space-between;">${statusBadges}</div>
-      <div>Energy</div>
-      <div class="energy-dots" data-energy-target="${seat}:${zone}:${index}">${energyDots}<span class="energy-dot" style="background:transparent; border:1px dashed #e0c9a8;" data-add-energy="1">+</span></div>
-      <div class="divider-line" style="width:100%;"></div>
-      <div class="dmg-controls">
-        <button data-dmg-minus="1">-</button>
-        <span>${slot.damage || 0}</span>
-        <button data-dmg-plus="1">+</button>
-      </div>
-      <div class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></div>
-      <button class="small" data-add-status="1" style="margin-top:2px;">+ status</button>
-    </div>
-  `;
-}
-
-function renderMat() {
-  if (!tableState) return;
-  const myState = tableState.state[mySeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
-  const oppState = tableState.state[oppSeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
-
-  document.getElementById("opp-zone-counts").textContent =
-    `Deck ${ (oppState.deck||[]).length } · Discard ${ (oppState.discard||[]).length } · Hand ${ (oppState.hand||[]).length }`;
-  document.getElementById("my-zone-counts").innerHTML =
-    `<span>You</span><span>Deck ${ (myState.deck||[]).length } · Discard ${ (myState.discard||[]).length }</span>`;
-
-  // Opponent bench (read-only, no side panel to keep it compact, but energy/status visible via badges)
-  document.getElementById("opp-bench").innerHTML = (oppState.bench || [null,null,null]).map((slot, i) => `
-    <div class="bench-slot">
-      <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">${slot ? cardHtml(slot.card_id) : ''}</div>
-      <div class="bench-tray" data-view-only="1">${(slot && slot.energy || []).map(e => {
-        const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
-        return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
-      }).join('')}</div>
-    </div>
-  `).join("");
-
-  document.getElementById("opp-active-row").innerHTML = `
-    <div class="card-face active-size" data-seat="${oppSeat}" data-zone="active" data-index="0">
-      ${oppState.active ? `<div class="status-badges">${(oppState.active.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(oppState.active.card_id)}` : ''}
-    </div>
-  `;
-
-  document.getElementById("my-active-row").innerHTML = `
-    <div class="card-face active-size selectable ${selection && selection.seat===mySeat && selection.zone==='active' ? 'selected' : ''}"
-         data-seat="${mySeat}" data-zone="active" data-index="0">
-      ${myState.active ? cardHtml(myState.active.card_id) : ''}
-    </div>
-    ${renderSidePanel(mySeat, 'active', 0, myState.active)}
-  `;
-
-  document.getElementById("my-bench").innerHTML = (myState.bench || [null,null,null]).map((slot, i) => `
-    <div class="bench-slot">
-      <div class="card-face ${slot ? '' : 'empty'} ${selection && selection.seat===mySeat && selection.zone==='bench' && selection.index===i ? 'selected' : ''}"
-           data-seat="${mySeat}" data-zone="bench" data-index="${i}">
-        ${slot ? cardHtml(slot.card_id) : ''}
-      </div>
-      <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}" data-bench-energy="1">
-        ${(slot && slot.energy || []).map(e => {
-          const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
-          return `<span class="energy-dot" style="background:${meta.color}"></span>`;
-        }).join('')}
-      </div>
-    </div>
-  `).join("");
-
-  document.getElementById("hand-count").textContent = `${(myState.hand||[]).length} cards`;
-  document.getElementById("hand-list").innerHTML = (myState.hand || []).map((cardId, i) => `
-    <div class="card-face hand-card ${selection && selection.seat===mySeat && selection.zone==='hand' && selection.index===i ? 'selected' : ''}"
-         data-seat="${mySeat}" data-zone="hand" data-index="${i}">
-      ${cardHtml(cardId)}
-    </div>
-  `).join("");
-
-  document.getElementById("my-discard-pile").innerHTML = (myState.discard && myState.discard.length)
-    ? cardHtml(myState.discard[myState.discard.length - 1]) + `<div class="label" style="position:absolute; bottom:0; width:100%;">${myState.discard.length} in discard</div>`
-    : `<div class="label">Discard<br>(empty)</div>`;
-
-  updateSelectionHint();
-  attachHandlers();
-}
-
-function updateSelectionHint() {
-  const hint = document.getElementById("selection-hint");
-  if (!selection) {
-    hint.textContent = "Click a card to select it, then click where you want to move it.";
-  } else {
-    hint.textContent = `Selected a card from ${selection.zone}. Click a destination (hand, bench, active, or discard) to move it there. Click the same card again to cancel.`;
-  }
-}
-
-// ---------- Interaction ----------
-function attachHandlers() {
-  document.querySelectorAll(".card-face[data-seat]:not([data-view-only])").forEach(el => {
-    if (el.dataset.seat === "__discard__") {
-      el.addEventListener("click", () => handleDiscardClick());
-    } else {
-      el.addEventListener("click", () => handleCardClick(el.dataset.seat, el.dataset.zone, parseInt(el.dataset.index)));
-    }
-  });
-  document.querySelectorAll("[data-dmg-plus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
-  });
-  document.querySelectorAll("[data-dmg-minus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), -10); });
-  });
-  document.querySelectorAll("[data-add-energy]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); openEnergyPicker(e.target.closest(".side-panel")); });
-  });
-  document.querySelectorAll("[data-remove-energy]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); removeEnergy(e.target.closest(".side-panel"), parseInt(e.target.dataset.removeEnergy)); });
-  });
-  document.querySelectorAll("[data-add-status]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); openStatusPicker(e.target.closest(".side-panel")); });
-  });
-  document.querySelectorAll("[data-remove-status]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); removeStatus(e.target.closest(".side-panel"), e.target.dataset.removeStatus); });
-  });
-  document.querySelectorAll(".bench-tray[data-bench-energy]").forEach(el => {
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openEnergyPicker({ dataset: { seat: el.dataset.seat, zone: el.dataset.zone, index: el.dataset.index } });
-    });
-  });
-}
-
-function getSlot(state, zone, index) {
-  if (zone === "active") return state.active;
-  if (zone === "bench") return (state.bench || [])[index];
-  return null;
-}
-function setSlot(state, zone, index, value) {
-  if (zone === "active") state.active = value;
-  else if (zone === "bench") { state.bench = state.bench || [null,null,null]; state.bench[index] = value; }
-}
-
-function handleDiscardClick() {
-  if (!selection) return; // nothing selected, clicking discard alone does nothing
-  moveSelectedCardTo("discard", 0);
-}
-
-function handleCardClick(seat, zone, index) {
-  if (seat !== mySeat) return; // can't interact with opponent's cards
-
-  const myState = tableState.state[mySeat];
-
-  if (!selection) {
-    // Selecting a card to move — must have something there (or be hand, which is inherently non-empty if clicked)
-    if (zone === "hand" && myState.hand[index] !== undefined) {
-      selection = { seat, zone, index };
-    } else if ((zone === "active" || zone === "bench") && getSlot(myState, zone, index)) {
-      selection = { seat, zone, index };
-    }
-    renderMat();
-    return;
-  }
-
-  // Clicking the same spot again cancels
-  if (selection.zone === zone && selection.index === index) {
-    selection = null;
-    renderMat();
-    return;
-  }
-
-  moveSelectedCardTo(zone, index);
-}
-
-function moveSelectedCardTo(destZone, destIndex) {
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const myState = newState[mySeat];
-
-  // Get the card_id being moved, and remove it from its source
-  let cardId = null;
-  if (selection.zone === "hand") {
-    cardId = myState.hand[selection.index];
-    myState.hand.splice(selection.index, 1);
-  } else {
-    const slot = getSlot(myState, selection.zone, selection.index);
-    if (slot) {
-      cardId = slot.card_id;
-      setSlot(myState, selection.zone, selection.index, null);
-    }
-  }
-
-  if (!cardId) { selection = null; pushState(newState); return; }
-
-  // Place it at the destination
-  if (destZone === "hand") {
-    myState.hand.push(cardId);
-  } else if (destZone === "discard") {
-    myState.discard = myState.discard || [];
-    myState.discard.push(cardId);
-  } else if (destZone === "active" || destZone === "bench") {
-    const existing = getSlot(myState, destZone, destIndex);
-    if (existing) {
-      // swap: put existing card back to hand to avoid losing it
-      myState.hand.push(existing.card_id);
-    }
-    setSlot(myState, destZone, destIndex, { card_id: cardId, damage: 0, energy: [], status: [] });
-  }
-
-  selection = null;
-  pushState(newState);
-}
-
-async function drawCard() {
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const myState = newState[mySeat];
-  if (!myState.deck || myState.deck.length === 0) return;
-  const drawn = myState.deck.shift();
-  myState.hand.push(drawn);
-  pushState(newState);
-}
-
-async function shuffleHandIntoDeck() {
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const myState = newState[mySeat];
-  myState.deck = [...(myState.deck||[]), ...(myState.hand||[])];
-  myState.hand = [];
-  for (let i = myState.deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [myState.deck[i], myState.deck[j]] = [myState.deck[j], myState.deck[i]];
-  }
-  pushState(newState);
-}
-
-async function reshuffleDiscardIntoDeck() {
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const myState = newState[mySeat];
-  if (!myState.discard || myState.discard.length === 0) return;
-  myState.deck = [...(myState.deck||[]), ...myState.discard];
-  myState.discard = [];
-  for (let i = myState.deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [myState.deck[i], myState.deck[j]] = [myState.deck[j], myState.deck[i]];
-  }
-  pushState(newState);
-}
-
-function adjustDamage(panelEl, delta) {
-  if (!panelEl) return;
-  const { seat, zone, index } = panelEl.dataset;
-  if (seat !== mySeat) return;
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const slot = getSlot(newState[seat], zone, parseInt(index));
-  if (!slot) return;
-  slot.damage = Math.max(0, (slot.damage || 0) + delta);
-  pushState(newState);
-}
-
-let energyPickerTarget = null;
-function openEnergyPicker(panelEl) {
-  if (!panelEl) return;
-  const { seat, zone, index } = panelEl.dataset;
-  if (seat !== mySeat) return;
-  energyPickerTarget = { seat, zone, index: parseInt(index) };
-  const picker = document.getElementById("energy-picker");
-  picker.innerHTML = ENERGY_TYPES.map(t =>
-    `<button style="background:${t.color}; border-color:#0003;" data-energy-type="${t.key}">${t.key}</button>`
-  ).join("") + `<button id="energy-picker-close">Cancel</button>`;
-  picker.style.display = "flex";
-  picker.querySelectorAll("[data-energy-type]").forEach(b => {
-    b.addEventListener("click", () => addEnergy(b.dataset.energyType));
-  });
-  document.getElementById("energy-picker-close").addEventListener("click", () => { picker.style.display = "none"; });
-}
-function addEnergy(type) {
-  const { seat, zone, index } = energyPickerTarget;
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const slot = getSlot(newState[seat], zone, index);
-  if (!slot) return;
-  slot.energy = slot.energy || [];
-  slot.energy.push(type);
-  document.getElementById("energy-picker").style.display = "none";
-  pushState(newState);
-}
-function removeEnergy(panelEl, energyIndex) {
-  if (!panelEl) return;
-  const { seat, zone, index } = panelEl.dataset;
-  if (seat !== mySeat) return;
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const slot = getSlot(newState[seat], zone, parseInt(index));
-  if (!slot || !slot.energy) return;
-  slot.energy.splice(energyIndex, 1);
-  pushState(newState);
-}
-
-let statusPickerTarget = null;
-function openStatusPicker(panelEl) {
-  if (!panelEl) return;
-  const { seat, zone, index } = panelEl.dataset;
-  if (seat !== mySeat) return;
-  statusPickerTarget = { seat, zone, index: parseInt(index) };
-  const picker = document.getElementById("status-picker");
-  picker.innerHTML = STATUS_TYPES.map(s => `<button data-status-type="${s}">${s}</button>`).join("") + `<button id="status-picker-close">Cancel</button>`;
-  picker.style.display = "flex";
-  picker.querySelectorAll("[data-status-type]").forEach(b => {
-    b.addEventListener("click", () => addStatus(b.dataset.statusType));
-  });
-  document.getElementById("status-picker-close").addEventListener("click", () => { picker.style.display = "none"; });
-}
-function addStatus(statusType) {
-  const { seat, zone, index } = statusPickerTarget;
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const slot = getSlot(newState[seat], zone, index);
-  if (!slot) return;
-  slot.status = slot.status || [];
-  if (!slot.status.includes(statusType)) slot.status.push(statusType);
-  document.getElementById("status-picker").style.display = "none";
-  pushState(newState);
-}
-function removeStatus(panelEl, statusType) {
-  if (!panelEl) return;
-  const { seat, zone, index } = panelEl.dataset;
-  if (seat !== mySeat) return;
-  const newState = JSON.parse(JSON.stringify(tableState.state));
-  const slot = getSlot(newState[seat], zone, parseInt(index));
-  if (!slot || !slot.status) return;
-  slot.status = slot.status.filter(s => s !== statusType);
-  pushState(newState);
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 loadKnownPlayers();
