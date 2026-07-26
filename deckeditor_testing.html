@@ -134,6 +134,15 @@
     padding: 2px 8px;
     font-size: 13px;
   }
+  .deck-row.over-owned {
+    background: rgba(200,90,60,0.18);
+    border: 1px solid rgba(220,120,80,0.5);
+  }
+  .warning-tag {
+    font-size: 10px;
+    color: #f0b088;
+    font-weight: 600;
+  }
 
   #filters {
     display: flex;
@@ -149,10 +158,18 @@
     font-size: 14px;
   }
 
-  #card-grid {
+  #card-grid, #collection-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 14px;
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    font-size: 14px;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: #a8b32e;
   }
   .card-tile {
     background: var(--card-cream);
@@ -207,6 +224,8 @@
     z-index: 2;
   }
   .card-tile.in-deck .minus-btn { display: block; }
+  .card-tile.at-max { opacity: 0.6; cursor: not-allowed; }
+  .card-tile.at-max:hover { transform: none; border-color: var(--card-border); }
   .card-tile .zoom-btn {
     position: absolute;
     bottom: 4px;
@@ -276,10 +295,10 @@
 
 <div id="login-screen">
   <h2>Who's building a deck?</h2>
-  <input type="text" id="name-input" placeholder="Type your name..." list="known-players">
+  <input type="text" id="name-input" placeholder="Type your name...">
   <datalist id="known-players"></datalist>
   <button class="primary" id="login-btn">Continue</button>
-  <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
+  <p>Sign up or log in with your character's name. Your collection will be permanently saved.</p>
 </div>
 
 <div id="lightbox-overlay">
@@ -287,30 +306,57 @@
 </div>
 
 <div id="main">
-  <div id="deck-select-bar">
-    <label style="font-size:14px;">Deck:</label>
-    <select id="deck-select"></select>
-    <button id="new-deck-btn">+ New Deck</button>
-    <button id="rename-deck-btn">Rename</button>
-    <button id="delete-deck-btn">Delete</button>
+  <div id="view-tabs" style="display:flex; gap:8px; margin-bottom:16px;">
+    <button id="tab-collection" class="tab-btn">My Collection</button>
+    <button id="tab-deckbuilder" class="tab-btn">Deck Builder</button>
   </div>
 
-  <div class="layout">
-    <div id="browse-panel">
-      <div id="filters">
-        <input type="text" id="search-input" placeholder="Search by name...">
-        <select id="type-filter">
-          <option value="">All types</option>
-        </select>
-      </div>
-      <div id="card-grid"></div>
+  <div id="collection-view">
+    <div style="margin-bottom:12px; font-size:13px; color:var(--text-light);">
+      Track your card collection! Click a card to add a copy you've found. Use the minus button to remove one (e.g. if traded away or lost).<P> Only cards that have been revealed to the party will be visible.
+      </P>
+    </div>
+    <div id="filters">
+      <input type="text" id="collection-search-input" placeholder="Search by name...">
+      <select id="collection-type-filter"><option value="">All types</option></select>
+      <select id="collection-owned-filter">
+        <option value="all">All cards</option>
+        <option value="owned">Owned only</option>
+        <option value="unowned">Not yet owned</option>
+      </select>
+    </div>
+    <div id="collection-grid" class="card-grid"></div>
+  </div>
+
+  <div id="deckbuilder-view" style="display:none;">
+    <div id="deck-select-bar">
+      <label style="font-size:14px;">Deck:</label>
+      <select id="deck-select"></select>
+      <button id="new-deck-btn">+ New Deck</button>
+      <button id="rename-deck-btn">Rename</button>
+      <button id="delete-deck-btn">Delete</button>
     </div>
 
-    <div id="deck-panel">
-      <h2>Current Deck</h2>
-      <div id="deck-count">0 cards</div>
-      <div id="deck-list"></div>
-      <div id="status-msg"></div>
+    <div class="layout">
+      <div id="browse-panel">
+        <div id="filters">
+          <input type="text" id="search-input" placeholder="Search by name...">
+          <select id="type-filter">
+            <option value="">All types</option>
+          </select>
+        </div>
+        <div id="no-cards-message" style="display:none; color:var(--text-muted); font-size:13px; padding:20px; text-align:center;">
+          You don't own any cards yet — add some in the "My Collection" tab first.
+        </div>
+        <div id="card-grid"></div>
+      </div>
+
+      <div id="deck-panel">
+        <h2>Current Deck</h2>
+        <div id="deck-count">0 cards</div>
+        <div id="deck-list"></div>
+        <div id="status-msg"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -322,12 +368,15 @@ const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const CARD_IMAGE_BASE = "/bakemon/cards/admin/";
+const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/admin/";
+const CARDBACK_URL = "https://hxa.neocities.org/bakemon/cardback.png";
 
 let allCards = [];
+let revealedCardIds = new Set(); // populated as images successfully load in the grid
 let currentPlayer = null;
 let currentDeckId = null;
 let currentDeckCards = {}; // card_id -> quantity
+let playerCollection = {}; // card_id -> quantity owned
 
 // ---- Login flow ----
 document.getElementById("login-btn").addEventListener("click", handleLogin);
@@ -387,7 +436,148 @@ async function handleLogin() {
   document.getElementById("switch-player-btn").addEventListener("click", () => location.reload());
 
   await loadCards();
+  await loadPlayerCollection();
   await loadDecksForPlayer();
+  setupTabs();
+}
+
+// ---- Tabs ----
+function setupTabs() {
+  document.getElementById("tab-collection").addEventListener("click", () => switchTab("collection"));
+  document.getElementById("tab-deckbuilder").addEventListener("click", () => switchTab("deckbuilder"));
+  switchTab("collection");
+}
+
+function switchTab(tab) {
+  const collectionView = document.getElementById("collection-view");
+  const deckbuilderView = document.getElementById("deckbuilder-view");
+  const collectionTab = document.getElementById("tab-collection");
+  const deckbuilderTab = document.getElementById("tab-deckbuilder");
+
+  if (tab === "collection") {
+    collectionView.style.display = "block";
+    deckbuilderView.style.display = "none";
+    collectionTab.classList.add("active");
+    deckbuilderTab.classList.remove("active");
+    renderCollectionGrid();
+  } else {
+    collectionView.style.display = "none";
+    deckbuilderView.style.display = "block";
+    collectionTab.classList.remove("active");
+    deckbuilderTab.classList.add("active");
+    renderCardGrid();
+  }
+}
+
+// ---- Player collection ----
+async function loadPlayerCollection() {
+  const { data, error } = await supabaseClient
+    .from("player_cards")
+    .select("card_id, quantity")
+    .eq("player_id", currentPlayer.id);
+  if (error) { console.error(error); return; }
+  playerCollection = {};
+  (data || []).forEach(row => { playerCollection[row.card_id] = row.quantity; });
+}
+
+function populateCollectionTypeFilter() {
+  const types = new Set();
+  allCards.forEach(c => {
+    if (c.type_1) types.add(c.type_1);
+    if (c.type_2) types.add(c.type_2);
+  });
+  const sel = document.getElementById("collection-type-filter");
+  sel.innerHTML = '<option value="">All types</option>';
+  [...types].sort().forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    sel.appendChild(opt);
+  });
+}
+
+document.getElementById("collection-search-input").addEventListener("input", renderCollectionGrid);
+document.getElementById("collection-type-filter").addEventListener("change", renderCollectionGrid);
+document.getElementById("collection-owned-filter").addEventListener("change", renderCollectionGrid);
+
+function renderCollectionGrid() {
+  const search = document.getElementById("collection-search-input").value.toLowerCase();
+  const typeFilter = document.getElementById("collection-type-filter").value;
+  const ownedFilter = document.getElementById("collection-owned-filter").value;
+  const grid = document.getElementById("collection-grid");
+  grid.innerHTML = "";
+
+  const filtered = allCards.filter(c => {
+    const matchesSearch = c.name.toLowerCase().includes(search);
+    const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
+    const owned = playerCollection[c.id] || 0;
+    const matchesOwned = ownedFilter === "all" || (ownedFilter === "owned" && owned > 0) || (ownedFilter === "unowned" && owned === 0);
+    return matchesSearch && matchesType && matchesOwned;
+  });
+
+  filtered.forEach(card => {
+    const qty = playerCollection[card.id] || 0;
+    const tile = document.createElement("div");
+    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    const imgId = `coll-img-${card.id}`;
+    const nameId = `coll-name-${card.id}`;
+    tile.innerHTML = `
+      <span class="badge">x${qty}</span>
+      <button class="minus-btn" title="Remove one">−</button>
+      <button class="zoom-btn" title="View larger">🔍</button>
+      <img id="${imgId}" src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">
+      <div class="name" id="${nameId}">${escapeHtml(card.name)}</div>
+      <div class="meta">#${escapeHtml(card.card_number)}</div>
+    `;
+    tile.addEventListener("click", () => addToCollection(card));
+    tile.querySelector(".minus-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeFromCollection(card.id);
+    });
+    tile.querySelector(".zoom-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      openLightbox(document.getElementById(imgId).src, card.name);
+    });
+
+    const img = tile.querySelector("img");
+    const nameEl = tile.querySelector(".name");
+    img.addEventListener("load", () => {
+      if (!img.dataset.fallenBack && !revealedCardIds.has(card.id)) {
+        revealedCardIds.add(card.id);
+        renderDeckPanel();
+      }
+    });
+    img.addEventListener("error", () => {
+      if (img.dataset.fallenBack) return;
+      img.dataset.fallenBack = "1";
+      img.src = CARDBACK_URL;
+      nameEl.textContent = "???";
+    });
+
+    grid.appendChild(tile);
+  });
+}
+
+async function addToCollection(card) {
+  const newQty = (playerCollection[card.id] || 0) + 1;
+  const { error } = await supabaseClient
+    .from("player_cards")
+    .upsert({ player_id: currentPlayer.id, card_id: card.id, quantity: newQty }, { onConflict: "player_id,card_id" });
+  if (error) { console.error(error); return; }
+  playerCollection[card.id] = newQty;
+  renderCollectionGrid();
+}
+
+async function removeFromCollection(cardId) {
+  const currentQty = playerCollection[cardId] || 0;
+  if (currentQty <= 0) return;
+  const newQty = currentQty - 1;
+  const { error } = await supabaseClient
+    .from("player_cards")
+    .upsert({ player_id: currentPlayer.id, card_id: cardId, quantity: newQty }, { onConflict: "player_id,card_id" });
+  if (error) { console.error(error); return; }
+  playerCollection[cardId] = newQty;
+  renderCollectionGrid();
 }
 
 // ---- Card data ----
@@ -400,6 +590,7 @@ async function loadCards() {
   }
   allCards = data;
   populateTypeFilter();
+  populateCollectionTypeFilter();
   renderCardGrid();
 }
 
@@ -428,15 +619,21 @@ function renderCardGrid() {
   grid.innerHTML = "";
 
   const filtered = allCards.filter(c => {
+    const owned = playerCollection[c.id] || 0;
+    if (owned <= 0) return false; // only show cards this player actually owns
     const matchesSearch = c.name.toLowerCase().includes(search);
     const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
     return matchesSearch && matchesType;
   });
 
+  document.getElementById("no-cards-message").style.display = (allCards.some(c => (playerCollection[c.id] || 0) > 0)) ? "none" : "block";
+
   filtered.forEach(card => {
     const qty = currentDeckCards[card.id] || 0;
+    const owned = playerCollection[card.id] || 0;
+    const atMax = qty >= owned;
     const tile = document.createElement("div");
-    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "");
+    tile.className = "card-tile" + (qty > 0 ? " in-deck" : "") + (atMax ? " at-max" : "");
     const imgId = `card-img-${card.id}`;
     const metaId = `card-meta-${card.id}`;
     tile.innerHTML = `
@@ -445,7 +642,7 @@ function renderCardGrid() {
       <button class="zoom-btn" title="View larger">🔍</button>
       <img id="${imgId}" src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">
       <div class="name">${escapeHtml(card.name)}</div>
-      <div class="meta" id="${metaId}">#${escapeHtml(card.card_number)}</div>
+      <div class="meta" id="${metaId}">#${escapeHtml(card.card_number)} · own ${owned}</div>
     `;
     tile.addEventListener("click", () => addCardToDeck(card));
 
@@ -463,11 +660,17 @@ function renderCardGrid() {
 
     const img = tile.querySelector("img");
     const nameEl = tile.querySelector(".name");
+    img.addEventListener("load", () => {
+      if (!img.dataset.fallenBack && !revealedCardIds.has(card.id)) {
+        revealedCardIds.add(card.id);
+        renderDeckPanel(); // in case this card is already in the deck panel, update its name now that we know it's revealed
+      }
+    });
     img.addEventListener("error", () => {
       // Only swap once, to avoid a loop if cardback.png is itself missing
       if (img.dataset.fallenBack) return;
       img.dataset.fallenBack = "1";
-      img.src = CARD_IMAGE_BASE + "cardback.png";
+      img.src = CARDBACK_URL;
       nameEl.textContent = "???";
     });
 
@@ -582,9 +785,12 @@ function renderDeckPanel() {
   entries.forEach(({ card, qty }) => {
     total += qty;
     const row = document.createElement("div");
-    row.className = "deck-row";
+    const owned = playerCollection[card.id] || 0;
+    const overOwned = qty > owned;
+    row.className = "deck-row" + (overOwned ? " over-owned" : "");
+    const displayName = revealedCardIds.has(card.id) ? escapeHtml(card.name) : `??? (#${escapeHtml(card.card_number)})`;
     row.innerHTML = `
-      <span class="name">${escapeHtml(card.name)}</span>
+      <span class="name">${displayName}${overOwned ? ` <span class="warning-tag" title="You only own ${owned} — this deck has more than you have">⚠️ own ${owned}</span>` : ''}</span>
       <span class="qty-controls">
         <button data-action="minus">-</button>
         <span>${qty}</span>
@@ -601,6 +807,11 @@ function renderDeckPanel() {
 
 async function addCardToDeck(card) {
   const currentQty = currentDeckCards[card.id] || 0;
+  const owned = playerCollection[card.id] || 0;
+  if (currentQty >= owned) {
+    setStatus(`You only have ${owned} of this card.`);
+    return;
+  }
   const newQty = currentQty + 1;
 
   const { error } = await supabaseClient
