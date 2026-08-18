@@ -325,9 +325,9 @@ function draw(time) {
       ctx.moveTo(s.x, s.y);
       ctx.lineTo(other.x, other.y);
       ctx.strokeStyle = isHighlighted
-        ? 'rgba(200, 200, 220, 0.25)'
-        : 'rgba(200, 200, 220, 0.06)';
-      ctx.lineWidth = isHighlighted ? 1.5 : 0.5;
+        ? 'rgba(200, 200, 220, 0.35)'
+        : 'rgba(200, 200, 220, 0.12)';
+      ctx.lineWidth = isHighlighted ? 2 : 0.8;
       ctx.stroke();
     }
   }
@@ -351,16 +351,6 @@ function draw(time) {
     ctx.fillStyle = color.glow.replace(/[\d.]+\)$/, '0.2)');
     ctx.fill();
 
-    // emotion inner glow
-    if (s.memory.emotion && EMOTION_COLORS[s.memory.emotion]) {
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r * 0.6, 0, Math.PI * 2);
-      ctx.fillStyle = EMOTION_COLORS[s.memory.emotion];
-      ctx.globalAlpha = 0.35;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-
     // core
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
@@ -369,7 +359,20 @@ function draw(time) {
     ctx.fill();
     ctx.globalAlpha = 1;
 
+    // emotion ring — drawn AFTER core so it's visible as a colored halo
+    if (s.memory.emotion && EMOTION_COLORS[s.memory.emotion]) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = EMOTION_COLORS[s.memory.emotion];
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.7;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
     if (isSelected || isHovered) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r + (s.memory.emotion ? 4 : 0), 0, Math.PI * 2);
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = isSelected ? 2 : 1;
       ctx.stroke();
