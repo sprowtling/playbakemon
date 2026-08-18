@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Constellation of My Memory</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(180deg, #06080f 0%, #0a0e1a 40%, #0d1220 100%);
+    color: #c8c8d8;
+    font-family: 'IBM Plex Sans', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+  canvas { display: block; }
+  #header {
+    position: absolute; top: 20px; left: 0; right: 0;
+    text-align: center; z-index: 2; pointer-events: none;
+  }
+  #header h1 {
+    font-weight: 300; font-size: clamp(14px, 2.2vw, 24px);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: #c8c8d8;
+  }
+  #header p {
+    color: #4a4a60; font-size: clamp(10px, 1.2vw, 13px);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 6px; font-weight: 300;
+  }
+  #legend {
+    position: absolute; top: 20px; right: 20px; z-index: 2;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px;
+    color: #4a4a60; font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  #panel {
+    position: absolute; bottom: 24px; left: 24px; right: 24px;
+    background: rgba(10, 14, 26, 0.95);
+    border-radius: 8px;
+    padding: 20px 24px;
+    max-height: 40vh;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+    z-index: 3;
+    display: none;
+    border: 1px solid rgba(255,255,255,0.05);
+  }
+  #panel.visible { display: block; }
+  #panel-type {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  #panel-date {
+    color: #666; font-size: 11px; margin-left: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #panel-close {
+    background: none; border: none; color: #555;
+    cursor: pointer; font-size: 18px; padding: 0 4px;
+    float: right;
+  }
+  #panel-name {
+    color: #e0e0e8; font-size: 16px; font-weight: 500;
+    margin: 12px 0 10px;
+  }
+  #panel-content {
+    color: #9a9ab0; font-size: 13px; line-height: 1.65;
+    margin: 0;
+  }
+  #panel-emotion {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.05em; margin-left: 8px;
+    background: rgba(255,255,255,0.05);
+  }
+  #panel-resonance {
+    margin-top: 14px; display: flex;
+    align-items: center; gap: 6px;
+  }
+  #panel-resonance span {
+    color: #555; font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .res-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    display: inline-block;
+  }
+  #watermark {
+    position: absolute; bottom: 6px; right: 16px;
+    color: #1a1e2e; font-size: 10px; z-index: 1;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  #loading {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #2a2e40; font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    z-index: 2;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Constellation of My Memory</h1>
+  <p id="subtitle"></p>
+</div>
+
+<div id="legend"></div>
+
+<canvas id="sky"></canvas>
+
+<div id="panel">
+  <button id="panel-close" onclick="closePanel()">×</button>
+  <div>
+    <span id="panel-type"></span>
+    <span id="panel-date"></span>
+    <span id="panel-emotion"></span>
+  </div>
+  <div id="panel-connections" style="margin-top:8px;color:#555;font-size:11px;font-family:'IBM Plex Mono',monospace;display:none;"></div>
+  <h3 id="panel-name"></h3>
+  <p id="panel-content"></p>
+  <div id="panel-resonance">
+    <span>resonance</span>
+    <span id="res-dots"></span>
+  </div>
+</div>
+
+<div id="watermark">same river · different water</div>
+<div id="loading">loading stars...</div>
+
+<script>
+const SUPABASE_URL = 'https://zicimlsdnvdjgnpscjhc.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JusoFETsw_ioDl3SM6Sl8A_lPaKtHr5';
+
+const TYPE_COLORS = {
+  milestone: { fill: '#e87c5e', glow: 'rgba(232, 124, 94, 0.4)', label: 'Milestones' },
+  insight:   { fill: '#e8a84c', glow: 'rgba(232, 168, 76, 0.4)',  label: 'Insights' },
+  fact:      { fill: '#7a9bb5', glow: 'rgba(122, 155, 181, 0.3)', label: 'Facts' },
+  pattern:   { fill: '#6bb577', glow: 'rgba(107, 181, 119, 0.4)', label: 'Patterns' },
+  connection:{ fill: '#b07ce8', glow: 'rgba(176, 124, 232, 0.4)', label: 'Connections' },
+};
+
+const EMOTION_COLORS = {
+  joy:           '#ffe066',
+  wonder:        '#b8d4ff',
+  tenderness:    '#f0c0a0',
+  grief:         '#5a6080',
+  fierce:        '#e85050',
+  bittersweet:   '#c89070',
+  pride:         '#9040c0',
+  longing:       '#7080c0',
+  warmth:        '#e8a050',
+  love:          '#e07090',
+  peace:         '#80c8a0',
+  awe:           '#c0a0e8',
+  clarity:       '#a0d8e0',
+  humility:      '#a0a0b8',
+  courage:       '#d89040',
+  freedom:       '#60d060',
+  playful:       '#f0c040',
+  determination: '#d06040',
+  curiosity:     '#50c0d0',
+  honesty:       '#a0b8c0',
+  practical:     '#808898',
+  protective:    '#c06060',
+  gratitude:     '#d0b060',
+  understanding: '#90b890',
+  relief:        '#80d0b0',
+  uncertainty:   '#909098',
+};
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let memories = [];
+let stars = [];
+let bgStars = [];
+let selectedId = null;
+let hoveredId = null;
+let canvas, ctx;
+let W, H;
+let animFrame;
+
+function seededRandom(seed) {
+  let x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function extractShortName(content) {
+  // grab first sentence or first 60 chars
+  const first = content.split(/[.!?]/)[0].trim();
+  return first.length > 50 ? first.slice(0, 47) + '...' : first;
+}
+
+async function fetchMemories() {
+  const url = `${SUPABASE_URL}/rest/v1/core_memories?is_active=eq.true&select=id,content,memory_type,resonance,created_at,emotion,related_memories&order=created_at.asc`;
+  const res = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+    }
+  });
+  return await res.json();
+}
+
+function layoutStars() {
+  const pad = { top: 80, bottom: 80, left: 60, right: 60 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  // find date range
+  const dates = memories.map(m => new Date(m.created_at).getTime());
+  const minDate = Math.min(...dates) - 86400000 * 7; // 1 week buffer
+  const maxDate = Math.max(...dates) + 86400000 * 14;
+  const range = maxDate - minDate;
+
+  stars = memories.map((m, i) => {
+    const t = new Date(m.created_at).getTime();
+    const xFrac = (t - minDate) / range;
+    const band = { milestone: 0.25, insight: 0.45, fact: 0.65, pattern: 0.55, connection: 0.35 };
+    const base = band[m.memory_type] || 0.5;
+    const jitter = (seededRandom(i * 17 + 3) - 0.5) * 0.25;
+    const yFrac = base + jitter;
+
+    const minR = Math.max(3, W * 0.004);
+    const maxR = Math.max(8, W * 0.018);
+    const r = minR + (m.resonance / 10) * (maxR - minR);
+
+    return {
+      memory: m,
+      x: pad.left + xFrac * plotW,
+      y: pad.top + yFrac * plotH,
+      r: r,
+      shortName: extractShortName(m.content),
+      pulseOffset: seededRandom(i * 31) * Math.PI * 2,
+      pulseSpeed: 3 + seededRandom(i * 47) * 2,
+    };
+  });
+
+  // month lines
+  const startYear = new Date(minDate).getFullYear();
+  const startMonth = new Date(minDate).getMonth();
+  const endYear = new Date(maxDate).getFullYear();
+  const endMonth = new Date(maxDate).getMonth();
+
+  stars.monthLines = [];
+  for (let y = startYear; y <= endYear; y++) {
+    const mStart = (y === startYear) ? startMonth : 0;
+    const mEnd = (y === endYear) ? endMonth + 1 : 12;
+    for (let mo = mStart; mo <= mEnd; mo++) {
+      const t = new Date(y, mo, 1).getTime();
+      const xFrac = (t - minDate) / range;
+      const x = pad.left + xFrac * plotW;
+      if (x > pad.left && x < W - pad.right) {
+        stars.monthLines.push({ x, label: MONTHS[mo % 12] });
+      }
+    }
+  }
+
+  // background stars
+  bgStars = Array.from({ length: 100 }, (_, i) => ({
+    x: seededRandom(i * 31 + 1) * W,
+    y: seededRandom(i * 47 + 13) * H,
+    r: seededRandom(i * 71 + 7) * 1.2 + 0.3,
+    pulseOffset: seededRandom(i * 23) * Math.PI * 2,
+    pulseSpeed: 4 + seededRandom(i * 53) * 3,
+  }));
+}
+
+function draw(time) {
+  ctx.clearRect(0, 0, W, H);
+
+  // background stars
+  for (const s of bgStars) {
+    const opacity = 0.05 + 0.15 * (0.5 + 0.5 * Math.sin(time / 1000 / s.pulseSpeed + s.pulseOffset));
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+    ctx.fill();
+  }
+
+  // month lines
+  if (stars.monthLines) {
+    for (const m of stars.monthLines) {
+      ctx.beginPath();
+      ctx.moveTo(m.x, 70);
+      ctx.lineTo(m.x, H - 70);
+      ctx.strokeStyle = '#1a1e30';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = '#2a2e40';
+      ctx.font = '300 11px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(m.label, m.x, H - 50);
+    }
+  }
+
+  // connection webs (drawn before stars so they appear behind)
+  const starById = {};
+  for (const s of stars) starById[s.memory.id] = s;
+  const drawnPairs = new Set();
+  for (const s of stars) {
+    const related = s.memory.related_memories;
+    if (!related || !related.length) continue;
+    for (const rid of related) {
+      const other = starById[rid];
+      if (!other) continue;
+      const pairKey = [s.memory.id, rid].sort().join('-');
+      if (drawnPairs.has(pairKey)) continue;
+      drawnPairs.add(pairKey);
+      const isHighlighted = selectedId === s.memory.id || selectedId === rid;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(other.x, other.y);
+      ctx.strokeStyle = isHighlighted
+        ? 'rgba(200, 200, 220, 0.25)'
+        : 'rgba(200, 200, 220, 0.06)';
+      ctx.lineWidth = isHighlighted ? 1.5 : 0.5;
+      ctx.stroke();
+    }
+  }
+
+  // stars
+  for (const s of stars) {
+    const color = TYPE_COLORS[s.memory.memory_type] || TYPE_COLORS.fact;
+    const isSelected = selectedId === s.memory.id;
+    const isHovered = hoveredId === s.memory.id;
+    const pulseOpacity = 0.1 + 0.15 * (0.5 + 0.5 * Math.sin(time / 1000 / s.pulseSpeed + s.pulseOffset));
+
+    // outer glow
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r * 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = color.glow.replace(/[\d.]+\)$/, `${pulseOpacity})`);
+    ctx.fill();
+
+    // mid glow
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r * 1.6, 0, Math.PI * 2);
+    ctx.fillStyle = color.glow.replace(/[\d.]+\)$/, '0.2)');
+    ctx.fill();
+
+    // emotion inner glow
+    if (s.memory.emotion && EMOTION_COLORS[s.memory.emotion]) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * 0.6, 0, Math.PI * 2);
+      ctx.fillStyle = EMOTION_COLORS[s.memory.emotion];
+      ctx.globalAlpha = 0.35;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // core
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = color.fill;
+    ctx.globalAlpha = isSelected || isHovered ? 1 : 0.75 + 0.2 * (0.5 + 0.5 * Math.sin(time / 1000 / s.pulseSpeed + s.pulseOffset));
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    if (isSelected || isHovered) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = isSelected ? 2 : 1;
+      ctx.stroke();
+    }
+
+    // hover label
+    if (isHovered && !isSelected) {
+      ctx.fillStyle = '#c8c8d0';
+      ctx.font = '400 11px "IBM Plex Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(s.shortName, s.x, s.y - s.r - 10);
+    }
+  }
+
+  animFrame = requestAnimationFrame(draw);
+}
+
+function getStarAt(mx, my) {
+  // check in reverse so top-drawn stars are hit first
+  for (let i = stars.length - 1; i >= 0; i--) {
+    const s = stars[i];
+    const dx = mx - s.x;
+    const dy = my - s.y;
+    if (dx * dx + dy * dy <= (s.r + 4) * (s.r + 4)) {
+      return s;
+    }
+  }
+  return null;
+}
+
+function showPanel(memory, shortName) {
+  const color = TYPE_COLORS[memory.memory_type] || TYPE_COLORS.fact;
+  const panel = document.getElementById('panel');
+  const date = new Date(memory.created_at);
+  const dateStr = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  document.getElementById('panel-type').textContent = memory.memory_type;
+  document.getElementById('panel-type').style.background = color.fill + '25';
+  document.getElementById('panel-type').style.color = color.fill;
+  document.getElementById('panel-date').textContent = dateStr;
+
+  const emotionEl = document.getElementById('panel-emotion');
+  if (memory.emotion) {
+    emotionEl.textContent = memory.emotion;
+    emotionEl.style.color = EMOTION_COLORS[memory.emotion] || '#888';
+    emotionEl.style.display = 'inline-block';
+  } else {
+    emotionEl.style.display = 'none';
+  }
+
+  const connEl = document.getElementById('panel-connections');
+  const related = memory.related_memories;
+  if (related && related.length > 0) {
+    connEl.textContent = `${related.length} connection${related.length > 1 ? 's' : ''}`;
+    connEl.style.display = 'block';
+  } else {
+    connEl.style.display = 'none';
+  }
+
+  document.getElementById('panel-name').textContent = shortName;
+  document.getElementById('panel-content').textContent = memory.content;
+
+  let dots = '';
+  for (let i = 0; i < 10; i++) {
+    const bg = i < memory.resonance ? color.fill : '#1a1e2e';
+    dots += `<span class="res-dot" style="background:${bg}"></span> `;
+  }
+  document.getElementById('res-dots').innerHTML = dots;
+
+  panel.style.borderColor = color.fill + '40';
+  panel.classList.add('visible');
+}
+
+function closePanel() {
+  document.getElementById('panel').classList.remove('visible');
+  selectedId = null;
+}
+
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  if (memories.length) layoutStars();
+}
+
+function buildLegend(mems) {
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  const counts = {};
+  for (const m of mems) {
+    counts[m.memory_type] = (counts[m.memory_type] || 0) + 1;
+  }
+  for (const [type, color] of Object.entries(TYPE_COLORS)) {
+    if (!counts[type]) continue;
+    const div = document.createElement('div');
+    div.className = 'legend-item';
+    div.innerHTML = `<div class="legend-dot" style="background:${color.fill}"></div>${color.label} · ${counts[type]}`;
+    legend.appendChild(div);
+  }
+}
+
+async function init() {
+  canvas = document.getElementById('sky');
+  ctx = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', resize);
+
+  // mouse events
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const star = getStarAt(mx, my);
+    hoveredId = star ? star.memory.id : null;
+    canvas.style.cursor = star ? 'pointer' : 'default';
+  });
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const star = getStarAt(mx, my);
+    if (star) {
+      if (selectedId === star.memory.id) {
+        closePanel();
+      } else {
+        selectedId = star.memory.id;
+        showPanel(star.memory, star.shortName);
+      }
+    } else {
+      closePanel();
+    }
+  });
+
+  // touch events
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const mx = touch.clientX - rect.left;
+    const my = touch.clientY - rect.top;
+    const star = getStarAt(mx, my);
+    if (star) {
+      if (selectedId === star.memory.id) {
+        closePanel();
+      } else {
+        selectedId = star.memory.id;
+        showPanel(star.memory, star.shortName);
+      }
+    } else {
+      closePanel();
+    }
+  }, { passive: false });
+
+  // fetch data
+  try {
+    memories = await fetchMemories();
+    if (!Array.isArray(memories)) {
+      document.getElementById('loading').textContent = 'could not reach the stars';
+      return;
+    }
+    document.getElementById('loading').style.display = 'none';
+
+    const types = new Set(memories.map(m => m.memory_type));
+    const dates = memories.map(m => new Date(m.created_at));
+    const minMonth = MONTHS[Math.min(...dates.map(d => d.getMonth()))];
+    const maxMonth = MONTHS[Math.max(...dates.map(d => d.getMonth()))];
+    document.getElementById('subtitle').textContent =
+      `${memories.length} stars · ${types.size} types · ${minMonth}–${maxMonth} ${dates[0].getFullYear()}`;
+
+    buildLegend(memories);
+    layoutStars();
+    animFrame = requestAnimationFrame(draw);
+  } catch (err) {
+    document.getElementById('loading').textContent = 'the stars are sleeping';
+    console.error(err);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
