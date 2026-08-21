@@ -512,6 +512,8 @@ async function handleJoinTable() {
   document.getElementById("setup-screen").style.display = "none";
   document.getElementById("mat-screen").style.display = "block";
   buildActionBar();
+  document.getElementById("header-controls").innerHTML = `<button id="end-match-btn" class="small">End Match</button>`;
+  document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
   subscribeToTable();
   await refreshOppName();
   renderMat();
@@ -571,6 +573,25 @@ async function pushState(newState) {
 }
 
 // ---------- Rendering ----------
+async function handleEndMatch() {
+  const confirmed = confirm(`End this match and free up room code "${roomCode}"? Both players will be disconnected and the code can be reused.`);
+  if (!confirmed) return;
+
+  if (realtimeChannel) {
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+
+  const { error } = await supabaseClient.from("battle_tables").delete().eq("id", tableId);
+  if (error) {
+    console.error(error);
+    alert("Couldn't end the match — try again.");
+    return;
+  }
+
+  location.reload();
+}
+
 function buildActionBar() {
   const bar = document.getElementById("action-bar");
   bar.innerHTML = `
@@ -581,6 +602,15 @@ function buildActionBar() {
   document.getElementById("draw-btn").addEventListener("click", drawCard);
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
   document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
+}
+
+function benchHpLine(slot) {
+  if (!slot || !slot.card_id) return "";
+  const card = allCards[slot.card_id];
+  if (!card) return "";
+  const maxHp = card.hp;
+  const remaining = Math.max(0, maxHp - (slot.damage || 0));
+  return `<div style="font-size:9px; color:#e0c9a8; text-align:center;">${remaining} / ${maxHp}</div>`;
 }
 
 function cardHtml(cardId, opts = {}) {
@@ -659,10 +689,11 @@ function renderMat() {
       <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">
         ${slot ? `<div class="status-badges">${(slot.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
       </div>
+      ${benchHpLine(slot)}
       <div class="bench-tray" data-view-only="1">${(slot && slot.energy || []).map(e => {
         const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
         return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
-      }).join('')}${slot && slot.damage ? `<span style="font-size:7px; color:#e0c9a8; margin-left:2px;">${slot.damage}dmg</span>` : ''}</div>
+      }).join('')}</div>
     </div>
   `).join("");
 
@@ -687,6 +718,7 @@ function renderMat() {
            data-seat="${mySeat}" data-zone="bench" data-index="${i}">
         ${slot ? cardHtml(slot.card_id) : ''}
       </div>
+      ${benchHpLine(slot)}
       <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}" data-bench-energy="1">
         ${(slot && slot.energy || []).map(e => {
           const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
@@ -712,8 +744,25 @@ function renderMat() {
   attachHandlers();
 }
 
+let flashMessage = null;
+let flashMessageTimer = null;
+
+function setStatus(msg) {
+  flashMessage = msg;
+  if (flashMessageTimer) clearTimeout(flashMessageTimer);
+  updateSelectionHint();
+  flashMessageTimer = setTimeout(() => {
+    flashMessage = null;
+    updateSelectionHint();
+  }, 2500);
+}
+
 function updateSelectionHint() {
   const hint = document.getElementById("selection-hint");
+  if (flashMessage) {
+    hint.textContent = flashMessage;
+    return;
+  }
   if (!selection) {
     hint.textContent = "Click a card to select it, then click where you want to move it.";
   } else {
@@ -841,6 +890,23 @@ function moveSelectedCardTo(destZone, destIndex) {
       existing.card_id && allCards[existing.card_id] &&
       incomingCard.evolves_from.toLowerCase() === allCards[existing.card_id].name.toLowerCase();
 
+    // An evolution card can't enter play on its own, and can't be placed onto the wrong base — it must go onto its actual pre-evolution.
+    if (incomingCard && incomingCard.evolves_from && !evolvesFromExisting) {
+      const reason = existing
+        ? `${incomingCard.name} evolves from ${incomingCard.evolves_from}, not ${allCards[existing.card_id]?.name || 'that card'}.`
+        : `${incomingCard.name} evolves from ${incomingCard.evolves_from} — place it onto that card, not an empty slot.`;
+      setStatus(reason);
+      // Put the card back where it came from rather than losing it
+      if (selection.zone === "hand") {
+        myState.hand.push(cardId);
+      } else if (movingSlot) {
+        setSlot(myState, selection.zone, selection.index, movingSlot);
+      }
+      selection = null;
+      pushState(newState);
+      return;
+    }
+
     if (existing && evolvesFromExisting) {
       // Evolution: stack on top, carrying damage/energy/status forward, tracking the evolution chain for later discard
       const priorChain = existing.evolved_from || [];
@@ -853,9 +919,7 @@ function moveSelectedCardTo(destZone, destIndex) {
       });
     } else {
       if (existing) {
-        // Not a valid evolution — swap the existing card back to hand to avoid losing it.
-        // Note: if the existing slot was itself an evolved stack, only the top card returns to hand;
-        // this should be rare since evolved Bakemon are usually left in play, not swapped out this way.
+        // This is a basic (non-evolving) card being placed on an occupied slot — swap the existing card back to hand to avoid losing it.
         myState.hand.push(existing.card_id);
       }
       // Carry over damage/energy/status if this card was already in play; start fresh only if it came from hand
