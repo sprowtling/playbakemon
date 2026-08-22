@@ -649,10 +649,9 @@ function renderSidePanel(seat, zone, index, slot) {
       <div class="divider-line" style="width:100%;"></div>
       <div class="dmg-controls">
         <button data-dmg-minus="1">-</button>
-        <span>${slot.damage || 0}</span>
+        <span class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></span>
         <button data-dmg-plus="1">+</button>
       </div>
-      <div class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></div>
       <button class="small" data-add-status="1" style="margin-top:2px;">+ status</button>
     </div>
   `;
@@ -676,7 +675,6 @@ function renderReadOnlySidePanel(slot) {
       <div class="energy-dots">${energyDots || '<span style="font-size:9px; opacity:0.6;">none</span>'}</div>
       <div class="divider-line" style="width:100%;"></div>
       <div class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></div>
-      <div style="font-size:8px; opacity:0.7;">(${slot.damage || 0} dmg)</div>
     </div>
   `;
 }
@@ -788,10 +786,10 @@ function attachHandlers() {
     });
   });
   document.querySelectorAll("[data-bench-dmg-plus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), 10); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), -10); });
   });
   document.querySelectorAll("[data-bench-dmg-minus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), -10); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), 10); });
   });
   document.querySelectorAll(".card-face[data-seat]:not([data-view-only])").forEach(el => {
     if (el.dataset.seat === "__discard__") {
@@ -801,10 +799,10 @@ function attachHandlers() {
     }
   });
   document.querySelectorAll("[data-dmg-plus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), -10); });
   });
   document.querySelectorAll("[data-dmg-minus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), -10); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
   });
   document.querySelectorAll("[data-add-energy]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); openEnergyPicker(e.target.closest(".side-panel")); });
