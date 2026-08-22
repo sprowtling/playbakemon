@@ -604,13 +604,22 @@ function buildActionBar() {
   document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
 }
 
-function benchHpLine(slot) {
+function benchHpLine(slot, seat, index, viewOnly) {
   if (!slot || !slot.card_id) return "";
   const card = allCards[slot.card_id];
   if (!card) return "";
   const maxHp = card.hp;
   const remaining = Math.max(0, maxHp - (slot.damage || 0));
-  return `<div style="font-size:9px; color:#e0c9a8; text-align:center;">${remaining} / ${maxHp}</div>`;
+  if (viewOnly) {
+    return `<div style="font-size:9px; color:#e0c9a8; text-align:center;">${remaining} / ${maxHp}</div>`;
+  }
+  return `
+    <div style="display:flex; align-items:center; justify-content:center; gap:3px; font-size:9px; color:#e0c9a8;">
+      <button class="small" style="padding:0 4px; font-size:10px;" data-bench-dmg-minus data-seat="${seat}" data-index="${index}">-</button>
+      <span>${remaining} / ${maxHp}</span>
+      <button class="small" style="padding:0 4px; font-size:10px;" data-bench-dmg-plus data-seat="${seat}" data-index="${index}">+</button>
+    </div>
+  `;
 }
 
 function cardHtml(cardId, opts = {}) {
@@ -689,7 +698,7 @@ function renderMat() {
       <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">
         ${slot ? `<div class="status-badges">${(slot.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
       </div>
-      ${benchHpLine(slot)}
+      ${benchHpLine(slot, oppSeat, i, true)}
       <div class="bench-tray" data-view-only="1">${(slot && slot.energy || []).map(e => {
         const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
         return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
@@ -718,7 +727,7 @@ function renderMat() {
            data-seat="${mySeat}" data-zone="bench" data-index="${i}">
         ${slot ? cardHtml(slot.card_id) : ''}
       </div>
-      ${benchHpLine(slot)}
+      ${benchHpLine(slot, mySeat, i, false)}
       <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}" data-bench-energy="1">
         ${(slot && slot.energy || []).map(e => {
           const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
@@ -777,6 +786,12 @@ function attachHandlers() {
       e.stopPropagation();
       openLightbox(el.dataset.zoomSrc, el.dataset.zoomAlt);
     });
+  });
+  document.querySelectorAll("[data-bench-dmg-plus]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), 10); });
+  });
+  document.querySelectorAll("[data-bench-dmg-minus]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), -10); });
   });
   document.querySelectorAll(".card-face[data-seat]:not([data-view-only])").forEach(el => {
     if (el.dataset.seat === "__discard__") {
@@ -855,6 +870,30 @@ function handleCardClick(seat, zone, index) {
 function moveSelectedCardTo(destZone, destIndex) {
   const newState = JSON.parse(JSON.stringify(tableState.state));
   const myState = newState[mySeat];
+
+  // Special case: moving between two in-play zones (active<->bench, bench<->bench) onto an occupied slot.
+  // If it's not a valid evolution, swap the two cards in place rather than bumping either to hand.
+  const sourceIsInPlay = selection.zone === "active" || selection.zone === "bench";
+  const destIsInPlay = destZone === "active" || destZone === "bench";
+  if (sourceIsInPlay && destIsInPlay && !(selection.zone === destZone && selection.index === destIndex)) {
+    const sourceSlot = getSlot(myState, selection.zone, selection.index);
+    const destSlot = getSlot(myState, destZone, destIndex);
+    if (destSlot) {
+      const incomingCard = sourceSlot ? allCards[sourceSlot.card_id] : null;
+      const isValidEvolution = incomingCard && incomingCard.evolves_from && destSlot.card_id &&
+        allCards[destSlot.card_id] &&
+        incomingCard.evolves_from.toLowerCase() === allCards[destSlot.card_id].name.toLowerCase();
+      if (!isValidEvolution) {
+        // Straight swap: each card keeps its own damage/energy/status/evolution chain, just trades places
+        setSlot(myState, selection.zone, selection.index, destSlot);
+        setSlot(myState, destZone, destIndex, sourceSlot);
+        selection = null;
+        pushState(newState);
+        return;
+      }
+      // else: fall through to the evolution logic below, which already handles this case correctly
+    }
+  }
 
   // Get the full card data being moved (preserving energy/damage/status if it's already in play), and remove it from its source
   let cardId = null;
@@ -974,6 +1013,15 @@ function adjustDamage(panelEl, delta) {
   if (seat !== mySeat) return;
   const newState = JSON.parse(JSON.stringify(tableState.state));
   const slot = getSlot(newState[seat], zone, parseInt(index));
+  if (!slot) return;
+  slot.damage = Math.max(0, (slot.damage || 0) + delta);
+  pushState(newState);
+}
+
+function adjustBenchDamage(seat, index, delta) {
+  if (seat !== mySeat) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], "bench", index);
   if (!slot) return;
   slot.damage = Math.max(0, (slot.damage || 0) + delta);
   pushState(newState);
