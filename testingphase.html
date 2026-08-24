@@ -91,6 +91,39 @@
     gap: 6px;
     align-items: center;
   }
+  .chat-col {
+    width: 200px;
+    background: #164634;
+    border-radius: 10px;
+    border: 0.5px solid var(--card-border);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chat-col h3 { font-size: 12px; margin: 0; color: var(--accent); text-align: center; }
+  .chat-messages {
+    flex: 1;
+    min-height: 300px;
+    max-height: 70vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    font-size: 11px;
+  }
+  .chat-message { color: var(--text-light); line-height: 1.3; word-wrap: break-word; }
+  .chat-message .sender { color: var(--accent); font-weight: 600; }
+  .chat-message.own .sender { color: #b8dfc6; }
+  .chat-input-row { display: flex; gap: 4px; }
+  .chat-input-row input {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 12px;
+    min-width: 0;
+  }
+  .chat-input-row button { padding: 6px 10px; font-size: 12px; }
   .hand-col h3 { font-size: 12px; margin: 0; color: var(--accent); }
   .hand-list {
     display: flex;
@@ -334,6 +367,14 @@
 <div id="mat-screen">
   <div id="selection-hint"></div>
   <div class="mat">
+    <div class="chat-col">
+      <h3>Table Chat</h3>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Say something...">
+        <button id="chat-send-btn" class="small">Send</button>
+      </div>
+    </div>
     <div class="field-col">
       <div class="field">
         <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
@@ -516,6 +557,9 @@ async function handleJoinTable() {
   document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
   subscribeToTable();
   await refreshOppName();
+  await loadChatHistory();
+  subscribeToChat();
+  setupChatInput();
   renderMat();
 }
 
@@ -550,6 +594,64 @@ async function loadDeckIntoSeat() {
   await pushState(newState);
 }
 
+// ---------- Table chat ----------
+let chatMessages = [];
+let chatChannel = null;
+
+async function loadChatHistory() {
+  const { data, error } = await supabaseClient
+    .from("table_chat_messages")
+    .select("*")
+    .eq("table_id", tableId)
+    .order("created_at", { ascending: true });
+  if (error) { console.error(error); return; }
+  chatMessages = data || [];
+  renderChat();
+}
+
+function subscribeToChat() {
+  chatChannel = supabaseClient
+    .channel(`table_chat_${tableId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "table_chat_messages", filter: `table_id=eq.${tableId}` },
+      (payload) => {
+        chatMessages.push(payload.new);
+        renderChat();
+      })
+    .subscribe();
+}
+
+function renderChat() {
+  const container = document.getElementById("chat-messages");
+  if (!container) return;
+  container.innerHTML = chatMessages.map(m => `
+    <div class="chat-message ${m.player_id === currentPlayer.id ? 'own' : ''}">
+      <span class="sender">${escapeHtml(m.sender_name)}:</span> ${escapeHtml(m.message)}
+    </div>
+  `).join("");
+  container.scrollTop = container.scrollHeight;
+}
+
+function setupChatInput() {
+  const input = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send-btn");
+  const send = async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    const { error } = await supabaseClient.from("table_chat_messages").insert({
+      table_id: tableId,
+      player_id: currentPlayer.id,
+      sender_name: currentPlayer.display_name,
+      message: text
+    });
+    if (error) console.error("Failed to send chat message:", error);
+  };
+  sendBtn.addEventListener("click", send);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") send();
+  });
+}
+
 // ---------- Realtime sync ----------
 function subscribeToTable() {
   realtimeChannel = supabaseClient
@@ -580,6 +682,10 @@ async function handleEndMatch() {
   if (realtimeChannel) {
     supabaseClient.removeChannel(realtimeChannel);
     realtimeChannel = null;
+  }
+  if (chatChannel) {
+    supabaseClient.removeChannel(chatChannel);
+    chatChannel = null;
   }
 
   const { error } = await supabaseClient.from("battle_tables").delete().eq("id", tableId);
@@ -869,9 +975,18 @@ function moveSelectedCardTo(destZone, destIndex) {
   const newState = JSON.parse(JSON.stringify(tableState.state));
   const myState = newState[mySeat];
 
+  // Played cards (active/bench) never return to hand — hand can't store their energy/damage/status/
+  // evolution history, and there's no game reason for it. Block this rather than silently losing data.
+  const sourceIsInPlay = selection.zone === "active" || selection.zone === "bench";
+  if (sourceIsInPlay && destZone === "hand") {
+    setStatus("A played Bakemon can't go back to your hand. Move it to discard instead if you need to remove it.");
+    selection = null;
+    pushState(newState);
+    return;
+  }
+
   // Special case: moving between two in-play zones (active<->bench, bench<->bench) onto an occupied slot.
   // If it's not a valid evolution, swap the two cards in place rather than bumping either to hand.
-  const sourceIsInPlay = selection.zone === "active" || selection.zone === "bench";
   const destIsInPlay = destZone === "active" || destZone === "bench";
   if (sourceIsInPlay && destIsInPlay && !(selection.zone === destZone && selection.index === destIndex)) {
     const sourceSlot = getSlot(myState, selection.zone, selection.index);
@@ -954,12 +1069,21 @@ function moveSelectedCardTo(destZone, destIndex) {
         energy: existing.energy || [],
         status: existing.status || []
       });
-    } else {
-      if (existing) {
-        // This is a basic (non-evolving) card being placed on an occupied slot — swap the existing card back to hand to avoid losing it.
-        myState.hand.push(existing.card_id);
+    } else if (existing) {
+      // Slot is occupied and this isn't a valid evolution — refuse the move rather than bumping
+      // whatever's there back to hand. Played cards should never return to hand automatically;
+      // the player must explicitly move the existing card out (e.g. to bench or discard) first.
+      setStatus(`That slot already has a Bakemon in it. Move it out first before placing a new one there.`);
+      if (selection.zone === "hand") {
+        myState.hand.push(cardId);
+      } else if (movingSlot) {
+        setSlot(myState, selection.zone, selection.index, movingSlot);
       }
-      // Carry over damage/energy/status if this card was already in play; start fresh only if it came from hand
+      selection = null;
+      pushState(newState);
+      return;
+    } else {
+      // Slot is empty — place freely
       const newSlot = movingSlot
         ? { card_id: cardId, evolved_from: movingSlot.evolved_from || [], damage: movingSlot.damage || 0, energy: movingSlot.energy || [], status: movingSlot.status || [] }
         : { card_id: cardId, evolved_from: [], damage: 0, energy: [], status: [] };
