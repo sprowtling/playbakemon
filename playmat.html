@@ -91,6 +91,37 @@
     gap: 6px;
     align-items: center;
   }
+  .chat-strip {
+    margin-top: 12px;
+    background: #164634;
+    border-radius: 10px;
+    border: 0.5px solid var(--card-border);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chat-strip h3 { font-size: 12px; margin: 0; color: var(--accent); }
+  .chat-messages {
+    max-height: 140px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px;
+    font-size: 11px;
+  }
+  .chat-message { color: var(--text-light); line-height: 1.3; word-wrap: break-word; }
+  .chat-message .sender { color: var(--accent); font-weight: 600; }
+  .chat-message.own .sender { color: #b8dfc6; }
+  .chat-input-row { display: flex; gap: 4px; }
+  .chat-input-row input {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 12px;
+    min-width: 0;
+  }
+  .chat-input-row button { padding: 6px 10px; font-size: 12px; }
   .hand-col h3 { font-size: 12px; margin: 0; color: var(--accent); }
   .hand-list {
     display: flex;
@@ -168,6 +199,40 @@
   }
   .card-face.selected { outline: 3px solid var(--accent); outline-offset: 1px; }
   .card-face.hand-card { width: 80px; height: 112px; flex-shrink: 0; }
+  .zoom-btn {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    line-height: 1;
+    font-size: 10px;
+    border-radius: 50%;
+    z-index: 3;
+    background: rgba(253,246,227,0.9);
+    border: 1px solid var(--card-border);
+    cursor: zoom-in;
+  }
+  .card-face.active-size .zoom-btn { width: 20px; height: 20px; font-size: 12px; }
+
+  #lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  }
+  #lightbox-overlay img {
+    max-width: 80vw;
+    max-height: 80vh;
+    border-radius: 12px;
+    border: 3px solid var(--card-border);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  }
 
   .status-badges {
     position: absolute;
@@ -325,10 +390,22 @@
       <div class="hand-list" id="hand-list"></div>
     </div>
   </div>
+  <div class="chat-strip">
+    <h3>Table Chat</h3>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Say something...">
+      <button id="chat-send-btn" class="small">Send</button>
+    </div>
+  </div>
 </div>
 
 <div id="energy-picker"></div>
 <div id="status-picker"></div>
+
+<div id="lightbox-overlay">
+  <img id="lightbox-img" src="" alt="">
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -359,6 +436,8 @@ let tableId = null;
 let roomCode = null;
 let mySeat = null;       // "player_1" or "player_2"
 let oppSeat = null;
+let oppDisplayName = null;
+let oppNameFetchedForId = null;
 let tableState = null;   // full row from battle_tables
 let selection = null;    // { seat, zone, index } of currently selected card
 let realtimeChannel = null;
@@ -472,8 +551,23 @@ async function handleJoinTable() {
   document.getElementById("setup-screen").style.display = "none";
   document.getElementById("mat-screen").style.display = "block";
   buildActionBar();
+  document.getElementById("header-controls").innerHTML = `<button id="end-match-btn" class="small">End Match</button>`;
+  document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
   subscribeToTable();
+  await refreshOppName();
+  await loadChatHistory();
+  subscribeToChat();
+  setupChatInput();
   renderMat();
+}
+
+async function refreshOppName() {
+  const oppId = oppSeat === "player_1" ? tableState.player_1_id : tableState.player_2_id;
+  if (!oppId) { oppDisplayName = null; return; }
+  if (oppNameFetchedForId === oppId) return; // already have it
+  const { data } = await supabaseClient.from("players").select("display_name").eq("id", oppId).maybeSingle();
+  oppDisplayName = data ? data.display_name : "Opponent";
+  oppNameFetchedForId = oppId;
 }
 
 async function loadDeckIntoSeat() {
@@ -498,13 +592,72 @@ async function loadDeckIntoSeat() {
   await pushState(newState);
 }
 
+// ---------- Table chat ----------
+let chatMessages = [];
+let chatChannel = null;
+
+async function loadChatHistory() {
+  const { data, error } = await supabaseClient
+    .from("table_chat_messages")
+    .select("*")
+    .eq("table_id", tableId)
+    .order("created_at", { ascending: true });
+  if (error) { console.error(error); return; }
+  chatMessages = data || [];
+  renderChat();
+}
+
+function subscribeToChat() {
+  chatChannel = supabaseClient
+    .channel(`table_chat_${tableId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "table_chat_messages", filter: `table_id=eq.${tableId}` },
+      (payload) => {
+        chatMessages.push(payload.new);
+        renderChat();
+      })
+    .subscribe();
+}
+
+function renderChat() {
+  const container = document.getElementById("chat-messages");
+  if (!container) return;
+  container.innerHTML = chatMessages.map(m => `
+    <div class="chat-message ${m.player_id === currentPlayer.id ? 'own' : ''}">
+      <span class="sender">${escapeHtml(m.sender_name)}:</span> ${escapeHtml(m.message)}
+    </div>
+  `).join("");
+  container.scrollTop = container.scrollHeight;
+}
+
+function setupChatInput() {
+  const input = document.getElementById("chat-input");
+  const sendBtn = document.getElementById("chat-send-btn");
+  const send = async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    const { error } = await supabaseClient.from("table_chat_messages").insert({
+      table_id: tableId,
+      player_id: currentPlayer.id,
+      sender_name: currentPlayer.display_name,
+      message: text
+    });
+    if (error) console.error("Failed to send chat message:", error);
+  };
+  sendBtn.addEventListener("click", send);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") send();
+  });
+}
+
 // ---------- Realtime sync ----------
 function subscribeToTable() {
   realtimeChannel = supabaseClient
     .channel(`battle_table_${tableId}`)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
-      (payload) => {
+      async (payload) => {
         tableState = payload.new;
+        await refreshOppName();
         renderMat();
       })
     .subscribe();
@@ -520,6 +673,29 @@ async function pushState(newState) {
 }
 
 // ---------- Rendering ----------
+async function handleEndMatch() {
+  const confirmed = confirm(`End this match and free up room code "${roomCode}"? Both players will be disconnected and the code can be reused.`);
+  if (!confirmed) return;
+
+  if (realtimeChannel) {
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  if (chatChannel) {
+    supabaseClient.removeChannel(chatChannel);
+    chatChannel = null;
+  }
+
+  const { error } = await supabaseClient.from("battle_tables").delete().eq("id", tableId);
+  if (error) {
+    console.error(error);
+    alert("Couldn't end the match — try again.");
+    return;
+  }
+
+  location.reload();
+}
+
 function buildActionBar() {
   const bar = document.getElementById("action-bar");
   bar.innerHTML = `
@@ -532,11 +708,31 @@ function buildActionBar() {
   document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
 }
 
+function benchHpLine(slot, seat, index, viewOnly) {
+  if (!slot || !slot.card_id) return "";
+  const card = allCards[slot.card_id];
+  if (!card) return "";
+  const maxHp = card.hp;
+  const remaining = Math.max(0, maxHp - (slot.damage || 0));
+  if (viewOnly) {
+    return `<div style="font-size:9px; color:#e0c9a8; text-align:center;">${remaining} / ${maxHp}</div>`;
+  }
+  return `
+    <div style="display:flex; align-items:center; justify-content:center; gap:3px; font-size:9px; color:#e0c9a8;">
+      <button class="small" style="padding:0 4px; font-size:10px;" data-bench-dmg-minus data-seat="${seat}" data-index="${index}">-</button>
+      <span>${remaining} / ${maxHp}</span>
+      <button class="small" style="padding:0 4px; font-size:10px;" data-bench-dmg-plus data-seat="${seat}" data-index="${index}">+</button>
+    </div>
+  `;
+}
+
 function cardHtml(cardId, opts = {}) {
   const card = allCards[cardId];
   if (!card) return `<div class="card-face empty"></div>`;
-  const img = card.image_filename ? `<img src="${CARD_IMAGE_BASE}${card.image_filename}" onerror="this.style.display='none'">` : "";
-  return `${img}<div class="label">${escapeHtml(card.name)}</div>`;
+  const imgUrl = card.image_filename ? `${CARD_IMAGE_BASE}${card.image_filename}` : "";
+  const img = imgUrl ? `<img src="${imgUrl}" onerror="this.style.display='none'">` : "";
+  const zoomBtn = imgUrl ? `<button class="zoom-btn" data-zoom-src="${imgUrl}" data-zoom-alt="${escapeHtml(card.name)}" title="View larger">🔍</button>` : "";
+  return `${zoomBtn}${img}<div class="label">${escapeHtml(card.name)}</div>`;
 }
 
 function renderSidePanel(seat, zone, index, slot) {
@@ -557,11 +753,32 @@ function renderSidePanel(seat, zone, index, slot) {
       <div class="divider-line" style="width:100%;"></div>
       <div class="dmg-controls">
         <button data-dmg-minus="1">-</button>
-        <span>${slot.damage || 0}</span>
+        <span class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></span>
         <button data-dmg-plus="1">+</button>
       </div>
-      <div class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></div>
       <button class="small" data-add-status="1" style="margin-top:2px;">+ status</button>
+    </div>
+  `;
+}
+
+// Read-only variant for viewing the opponent's board — same info, no edit controls
+function renderReadOnlySidePanel(slot) {
+  if (!slot || !slot.card_id) return "";
+  const card = allCards[slot.card_id];
+  const maxHp = card ? card.hp : 0;
+  const remaining = Math.max(0, maxHp - (slot.damage || 0));
+  const energyDots = (slot.energy || []).map(e => {
+    const meta = ENERGY_TYPES.find(t => t.key === e) || { color: "#999" };
+    return `<span class="energy-dot" style="background:${meta.color}"></span>`;
+  }).join("");
+  const statusBadges = (slot.status || []).map(s => `<span class="status-badge">${s}</span>`).join("");
+  return `
+    <div class="side-panel" data-view-only="1">
+      <div class="row" style="width:100%; justify-content:space-between; flex-wrap:wrap;">${statusBadges}</div>
+      <div>Energy</div>
+      <div class="energy-dots">${energyDots || '<span style="font-size:9px; opacity:0.6;">none</span>'}</div>
+      <div class="divider-line" style="width:100%;"></div>
+      <div class="remaining">${remaining}<span style="font-size:8px; font-weight:400;"> / ${maxHp}</span></div>
     </div>
   `;
 }
@@ -571,15 +788,19 @@ function renderMat() {
   const myState = tableState.state[mySeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
   const oppState = tableState.state[oppSeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
 
+  document.getElementById("opp-name-label").textContent = oppDisplayName || "Waiting for opponent...";
   document.getElementById("opp-zone-counts").textContent =
     `Deck ${ (oppState.deck||[]).length } · Discard ${ (oppState.discard||[]).length } · Hand ${ (oppState.hand||[]).length }`;
   document.getElementById("my-zone-counts").innerHTML =
-    `<span>You</span><span>Deck ${ (myState.deck||[]).length } · Discard ${ (myState.discard||[]).length }</span>`;
+    `<span>${escapeHtml(currentPlayer.display_name)}</span><span>Deck ${ (myState.deck||[]).length } · Discard ${ (myState.discard||[]).length }</span>`;
 
-  // Opponent bench (read-only, no side panel to keep it compact, but energy/status visible via badges)
+  // Opponent bench — read-only, shows energy/damage/status same as your own bench
   document.getElementById("opp-bench").innerHTML = (oppState.bench || [null,null,null]).map((slot, i) => `
     <div class="bench-slot">
-      <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">${slot ? cardHtml(slot.card_id) : ''}</div>
+      <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">
+        ${slot ? `<div class="status-badges">${(slot.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
+      </div>
+      ${benchHpLine(slot, oppSeat, i, true)}
       <div class="bench-tray" data-view-only="1">${(slot && slot.energy || []).map(e => {
         const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
         return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
@@ -588,9 +809,10 @@ function renderMat() {
   `).join("");
 
   document.getElementById("opp-active-row").innerHTML = `
-    <div class="card-face active-size" data-seat="${oppSeat}" data-zone="active" data-index="0">
+    <div class="card-face active-size" data-view-only="1">
       ${oppState.active ? `<div class="status-badges">${(oppState.active.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(oppState.active.card_id)}` : ''}
     </div>
+    ${renderReadOnlySidePanel(oppState.active)}
   `;
 
   document.getElementById("my-active-row").innerHTML = `
@@ -607,6 +829,7 @@ function renderMat() {
            data-seat="${mySeat}" data-zone="bench" data-index="${i}">
         ${slot ? cardHtml(slot.card_id) : ''}
       </div>
+      ${benchHpLine(slot, mySeat, i, false)}
       <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}" data-bench-energy="1">
         ${(slot && slot.energy || []).map(e => {
           const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
@@ -632,8 +855,25 @@ function renderMat() {
   attachHandlers();
 }
 
+let flashMessage = null;
+let flashMessageTimer = null;
+
+function setStatus(msg) {
+  flashMessage = msg;
+  if (flashMessageTimer) clearTimeout(flashMessageTimer);
+  updateSelectionHint();
+  flashMessageTimer = setTimeout(() => {
+    flashMessage = null;
+    updateSelectionHint();
+  }, 2500);
+}
+
 function updateSelectionHint() {
   const hint = document.getElementById("selection-hint");
+  if (flashMessage) {
+    hint.textContent = flashMessage;
+    return;
+  }
   if (!selection) {
     hint.textContent = "Click a card to select it, then click where you want to move it.";
   } else {
@@ -643,6 +883,18 @@ function updateSelectionHint() {
 
 // ---------- Interaction ----------
 function attachHandlers() {
+  document.querySelectorAll(".zoom-btn[data-zoom-src]").forEach(el => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openLightbox(el.dataset.zoomSrc, el.dataset.zoomAlt);
+    });
+  });
+  document.querySelectorAll("[data-bench-dmg-plus]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), -10); });
+  });
+  document.querySelectorAll("[data-bench-dmg-minus]").forEach(el => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustBenchDamage(el.dataset.seat, parseInt(el.dataset.index), 10); });
+  });
   document.querySelectorAll(".card-face[data-seat]:not([data-view-only])").forEach(el => {
     if (el.dataset.seat === "__discard__") {
       el.addEventListener("click", () => handleDiscardClick());
@@ -651,10 +903,10 @@ function attachHandlers() {
     }
   });
   document.querySelectorAll("[data-dmg-plus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), -10); });
   });
   document.querySelectorAll("[data-dmg-minus]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), -10); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
   });
   document.querySelectorAll("[data-add-energy]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); openEnergyPicker(e.target.closest(".side-panel")); });
@@ -721,8 +973,42 @@ function moveSelectedCardTo(destZone, destIndex) {
   const newState = JSON.parse(JSON.stringify(tableState.state));
   const myState = newState[mySeat];
 
-  // Get the card_id being moved, and remove it from its source
+  // Played cards (active/bench) never return to hand — hand can't store their energy/damage/status/
+  // evolution history, and there's no game reason for it. Block this rather than silently losing data.
+  const sourceIsInPlay = selection.zone === "active" || selection.zone === "bench";
+  if (sourceIsInPlay && destZone === "hand") {
+    setStatus("A played Bakemon can't go back to your hand. Move it to discard instead if you need to remove it.");
+    selection = null;
+    pushState(newState);
+    return;
+  }
+
+  // Special case: moving between two in-play zones (active<->bench, bench<->bench) onto an occupied slot.
+  // If it's not a valid evolution, swap the two cards in place rather than bumping either to hand.
+  const destIsInPlay = destZone === "active" || destZone === "bench";
+  if (sourceIsInPlay && destIsInPlay && !(selection.zone === destZone && selection.index === destIndex)) {
+    const sourceSlot = getSlot(myState, selection.zone, selection.index);
+    const destSlot = getSlot(myState, destZone, destIndex);
+    if (destSlot) {
+      const incomingCard = sourceSlot ? allCards[sourceSlot.card_id] : null;
+      const isValidEvolution = incomingCard && incomingCard.evolves_from && destSlot.card_id &&
+        allCards[destSlot.card_id] &&
+        incomingCard.evolves_from.toLowerCase() === allCards[destSlot.card_id].name.toLowerCase();
+      if (!isValidEvolution) {
+        // Straight swap: each card keeps its own damage/energy/status/evolution chain, just trades places
+        setSlot(myState, selection.zone, selection.index, destSlot);
+        setSlot(myState, destZone, destIndex, sourceSlot);
+        selection = null;
+        pushState(newState);
+        return;
+      }
+      // else: fall through to the evolution logic below, which already handles this case correctly
+    }
+  }
+
+  // Get the full card data being moved (preserving energy/damage/status if it's already in play), and remove it from its source
   let cardId = null;
+  let movingSlot = null; // full slot data if moving from active/bench, null if from hand
   if (selection.zone === "hand") {
     cardId = myState.hand[selection.index];
     myState.hand.splice(selection.index, 1);
@@ -730,6 +1016,7 @@ function moveSelectedCardTo(destZone, destIndex) {
     const slot = getSlot(myState, selection.zone, selection.index);
     if (slot) {
       cardId = slot.card_id;
+      movingSlot = slot;
       setSlot(myState, selection.zone, selection.index, null);
     }
   }
@@ -741,14 +1028,65 @@ function moveSelectedCardTo(destZone, destIndex) {
     myState.hand.push(cardId);
   } else if (destZone === "discard") {
     myState.discard = myState.discard || [];
+    // If this was an evolved stack (active/bench card being discarded), send the whole chain to discard, not just the top card
+    if (movingSlot && movingSlot.evolved_from && movingSlot.evolved_from.length) {
+      myState.discard.push(...movingSlot.evolved_from);
+    }
     myState.discard.push(cardId);
   } else if (destZone === "active" || destZone === "bench") {
     const existing = getSlot(myState, destZone, destIndex);
-    if (existing) {
-      // swap: put existing card back to hand to avoid losing it
-      myState.hand.push(existing.card_id);
+    const incomingCard = allCards[cardId];
+    const evolvesFromExisting = existing && incomingCard && incomingCard.evolves_from &&
+      existing.card_id && allCards[existing.card_id] &&
+      incomingCard.evolves_from.toLowerCase() === allCards[existing.card_id].name.toLowerCase();
+
+    // An evolution card can't enter play on its own, and can't be placed onto the wrong base — it must go onto its actual pre-evolution.
+    if (incomingCard && incomingCard.evolves_from && !evolvesFromExisting) {
+      const reason = existing
+        ? `${incomingCard.name} evolves from ${incomingCard.evolves_from}, not ${allCards[existing.card_id]?.name || 'that card'}.`
+        : `${incomingCard.name} evolves from ${incomingCard.evolves_from} — place it onto that card, not an empty slot.`;
+      setStatus(reason);
+      // Put the card back where it came from rather than losing it
+      if (selection.zone === "hand") {
+        myState.hand.push(cardId);
+      } else if (movingSlot) {
+        setSlot(myState, selection.zone, selection.index, movingSlot);
+      }
+      selection = null;
+      pushState(newState);
+      return;
     }
-    setSlot(myState, destZone, destIndex, { card_id: cardId, damage: 0, energy: [], status: [] });
+
+    if (existing && evolvesFromExisting) {
+      // Evolution: stack on top, carrying damage/energy/status forward, tracking the evolution chain for later discard
+      const priorChain = existing.evolved_from || [];
+      setSlot(myState, destZone, destIndex, {
+        card_id: cardId,
+        evolved_from: [...priorChain, existing.card_id],
+        damage: existing.damage || 0,
+        energy: existing.energy || [],
+        status: existing.status || []
+      });
+    } else if (existing) {
+      // Slot is occupied and this isn't a valid evolution — refuse the move rather than bumping
+      // whatever's there back to hand. Played cards should never return to hand automatically;
+      // the player must explicitly move the existing card out (e.g. to bench or discard) first.
+      setStatus(`That slot already has a Bakemon in it. Move it out first before placing a new one there.`);
+      if (selection.zone === "hand") {
+        myState.hand.push(cardId);
+      } else if (movingSlot) {
+        setSlot(myState, selection.zone, selection.index, movingSlot);
+      }
+      selection = null;
+      pushState(newState);
+      return;
+    } else {
+      // Slot is empty — place freely
+      const newSlot = movingSlot
+        ? { card_id: cardId, evolved_from: movingSlot.evolved_from || [], damage: movingSlot.damage || 0, energy: movingSlot.energy || [], status: movingSlot.status || [] }
+        : { card_id: cardId, evolved_from: [], damage: 0, energy: [], status: [] };
+      setSlot(myState, destZone, destIndex, newSlot);
+    }
   }
 
   selection = null;
@@ -795,6 +1133,15 @@ function adjustDamage(panelEl, delta) {
   if (seat !== mySeat) return;
   const newState = JSON.parse(JSON.stringify(tableState.state));
   const slot = getSlot(newState[seat], zone, parseInt(index));
+  if (!slot) return;
+  slot.damage = Math.max(0, (slot.damage || 0) + delta);
+  pushState(newState);
+}
+
+function adjustBenchDamage(seat, index, delta) {
+  if (seat !== mySeat) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  const slot = getSlot(newState[seat], "bench", index);
   if (!slot) return;
   slot.damage = Math.max(0, (slot.damage || 0) + delta);
   pushState(newState);
@@ -871,6 +1218,20 @@ function removeStatus(panelEl, statusType) {
   slot.status = slot.status.filter(s => s !== statusType);
   pushState(newState);
 }
+
+function openLightbox(src, alt) {
+  const overlay = document.getElementById("lightbox-overlay");
+  const img = document.getElementById("lightbox-img");
+  img.src = src;
+  img.alt = alt || "";
+  overlay.style.display = "flex";
+}
+document.getElementById("lightbox-overlay").addEventListener("click", () => {
+  document.getElementById("lightbox-overlay").style.display = "none";
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
+});
 
 loadKnownPlayers();
 </script>
