@@ -91,25 +91,23 @@
     gap: 6px;
     align-items: center;
   }
-  .chat-col {
-    width: 200px;
+  .chat-strip {
+    margin-top: 12px;
     background: #164634;
     border-radius: 10px;
     border: 0.5px solid var(--card-border);
-    padding: 10px 8px;
+    padding: 10px 12px;
     display: flex;
     flex-direction: column;
     gap: 6px;
   }
-  .chat-col h3 { font-size: 12px; margin: 0; color: var(--accent); text-align: center; }
+  .chat-strip h3 { font-size: 12px; margin: 0; color: var(--accent); }
   .chat-messages {
-    flex: 1;
-    min-height: 300px;
-    max-height: 70vh;
+    max-height: 140px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     padding: 4px;
     font-size: 11px;
   }
@@ -367,14 +365,6 @@
 <div id="mat-screen">
   <div id="selection-hint"></div>
   <div class="mat">
-    <div class="chat-col">
-      <h3>Table Chat</h3>
-      <div class="chat-messages" id="chat-messages"></div>
-      <div class="chat-input-row">
-        <input type="text" id="chat-input" placeholder="Say something...">
-        <button id="chat-send-btn" class="small">Send</button>
-      </div>
-    </div>
     <div class="field-col">
       <div class="field">
         <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
@@ -398,6 +388,14 @@
       <h3>Your Hand</h3>
       <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
       <div class="hand-list" id="hand-list"></div>
+    </div>
+  </div>
+  <div class="chat-strip">
+    <h3>Table Chat</h3>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Say something...">
+      <button id="chat-send-btn" class="small">Send</button>
     </div>
   </div>
 </div>
