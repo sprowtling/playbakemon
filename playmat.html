@@ -180,7 +180,7 @@
     border: 1.5px dashed #6fae8d;
     cursor: pointer;
   }
-  .card-face.active-size { width: 126px; height: 172px; }
+  .card-face.active-size { width: 139px; height: 195px; }
   .card-face.item-slot {
     width: 84px;
     height: 118px;
@@ -292,6 +292,24 @@
     font-size: 7px; color: #222; cursor: pointer; border: 1px solid rgba(0,0,0,0.2);
   }
 
+  .score-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 4px 0;
+  }
+  .score-label { font-size: 11px; color: var(--text-muted); }
+  .score-orbs { display: flex; gap: 5px; }
+  .score-orb {
+    width: 16px; height: 16px; border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    background: transparent;
+    cursor: pointer;
+  }
+  .score-orb.filled { background: var(--accent); }
+  .score-orbs[data-view-only] .score-orb { cursor: default; }
+
   .bench-tray {
     width: 56px;
     height: 15px;
@@ -388,7 +406,15 @@
         <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
         <div class="bench-row" id="opp-bench"></div>
         <div class="active-row" id="opp-active-row"></div>
+        <div class="score-row" id="opp-score-row">
+          <span class="score-label">Points</span>
+          <div class="score-orbs" id="opp-score-orbs" data-view-only="1"></div>
+        </div>
         <div class="divider-line"></div>
+        <div class="score-row" id="my-score-row">
+          <span class="score-label">Points</span>
+          <div class="score-orbs" id="my-score-orbs"></div>
+        </div>
         <div class="active-row" id="my-active-row"></div>
         <div class="my-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-top:16px; flex-wrap:wrap;">
           <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed; flex-shrink:0;">
@@ -605,7 +631,8 @@ async function loadDeckIntoSeat() {
     item_slot: null,
     hand: [],
     deck: pile,
-    discard: []
+    discard: [],
+    score: 0
   };
   const newState = { ...tableState.state, [mySeat]: newSeatState };
   await pushState(newState);
@@ -679,7 +706,33 @@ function subscribeToTable() {
         await refreshOppName();
         renderMat();
       })
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
+      (payload) => {
+        // Defensive check: DELETE filtering isn't always reliable server-side, so confirm
+        // the deleted row is actually our table before reacting.
+        if (payload.old && payload.old.id && payload.old.id !== tableId) return;
+        handleMatchEndedByOpponent();
+      })
     .subscribe();
+}
+
+function handleMatchEndedByOpponent() {
+  if (realtimeChannel) {
+    supabaseClient.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  if (chatChannel) {
+    supabaseClient.removeChannel(chatChannel);
+    chatChannel = null;
+  }
+  const matScreen = document.getElementById("mat-screen");
+  matScreen.innerHTML = `
+    <div style="max-width:420px; margin:80px auto; background:var(--mat-green); padding:28px; border-radius:12px; text-align:center;">
+      <h2 style="color:var(--accent); margin-top:0;">Match ended</h2>
+      <p style="color:var(--text-light);">${oppDisplayName || "Your opponent"} ended the match. Returning to the login screen...</p>
+    </div>
+  `;
+  setTimeout(() => { location.reload(); }, 2500);
 }
 
 async function pushState(newState) {
@@ -813,6 +866,14 @@ function renderMat() {
   document.getElementById("my-zone-counts").innerHTML =
     `<span>${escapeHtml(currentPlayer.display_name)}</span><span>Deck ${ (myState.deck||[]).length } · Discard ${ (myState.discard||[]).length }</span>`;
 
+  const WIN_SCORE = 4;
+  document.getElementById("opp-score-orbs").innerHTML = Array.from({length: WIN_SCORE}, (_, i) => `
+    <div class="score-orb ${(oppState.score || 0) > i ? 'filled' : ''}"></div>
+  `).join("");
+  document.getElementById("my-score-orbs").innerHTML = Array.from({length: WIN_SCORE}, (_, i) => `
+    <div class="score-orb ${(myState.score || 0) > i ? 'filled' : ''}" data-score-index="${i}"></div>
+  `).join("");
+
   // Opponent bench — read-only, shows energy/damage/status same as your own bench
   document.getElementById("opp-bench").innerHTML = (oppState.bench || [null,null,null]).map((slot, i) => `
     <div class="bench-slot">
@@ -856,11 +917,12 @@ function renderMat() {
         ${slot ? cardHtml(slot.card_id) : ''}
       </div>
       ${benchHpLine(slot, mySeat, i, false)}
-      <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}" data-bench-energy="1">
-        ${(slot && slot.energy || []).map(e => {
+      <div class="bench-tray" data-seat="${mySeat}" data-zone="bench" data-index="${i}">
+        ${(slot && slot.energy || []).map((e, ei) => {
           const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
-          return `<span class="energy-dot" style="background:${meta.color}"></span>`;
+          return `<span class="energy-dot" style="background:${meta.color}" data-remove-energy="${ei}" title="${e} (click to remove)"></span>`;
         }).join('')}
+        ${slot ? `<span class="energy-dot" style="background:transparent; border:1px dashed #e0c9a8;" data-add-energy="1">+</span>` : ''}
       </div>
     </div>
   `).join("");
@@ -909,6 +971,17 @@ function updateSelectionHint() {
 
 // ---------- Interaction ----------
 function attachHandlers() {
+  document.querySelectorAll("#my-score-orbs [data-score-index]").forEach(el => {
+    el.addEventListener("click", () => {
+      const clickedIndex = parseInt(el.dataset.scoreIndex);
+      const newState = JSON.parse(JSON.stringify(tableState.state));
+      const myState = newState[mySeat];
+      const currentScore = myState.score || 0;
+      // Clicking the topmost filled orb again removes a point; otherwise fill up to the clicked orb
+      myState.score = (currentScore === clickedIndex + 1) ? clickedIndex : clickedIndex + 1;
+      pushState(newState);
+    });
+  });
   document.querySelectorAll(".zoom-btn[data-zoom-src]").forEach(el => {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -935,22 +1008,16 @@ function attachHandlers() {
     el.addEventListener("click", (e) => { e.stopPropagation(); adjustDamage(e.target.closest(".side-panel"), 10); });
   });
   document.querySelectorAll("[data-add-energy]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); openEnergyPicker(e.target.closest(".side-panel")); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); openEnergyPicker(e.target.closest("[data-seat]")); });
   });
   document.querySelectorAll("[data-remove-energy]").forEach(el => {
-    el.addEventListener("click", (e) => { e.stopPropagation(); removeEnergy(e.target.closest(".side-panel"), parseInt(e.target.dataset.removeEnergy)); });
+    el.addEventListener("click", (e) => { e.stopPropagation(); removeEnergy(e.target.closest("[data-seat]"), parseInt(e.target.dataset.removeEnergy)); });
   });
   document.querySelectorAll("[data-add-status]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); openStatusPicker(e.target.closest(".side-panel")); });
   });
   document.querySelectorAll("[data-remove-status]").forEach(el => {
     el.addEventListener("click", (e) => { e.stopPropagation(); removeStatus(e.target.closest(".side-panel"), e.target.dataset.removeStatus); });
-  });
-  document.querySelectorAll(".bench-tray[data-bench-energy]").forEach(el => {
-    el.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openEnergyPicker({ dataset: { seat: el.dataset.seat, zone: el.dataset.zone, index: el.dataset.index } });
-    });
   });
 }
 
