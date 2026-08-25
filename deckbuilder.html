@@ -290,15 +290,18 @@
 
 <header>
   <h1>🃏 Bakemon Deck Editor</h1>
-  <div id="player-bar"></div>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <div id="bakemon-shared-header-slot" data-page="deckbuilder"></div>
+    <div id="player-bar"></div>
+  </div>
 </header>
 
 <div id="login-screen">
   <h2>Who's building a deck?</h2>
-  <input type="text" id="name-input" placeholder="Type your name...">
+  <input type="text" id="name-input" placeholder="Type your name..." list="known-players">
   <datalist id="known-players"></datalist>
   <button class="primary" id="login-btn">Continue</button>
-  <p>Sign up or log in with your character's name. Your collection will be permanently saved.</p>
+  <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
 </div>
 
 <div id="lightbox-overlay">
@@ -313,8 +316,7 @@
 
   <div id="collection-view">
     <div style="margin-bottom:12px; font-size:13px; color:var(--text-light);">
-      Track your card collection! Click a card to add a copy you've found. Use the minus button to remove one (e.g. if traded away or lost).<P> Only cards that have been revealed to the party will be visible.
-      </P>
+      Click a card to add a copy you've found. Use the minus button to remove one (e.g. if traded away or lost).
     </div>
     <div id="filters">
       <input type="text" id="collection-search-input" placeholder="Search by name...">
@@ -361,6 +363,7 @@
   </div>
 </div>
 
+<script src="shared-header.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ---- Supabase setup ----
