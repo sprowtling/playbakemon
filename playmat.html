@@ -80,8 +80,8 @@
     gap: 12px;
   }
   .field-col { flex: 1; }
-  .hand-col {
-    width: 130px;
+  .chat-col {
+    width: 200px;
     background: #164634;
     border-radius: 10px;
     border: 0.5px solid var(--card-border);
@@ -89,9 +89,8 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    align-items: center;
   }
-  .chat-strip {
+  .hand-strip {
     margin-top: 12px;
     background: #164634;
     border-radius: 10px;
@@ -101,13 +100,16 @@
     flex-direction: column;
     gap: 6px;
   }
-  .chat-strip h3 { font-size: 12px; margin: 0; color: var(--accent); }
+  .hand-strip h3 { font-size: 12px; margin: 0; color: var(--accent); }
+  .chat-col h3 { font-size: 12px; margin: 0; color: var(--accent); text-align: center; }
   .chat-messages {
-    max-height: 140px;
+    flex: 1;
+    min-height: 200px;
+    max-height: 60vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     padding: 4px;
     font-size: 11px;
   }
@@ -122,16 +124,14 @@
     min-width: 0;
   }
   .chat-input-row button { padding: 6px 10px; font-size: 12px; }
-  .hand-col h3 { font-size: 12px; margin: 0; color: var(--accent); }
   .hand-list {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-height: 70vh;
-    overflow-y: auto;
-    width: 100%;
+    flex-direction: row;
+    gap: 8px;
+    max-width: 100%;
+    overflow-x: auto;
     align-items: center;
-    padding: 2px 0;
+    padding: 4px 2px;
   }
   .field {
     background: var(--mat-green);
@@ -180,7 +180,24 @@
     border: 1.5px dashed #6fae8d;
     cursor: pointer;
   }
-  .card-face.active-size { width: 84px; height: 118px; }
+  .card-face.active-size { width: 139px; height: 195px; }
+  .card-face.item-slot {
+    width: 84px;
+    height: 118px;
+    border-style: dashed;
+  }
+  .card-face.item-slot.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 11px;
+    color: #9fc7ae;
+  }
+  .card-face.item-slot.empty .label {
+    position: static;
+    background: none;
+  }
   .card-face img {
     position: absolute;
     inset: 0;
@@ -214,7 +231,8 @@
     border: 1px solid var(--card-border);
     cursor: zoom-in;
   }
-  .card-face.active-size .zoom-btn { width: 20px; height: 20px; font-size: 12px; }
+  .card-face.active-size .zoom-btn { width: 26px; height: 26px; font-size: 15px; }
+  .card-face.active-size .label { font-size: 12px; padding: 3px 4px; }
 
   #lightbox-overlay {
     display: none;
@@ -384,19 +402,19 @@
         <div class="row-label" id="my-zone-counts"></div>
       </div>
     </div>
-    <div class="hand-col">
-      <h3>Your Hand</h3>
-      <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
-      <div class="hand-list" id="hand-list"></div>
+    <div class="chat-col">
+      <h3>Table Chat</h3>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Say something...">
+        <button id="chat-send-btn" class="small">Send</button>
+      </div>
     </div>
   </div>
-  <div class="chat-strip">
-    <h3>Table Chat</h3>
-    <div class="chat-messages" id="chat-messages"></div>
-    <div class="chat-input-row">
-      <input type="text" id="chat-input" placeholder="Say something...">
-      <button id="chat-send-btn" class="small">Send</button>
-    </div>
+  <div class="hand-strip">
+    <h3>Your Hand</h3>
+    <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
+    <div class="hand-list" id="hand-list"></div>
   </div>
 </div>
 
@@ -584,6 +602,7 @@ async function loadDeckIntoSeat() {
   const newSeatState = {
     active: null,
     bench: [null, null, null],
+    item_slot: null,
     hand: [],
     deck: pile,
     discard: []
@@ -809,6 +828,9 @@ function renderMat() {
   `).join("");
 
   document.getElementById("opp-active-row").innerHTML = `
+    <div class="card-face item-slot ${oppState.item_slot ? '' : 'empty'}" data-view-only="1">
+      ${oppState.item_slot ? cardHtml(oppState.item_slot.card_id) : '<div class="label">Item<br>equipped</div>'}
+    </div>
     <div class="card-face active-size" data-view-only="1">
       ${oppState.active ? `<div class="status-badges">${(oppState.active.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(oppState.active.card_id)}` : ''}
     </div>
@@ -816,6 +838,10 @@ function renderMat() {
   `;
 
   document.getElementById("my-active-row").innerHTML = `
+    <div class="card-face item-slot ${myState.item_slot ? '' : 'empty'} ${selection && selection.seat===mySeat && selection.zone==='item_slot' ? 'selected' : ''}"
+         data-seat="${mySeat}" data-zone="item_slot" data-index="0">
+      ${myState.item_slot ? cardHtml(myState.item_slot.card_id) : '<div class="label">Item<br>equipped</div>'}
+    </div>
     <div class="card-face active-size selectable ${selection && selection.seat===mySeat && selection.zone==='active' ? 'selected' : ''}"
          data-seat="${mySeat}" data-zone="active" data-index="0">
       ${myState.active ? cardHtml(myState.active.card_id) : ''}
@@ -931,11 +957,13 @@ function attachHandlers() {
 function getSlot(state, zone, index) {
   if (zone === "active") return state.active;
   if (zone === "bench") return (state.bench || [])[index];
+  if (zone === "item_slot") return state.item_slot;
   return null;
 }
 function setSlot(state, zone, index, value) {
   if (zone === "active") state.active = value;
   else if (zone === "bench") { state.bench = state.bench || [null,null,null]; state.bench[index] = value; }
+  else if (zone === "item_slot") state.item_slot = value;
 }
 
 function handleDiscardClick() {
@@ -952,7 +980,7 @@ function handleCardClick(seat, zone, index) {
     // Selecting a card to move — must have something there (or be hand, which is inherently non-empty if clicked)
     if (zone === "hand" && myState.hand[index] !== undefined) {
       selection = { seat, zone, index };
-    } else if ((zone === "active" || zone === "bench") && getSlot(myState, zone, index)) {
+    } else if ((zone === "active" || zone === "bench" || zone === "item_slot") && getSlot(myState, zone, index)) {
       selection = { seat, zone, index };
     }
     renderMat();
@@ -972,6 +1000,58 @@ function handleCardClick(seat, zone, index) {
 function moveSelectedCardTo(destZone, destIndex) {
   const newState = JSON.parse(JSON.stringify(tableState.state));
   const myState = newState[mySeat];
+
+  // Item equip slot: only accepts item cards with item_kind = 'equip'. Not part of the
+  // Bakemon swap/evolution logic below — it's a simple single-card slot.
+  if (destZone === "item_slot") {
+    const incomingCard = selection.zone === "hand"
+      ? allCards[myState.hand[selection.index]]
+      : (getSlot(myState, selection.zone, selection.index) ? allCards[getSlot(myState, selection.zone, selection.index).card_id] : null);
+    const isEquipItem = incomingCard && incomingCard.card_type === "item" && incomingCard.item_kind === "equip";
+    if (!isEquipItem) {
+      setStatus(incomingCard ? `${incomingCard.name} can't be equipped — only equip-type item cards go in that slot.` : "That slot only accepts equip-type item cards.");
+      selection = null;
+      pushState(newState);
+      return;
+    }
+    const existingItem = myState.item_slot;
+    if (existingItem) {
+      setStatus("Unequip the current item first (move it to hand or discard) before equipping a new one.");
+      selection = null;
+      pushState(newState);
+      return;
+    }
+    // Valid: place the item, pulling it from its source
+    let itemCardId = null;
+    if (selection.zone === "hand") {
+      itemCardId = myState.hand[selection.index];
+      myState.hand.splice(selection.index, 1);
+    } else {
+      const slot = getSlot(myState, selection.zone, selection.index);
+      itemCardId = slot.card_id;
+      setSlot(myState, selection.zone, selection.index, null);
+    }
+    myState.item_slot = { card_id: itemCardId };
+    selection = null;
+    pushState(newState);
+    return;
+  }
+  // Selecting an equipped item to move it out (to hand or discard) — item_slot holds a bare { card_id }, no energy/damage/status to preserve
+  if (selection.zone === "item_slot" && destZone !== "item_slot") {
+    const itemCardId = myState.item_slot ? myState.item_slot.card_id : null;
+    if (itemCardId) {
+      myState.item_slot = null;
+      if (destZone === "hand") {
+        myState.hand.push(itemCardId);
+      } else if (destZone === "discard") {
+        myState.discard = myState.discard || [];
+        myState.discard.push(itemCardId);
+      }
+    }
+    selection = null;
+    pushState(newState);
+    return;
+  }
 
   // Played cards (active/bench) never return to hand — hand can't store their energy/damage/status/
   // evolution history, and there's no game reason for it. Block this rather than silently losing data.
