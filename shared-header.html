@@ -1,0 +1,120 @@
+<!-- Bakemon shared nav + rules drawer. Loaded into both playmat.html and deckbuilder.html
+     via shared-header.js. Edit this ONE file to change nav or rules content on both pages. -->
+
+<style>
+  .bakemon-nav {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .bakemon-nav a {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border, #d9b25c);
+    background: var(--card-cream, #fdf6e3);
+    color: #3a2f1a;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .bakemon-nav a:hover { background: #f5e3b3; }
+  .bakemon-nav a.current { background: var(--accent, #d8e04a); border-color: #a8b32e; }
+  .bakemon-nav button.small {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  #rules-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 150;
+  }
+  #rules-backdrop.open { display: block; }
+
+  #rules-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(360px, 85vw);
+    background: var(--mat-green, #1d4d3a);
+    border-right: 2px solid var(--card-border, #d9b25c);
+    z-index: 151;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  #rules-drawer.open { transform: translateX(0); }
+
+  .rules-drawer-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .rules-drawer-head h2 { color: var(--accent, #d8e04a); font-size: 18px; margin: 0; }
+
+  .rules-sections { display: flex; flex-direction: column; gap: 8px; }
+  .rules-section {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--card-border, #d9b25c);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .rules-section summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-light, #cfe8db);
+    font-size: 14px;
+  }
+  .rules-placeholder {
+    color: var(--text-muted, #9fc7ae);
+    font-size: 13px;
+    font-style: italic;
+    margin: 8px 0 2px;
+  }
+</style>
+
+<nav class="bakemon-nav" id="bakemon-shared-nav">
+  <a href="playmat.html" id="nav-link-playmat">Battle Mat</a>
+  <a href="deckbuilder.html" id="nav-link-deckbuilder">Deck Builder</a>
+  <button id="rules-toggle-btn" class="small">📖 Rules</button>
+</nav>
+
+<div id="rules-backdrop"></div>
+<aside id="rules-drawer">
+  <div class="rules-drawer-head">
+    <h2>Rules Reference</h2>
+    <button id="rules-close-btn" class="small">✕</button>
+  </div>
+  <div class="rules-sections">
+    <details class="rules-section">
+      <summary>Building Your Deck</summary>
+      <p class="rules-placeholder">Rules coming soon.</p>
+    </details>
+    <details class="rules-section">
+      <summary>Match Setup</summary>
+      <p class="rules-placeholder">Rules coming soon.</p>
+    </details>
+    <details class="rules-section">
+      <summary>Turn Order</summary>
+      <p class="rules-placeholder">Rules coming soon.</p>
+    </details>
+    <details class="rules-section">
+      <summary>Items / Abilities / Attacks</summary>
+      <p class="rules-placeholder">Rules coming soon.</p>
+    </details>
+    <details class="rules-section">
+      <summary>Scoring Points</summary>
+      <p class="rules-placeholder">Rules coming soon.</p>
+    </details>
+    <details class="rules-section">
+      <summary>Ending the Game</summary>
+      <p class="rules-placeholder">Rules coming soon.</p>
+    </details>
+  </div>
+</aside>
