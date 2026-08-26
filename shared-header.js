@@ -62,6 +62,7 @@ window.clearBakemonPlayer = clearBakemonPlayer;
 
   slot.innerHTML = html;
 
+  await loadRulesContent();
   highlightCurrentNavLink();
   renderIdentity();
   wireRulesDrawer();
@@ -69,6 +70,19 @@ window.clearBakemonPlayer = clearBakemonPlayer;
   // Let the host page know the shared header is ready, in case it needs to do anything after
   document.dispatchEvent(new CustomEvent("bakemon-shared-header-ready"));
 })();
+
+async function loadRulesContent() {
+  const rulesSlot = document.getElementById("rules-content-slot");
+  if (!rulesSlot) return;
+  try {
+    const res = await fetch("rules.html");
+    if (!res.ok) throw new Error(`Failed to fetch rules.html: ${res.status}`);
+    rulesSlot.innerHTML = await res.text();
+  } catch (err) {
+    console.error("shared-header.js: could not load rules.html", err);
+    rulesSlot.innerHTML = `<p style="color:#e0997b; font-size:12px;">Rules content failed to load.</p>`;
+  }
+}
 
 function highlightCurrentNavLink() {
   const path = location.pathname.split("/").pop() || "index.html";
