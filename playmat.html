@@ -24,17 +24,6 @@
     color: #eee;
     min-height: 100vh;
   }
-  header {
-    background: var(--mat-green);
-    padding: 12px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    border-bottom: 2px solid var(--card-border);
-  }
-  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
   button {
     padding: 6px 14px;
     border-radius: 6px;
@@ -373,24 +362,13 @@
 </head>
 <body>
 
-<header>
-  <h1>⚔️ Bakemon Battle Mat</h1>
-  <div style="display:flex; gap:8px; align-items:center;">
-    <div id="bakemon-shared-header-slot" data-page="playmat"></div>
-    <div id="header-controls"></div>
-  </div>
-</header>
+<div id="bakemon-shared-header-slot" data-requires-login="true"></div>
 
 <div id="setup-screen">
   <h2>Enter the Battle</h2>
   <div class="field">
-    <label>Your name</label>
-    <input type="text" id="player-name-input" placeholder="Type your name...">
-    <datalist id="known-players"></datalist>
-  </div>
-  <div class="field">
     <label>Deck to bring</label>
-    <select id="deck-select-setup"><option>Enter your name first...</option></select>
+    <select id="deck-select-setup"><option>Loading your decks...</option></select>
   </div>
   <div class="divider">— then —</div>
   <div class="field">
@@ -498,27 +476,15 @@ function escapeHtml(str) {
 }
 
 // ---------- Setup screen ----------
-async function loadKnownPlayers() {
-  const { data } = await supabaseClient.from("players").select("display_name").order("display_name");
-  const dl = document.getElementById("known-players");
-  dl.innerHTML = "";
-  (data || []).forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.display_name;
-    dl.appendChild(opt);
-  });
-}
-
-document.getElementById("player-name-input").addEventListener("change", async (e) => {
-  const name = e.target.value.trim();
-  if (!name) return;
-  const { data: player } = await supabaseClient.from("players").select("*").ilike("display_name", name).maybeSingle();
-  if (!player) {
-    document.getElementById("deck-select-setup").innerHTML = "<option>No decks yet — build one in the deck editor first</option>";
+async function initSetupScreen() {
+  const stored = window.getBakemonPlayer();
+  if (!stored) {
+    location.href = "index.html";
     return;
   }
-  currentPlayer = player;
-  const { data: decks } = await supabaseClient.from("decks").select("*").eq("player_id", player.id).order("created_at");
+  currentPlayer = stored;
+
+  const { data: decks } = await supabaseClient.from("decks").select("*").eq("player_id", currentPlayer.id).order("created_at");
   const sel = document.getElementById("deck-select-setup");
   sel.innerHTML = "";
   if (!decks || decks.length === 0) {
@@ -531,17 +497,15 @@ document.getElementById("player-name-input").addEventListener("change", async (e
     opt.textContent = d.deck_name;
     sel.appendChild(opt);
   });
-});
+}
 
 document.getElementById("join-btn").addEventListener("click", handleJoinTable);
 
 async function handleJoinTable() {
-  const name = document.getElementById("player-name-input").value.trim();
   const deckId = document.getElementById("deck-select-setup").value;
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   const statusEl = document.getElementById("setup-status");
 
-  if (!name) { statusEl.textContent = "Enter your name first."; return; }
   if (!code) { statusEl.textContent = "Enter a room code to create or join a table."; return; }
   if (!currentPlayer) {
     statusEl.textContent = "Couldn't find that player — check the deck editor first.";
@@ -600,8 +564,6 @@ async function handleJoinTable() {
   document.getElementById("setup-screen").style.display = "none";
   document.getElementById("mat-screen").style.display = "block";
   buildActionBar();
-  document.getElementById("header-controls").innerHTML = `<button id="end-match-btn" class="small">End Match</button>`;
-  document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
   subscribeToTable();
   await refreshOppName();
   await loadChatHistory();
@@ -779,10 +741,12 @@ function buildActionBar() {
     <button id="draw-btn" class="small">Draw Card</button>
     <button id="shuffle-hand-btn" class="small">Shuffle Hand<br>Into Deck</button>
     <button id="reshuffle-discard-btn" class="small">Reshuffle Discard<br>Into Deck</button>
+    <button id="end-match-btn" class="small">End Match</button>
   `;
   document.getElementById("draw-btn").addEventListener("click", drawCard);
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
   document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
+  document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
 }
 
 function benchHpLine(slot, seat, index, viewOnly) {
@@ -1385,7 +1349,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
 });
 
-loadKnownPlayers();
+initSetupScreen();
 </script>
 
 </body>

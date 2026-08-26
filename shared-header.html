@@ -1,28 +1,50 @@
-<!-- Bakemon shared nav + rules drawer. Loaded into both playmat.html and deckbuilder.html
-     via shared-header.js. Edit this ONE file to change nav or rules content on both pages. -->
+<!-- Bakemon shared header: logo, nav, identity block, and rules drawer.
+     Loaded into playmat.html, deckbuilder.html and index.html via shared-header.js.
+     Edit this ONE file to change nav, identity, or rules content everywhere. -->
 
 <style>
+  .bakemon-header {
+    background: var(--mat-green, #1d4d3a);
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 2px solid var(--card-border, #d9b25c);
+  }
+  .bakemon-logo {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent, #d8e04a);
+    text-decoration: none;
+    white-space: nowrap;
+  }
   .bakemon-nav {
     display: flex;
-    gap: 6px;
     align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .bakemon-nav a {
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border, #d9b25c);
-    background: var(--card-cream, #fdf6e3);
-    color: #3a2f1a;
-    font-size: 13px;
-    font-weight: 500;
+    color: var(--accent, #d8e04a);
+    font-size: 14px;
+    font-weight: 600;
     text-decoration: none;
   }
-  .bakemon-nav a:hover { background: #f5e3b3; }
-  .bakemon-nav a.current { background: var(--accent, #d8e04a); border-color: #a8b32e; }
-  .bakemon-nav button.small {
-    padding: 6px 12px;
+  .bakemon-nav a:hover { text-decoration: underline; }
+  .bakemon-nav a.current { text-decoration: underline; }
+  .bakemon-nav .bakemon-nav-sep { color: var(--text-muted, #9fc7ae); font-size: 13px; }
+
+  .bakemon-identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 13px;
+    color: var(--text-light, #cfe8db);
+    white-space: nowrap;
   }
+  .bakemon-identity button.small { padding: 4px 10px; }
 
   #rules-backdrop {
     display: none;
@@ -79,11 +101,19 @@
   }
 </style>
 
-<nav class="bakemon-nav" id="bakemon-shared-nav">
-  <a href="playmat.html" id="nav-link-playmat">Battle Mat</a>
-  <a href="deckbuilder.html" id="nav-link-deckbuilder">Deck Builder</a>
-  <button id="rules-toggle-btn" class="small">📖 Rules</button>
-</nav>
+<header class="bakemon-header">
+  <a href="index.html" class="bakemon-logo">⚔️ Bakemon</a>
+  <nav class="bakemon-nav" id="bakemon-shared-nav">
+    <a href="deckbuilder.html?tab=collection" id="nav-link-collection">My Collection</a>
+    <span class="bakemon-nav-sep">|</span>
+    <a href="deckbuilder.html?tab=deck" id="nav-link-deckbuilder">Deckbuilder</a>
+    <span class="bakemon-nav-sep">|</span>
+    <a href="#" id="rules-toggle-btn">Rules</a>
+    <span class="bakemon-nav-sep">|</span>
+    <a href="playmat.html" id="nav-link-playmat">Battle</a>
+  </nav>
+  <div class="bakemon-identity" id="bakemon-identity-slot"></div>
+</header>
 
 <div id="rules-backdrop"></div>
 <aside id="rules-drawer">

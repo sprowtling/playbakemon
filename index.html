@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon</title>
+<style>
+  :root {
+    --mat-green: #1d4d3a;
+    --mat-green-light: #245a44;
+    --card-cream: #fdf6e3;
+    --card-border: #d9b25c;
+    --accent: #d8e04a;
+    --text-light: #cfe8db;
+    --text-muted: #9fc7ae;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f2e22;
+    color: #eee;
+    min-height: 100vh;
+  }
+  button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    color: #3a2f1a;
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: #f5e3b3; }
+  button.primary { background: var(--accent); border-color: #a8b32e; }
+  button.primary:hover { background: #c7ce3f; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+
+  #home-screen, #welcome-screen {
+    max-width: 420px;
+    margin: 100px auto;
+    background: var(--mat-green);
+    padding: 28px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  #home-screen h2, #welcome-screen h2 { color: var(--accent); margin-top: 0; }
+  #home-screen input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    font-size: 15px;
+    margin: 12px 0;
+    box-sizing: border-box;
+  }
+  #home-screen p { color: var(--text-light); font-size: 13px; }
+
+  .home-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .home-links a {
+    color: var(--text-light);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 10px;
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+  }
+  .home-links a:hover { background: rgba(255,255,255,0.05); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="bakemon-shared-header-slot"></div>
+
+<div id="home-screen">
+  <h2>Who's playing?</h2>
+  <input type="text" id="name-input" placeholder="Type your name...">
+  <datalist id="known-players"></datalist>
+  <button class="primary" id="login-btn">Continue</button>
+  <p>New name? We'll create a profile for you. Your decks and collection are saved permanently.</p>
+</div>
+
+<div id="welcome-screen" style="display:none;">
+  <h2>Welcome back, <span id="welcome-name"></span>!</h2>
+  <div class="home-links">
+    <a href="deckbuilder.html?tab=collection">My Collection</a>
+    <a href="deckbuilder.html?tab=deck">Deckbuilder</a>
+    <a href="playmat.html">Battle</a>
+  </div>
+</div>
+
+<script src="shared-header.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+async function loadKnownPlayers() {
+  const { data, error } = await supabaseClient.from("players").select("display_name").order("display_name");
+  if (error) return;
+  const datalist = document.getElementById("known-players");
+  datalist.innerHTML = "";
+  data.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.display_name;
+    datalist.appendChild(opt);
+  });
+}
+
+document.getElementById("login-btn").addEventListener("click", handleLogin);
+document.getElementById("name-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") handleLogin();
+});
+
+async function handleLogin() {
+  const nameInput = document.getElementById("name-input");
+  const name = nameInput.value.trim();
+  if (!name) return;
+
+  let { data: existing, error } = await supabaseClient
+    .from("players")
+    .select("*")
+    .ilike("display_name", name)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    alert("Something went wrong loading your profile. Try again?");
+    return;
+  }
+
+  let player = existing;
+  if (!player) {
+    const { data: created, error: createErr } = await supabaseClient
+      .from("players")
+      .insert({ display_name: name })
+      .select()
+      .single();
+    if (createErr) {
+      console.error(createErr);
+      alert("Couldn't create a profile. Try again?");
+      return;
+    }
+    player = created;
+  }
+
+  window.setBakemonPlayer(player);
+  showWelcome(player);
+}
+
+function showWelcome(player) {
+  document.getElementById("home-screen").style.display = "none";
+  document.getElementById("welcome-screen").style.display = "block";
+  document.getElementById("welcome-name").textContent = player.display_name;
+}
+
+const existingPlayer = window.getBakemonPlayer();
+if (existingPlayer) {
+  showWelcome(existingPlayer);
+} else {
+  loadKnownPlayers();
+}
+</script>
+
+</body>
+</html>
