@@ -22,34 +22,6 @@
     color: #eee;
     min-height: 100vh;
   }
-  header {
-    background: var(--mat-green);
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    border-bottom: 2px solid var(--card-border);
-  }
-  header h1 {
-    margin: 0;
-    font-size: 20px;
-    color: var(--accent);
-  }
-  #player-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-  }
-  #player-bar input, #player-bar select {
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    font-size: 14px;
-  }
   button {
     padding: 6px 14px;
     border-radius: 6px;
@@ -69,7 +41,6 @@
   button.primary:hover { background: #c7ce3f; }
 
   #main {
-    display: none;
     padding: 16px 24px 60px;
   }
   #deck-select-bar {
@@ -265,44 +236,11 @@
     margin-top: 8px;
   }
 
-  #login-screen {
-    max-width: 420px;
-    margin: 80px auto;
-    background: var(--mat-green);
-    padding: 28px;
-    border-radius: 12px;
-    text-align: center;
-  }
-  #login-screen h2 { color: var(--accent); margin-top: 0; }
-  #login-screen input {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    font-size: 15px;
-    margin: 12px 0;
-    box-sizing: border-box;
-  }
-  #login-screen p { color: var(--text-light); font-size: 13px; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>🃏 Bakemon Deck Editor</h1>
-  <div style="display:flex; gap:8px; align-items:center;">
-    <div id="bakemon-shared-header-slot" data-page="deckbuilder"></div>
-    <div id="player-bar"></div>
-  </div>
-</header>
-
-<div id="login-screen">
-  <h2>Who's building a deck?</h2>
-  <input type="text" id="name-input" placeholder="Type your name.">
-  <datalist id="known-players"></datalist>
-  <button class="primary" id="login-btn">Continue</button>
-  <p>New name? We'll create a profile for you. Your decks are saved permanently.</p>
-</div>
+<div id="bakemon-shared-header-slot" data-requires-login="true"></div>
 
 <div id="lightbox-overlay">
   <img id="lightbox-img" src="" alt="">
@@ -381,62 +319,14 @@ let currentDeckId = null;
 let currentDeckCards = {}; // card_id -> quantity
 let playerCollection = {}; // card_id -> quantity owned
 
-// ---- Login flow ----
-document.getElementById("login-btn").addEventListener("click", handleLogin);
-document.getElementById("name-input").addEventListener("keydown", e => {
-  if (e.key === "Enter") handleLogin();
-});
-
-async function loadKnownPlayers() {
-  const { data, error } = await supabaseClient.from("players").select("display_name").order("display_name");
-  if (error) return;
-  const datalist = document.getElementById("known-players");
-  datalist.innerHTML = "";
-  data.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.display_name;
-    datalist.appendChild(opt);
-  });
-}
-
-async function handleLogin() {
-  const nameInput = document.getElementById("name-input");
-  const name = nameInput.value.trim();
-  if (!name) return;
-
-  let { data: existing, error } = await supabaseClient
-    .from("players")
-    .select("*")
-    .ilike("display_name", name)
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    alert("Something went wrong loading your profile. Try again?");
+// ---- Page init ----
+async function initPage() {
+  const stored = window.getBakemonPlayer();
+  if (!stored) {
+    location.href = "index.html";
     return;
   }
-
-  if (existing) {
-    currentPlayer = existing;
-  } else {
-    const { data: created, error: createErr } = await supabaseClient
-      .from("players")
-      .insert({ display_name: name })
-      .select()
-      .single();
-    if (createErr) {
-      console.error(createErr);
-      alert("Couldn't create a profile. Try again?");
-      return;
-    }
-    currentPlayer = created;
-  }
-
-  document.getElementById("login-screen").style.display = "none";
-  document.getElementById("main").style.display = "block";
-  document.getElementById("player-bar").innerHTML =
-    `<span>Playing as <strong>${escapeHtml(currentPlayer.display_name)}</strong></span> <button id="switch-player-btn">Switch</button>`;
-  document.getElementById("switch-player-btn").addEventListener("click", () => location.reload());
+  currentPlayer = stored;
 
   await loadCards();
   await loadPlayerCollection();
@@ -448,7 +338,8 @@ async function handleLogin() {
 function setupTabs() {
   document.getElementById("tab-collection").addEventListener("click", () => switchTab("collection"));
   document.getElementById("tab-deckbuilder").addEventListener("click", () => switchTab("deckbuilder"));
-  switchTab("collection");
+  const initialTab = new URLSearchParams(location.search).get("tab") === "deck" ? "deckbuilder" : "collection";
+  switchTab(initialTab);
 }
 
 function switchTab(tab) {
@@ -860,7 +751,7 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-loadKnownPlayers();
+initPage();
 </script>
 
 </body>
