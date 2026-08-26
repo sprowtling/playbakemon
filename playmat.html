@@ -396,6 +396,9 @@
           <span class="score-label">Points</span>
           <div class="score-orbs" id="my-score-orbs"></div>
         </div>
+        <div style="text-align:center; margin-bottom:6px;">
+          <button id="end-match-btn" class="small">End Match</button>
+        </div>
         <div class="active-row" id="my-active-row"></div>
         <div class="my-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-top:16px; flex-wrap:wrap;">
           <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed; flex-shrink:0;">
@@ -469,6 +472,23 @@ let tableState = null;   // full row from battle_tables
 let selection = null;    // { seat, zone, index } of currently selected card
 let realtimeChannel = null;
 
+const BAKEMON_TABLE_KEY = "bakemon_active_table";
+
+function getSavedTable() {
+  try {
+    const raw = localStorage.getItem(BAKEMON_TABLE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function saveTable(tableIdToSave, roomCodeToSave) {
+  localStorage.setItem(BAKEMON_TABLE_KEY, JSON.stringify({ tableId: tableIdToSave, roomCode: roomCodeToSave }));
+}
+function clearSavedTable() {
+  localStorage.removeItem(BAKEMON_TABLE_KEY);
+}
+
 function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str || "";
@@ -483,6 +503,26 @@ async function initSetupScreen() {
     return;
   }
   currentPlayer = stored;
+
+  // Auto-rejoin: if we have a remembered table, check it's still real and we're
+  // still legitimately seated there before skipping the manual room-code entry.
+  const saved = getSavedTable();
+  if (saved && saved.tableId) {
+    const { data: cards } = await supabaseClient.from("cards").select("*");
+    (cards || []).forEach(c => { allCards[c.id] = c; });
+
+    const { data: savedTableRow } = await supabaseClient.from("battle_tables").select("*").eq("id", saved.tableId).maybeSingle();
+    const stillSeated = savedTableRow && (savedTableRow.player_1_id === currentPlayer.id || savedTableRow.player_2_id === currentPlayer.id);
+    const seatAlreadyHasState = stillSeated && savedTableRow.state && savedTableRow.state[savedTableRow.player_1_id === currentPlayer.id ? "player_1" : "player_2"];
+    if (stillSeated && seatAlreadyHasState) {
+      const rejoinStatusEl = document.getElementById("setup-status");
+      rejoinStatusEl.textContent = "Rejoining your match...";
+      await joinTableByCode(savedTableRow.room_code, rejoinStatusEl);
+      return; // skip the rest of setup entirely — we're back in the match
+    }
+    // Table's gone, we're not seated there, or we never actually finished joining — clean up and fall through to normal setup.
+    clearSavedTable();
+  }
 
   const { data: decks } = await supabaseClient.from("decks").select("*").eq("player_id", currentPlayer.id).order("created_at");
   const sel = document.getElementById("deck-select-setup");
@@ -516,12 +556,18 @@ async function handleJoinTable() {
     return;
   }
   currentDeckId = deckId;
-  roomCode = code;
 
   statusEl.textContent = "Loading card data...";
   const { data: cards } = await supabaseClient.from("cards").select("*");
   (cards || []).forEach(c => { allCards[c.id] = c; });
 
+  await joinTableByCode(code, statusEl);
+}
+
+// Shared seating logic: given a room code, find-or-create the table, work out which seat
+// we're in, and enter the mat screen. Used by both manual join and auto-rejoin on page load.
+async function joinTableByCode(code, statusEl) {
+  roomCode = code;
   statusEl.textContent = "Connecting to table...";
   let { data: existingTable } = await supabaseClient.from("battle_tables").select("*").eq("room_code", code).maybeSingle();
 
@@ -556,6 +602,7 @@ async function handleJoinTable() {
 
   tableId = existingTable.id;
   tableState = existingTable;
+  saveTable(tableId, roomCode);
 
   if (!tableState.state[mySeat]) {
     await loadDeckIntoSeat();
@@ -692,6 +739,7 @@ function handleMatchEndedByOpponent() {
     supabaseClient.removeChannel(chatChannel);
     chatChannel = null;
   }
+  clearSavedTable();
   const matScreen = document.getElementById("mat-screen");
   matScreen.innerHTML = `
     <div style="max-width:420px; margin:80px auto; background:var(--mat-green); padding:28px; border-radius:12px; text-align:center;">
@@ -732,6 +780,7 @@ async function handleEndMatch() {
     return;
   }
 
+  clearSavedTable();
   location.reload();
 }
 
@@ -741,7 +790,6 @@ function buildActionBar() {
     <button id="draw-btn" class="small">Draw Card</button>
     <button id="shuffle-hand-btn" class="small">Shuffle Hand<br>Into Deck</button>
     <button id="reshuffle-discard-btn" class="small">Reshuffle Discard<br>Into Deck</button>
-    <button id="end-match-btn" class="small">End Match</button>
   `;
   document.getElementById("draw-btn").addEventListener("click", drawCard);
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
