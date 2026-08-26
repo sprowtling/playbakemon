@@ -1,6 +1,7 @@
-<!-- Bakemon shared header: logo, nav, identity block, and rules drawer.
+<!-- Bakemon shared header: logo, nav, identity block, and the rules drawer shell.
      Loaded into playmat.html, deckbuilder.html and index.html via shared-header.js.
-     Edit this ONE file to change nav, identity, or rules content everywhere. -->
+     Edit this file for nav, identity, or the drawer mechanism itself.
+     Edit rules.html instead to change what's actually inside the Rules drawer. -->
 
 <style>
   .bakemon-header {
@@ -121,30 +122,5 @@
     <h2>Rules Reference</h2>
     <button id="rules-close-btn" class="small">✕</button>
   </div>
-  <div class="rules-sections">
-    <details class="rules-section">
-      <summary>Building Your Deck</summary>
-      <p class="rules-placeholder">Rules coming soon.</p>
-    </details>
-    <details class="rules-section">
-      <summary>Match Setup</summary>
-      <p class="rules-placeholder">Rules coming soon.</p>
-    </details>
-    <details class="rules-section">
-      <summary>Turn Order</summary>
-      <p class="rules-placeholder">Rules coming soon.</p>
-    </details>
-    <details class="rules-section">
-      <summary>Items / Abilities / Attacks</summary>
-      <p class="rules-placeholder">Rules coming soon.</p>
-    </details>
-    <details class="rules-section">
-      <summary>Scoring Points</summary>
-      <p class="rules-placeholder">Rules coming soon.</p>
-    </details>
-    <details class="rules-section">
-      <summary>Ending the Game</summary>
-      <p class="rules-placeholder">Rules coming soon.</p>
-    </details>
-  </div>
+  <div id="rules-content-slot"></div>
 </aside>
