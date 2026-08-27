@@ -1203,6 +1203,20 @@ function moveSelectedCardTo(destZone, destIndex) {
   } else if (destZone === "active" || destZone === "bench") {
     const existing = getSlot(myState, destZone, destIndex);
     const incomingCard = allCards[cardId];
+
+    // Active/bench are Bakemon-only zones — items belong in the item slot or hand/discard.
+    if (incomingCard && incomingCard.card_type === "item") {
+      setStatus(`${incomingCard.name} is an item card — it goes in the item slot, not active or bench.`);
+      if (selection.zone === "hand") {
+        myState.hand.push(cardId);
+      } else if (movingSlot) {
+        setSlot(myState, selection.zone, selection.index, movingSlot);
+      }
+      selection = null;
+      pushState(newState);
+      return;
+    }
+
     const evolvesFromExisting = existing && incomingCard && incomingCard.evolves_from &&
       existing.card_id && allCards[existing.card_id] &&
       incomingCard.evolves_from.toLowerCase() === allCards[existing.card_id].name.toLowerCase();
