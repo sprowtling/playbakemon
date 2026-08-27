@@ -821,7 +821,10 @@ function cardHtml(cardId, opts = {}) {
   const imgUrl = card.image_filename ? `${CARD_IMAGE_BASE}${card.image_filename}` : "";
   const img = imgUrl ? `<img src="${imgUrl}" onerror="this.style.display='none'">` : "";
   const zoomBtn = imgUrl ? `<button class="zoom-btn" data-zoom-src="${imgUrl}" data-zoom-alt="${escapeHtml(card.name)}" title="View larger">🔍</button>` : "";
-  return `${zoomBtn}${img}<div class="label">${escapeHtml(card.name)}</div>`;
+  // Only show the text name label when there's no image to identify the card by —
+  // once real art is showing, the card's own printed name (plus zoom) makes this redundant.
+  const label = imgUrl ? "" : `<div class="label">${escapeHtml(card.name)}</div>`;
+  return `${zoomBtn}${img}${label}`;
 }
 
 function renderSidePanel(seat, zone, index, slot) {
