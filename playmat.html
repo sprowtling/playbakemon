@@ -385,7 +385,13 @@
     <div class="field-col">
       <div class="field">
         <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
-        <div class="bench-row" id="opp-bench"></div>
+        <div class="opp-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:10px; flex-wrap:wrap;">
+          <div class="card-face" id="opp-discard-pile" data-view-only="1" style="border-style:dashed; flex-shrink:0;">
+            <div class="label">Discard</div>
+          </div>
+          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
+          <div class="bench-row" id="opp-bench" style="margin:0;"></div>
+        </div>
         <div class="active-row" id="opp-active-row"></div>
         <div class="score-row" id="opp-score-row">
           <span class="score-label">Points</span>
@@ -957,6 +963,10 @@ function renderMat() {
 
   document.getElementById("my-discard-pile").innerHTML = (myState.discard && myState.discard.length)
     ? cardHtml(myState.discard[myState.discard.length - 1]) + `<div class="label" style="position:absolute; bottom:0; width:100%;">${myState.discard.length} in discard</div>`
+    : `<div class="label">Discard<br>(empty)</div>`;
+
+  document.getElementById("opp-discard-pile").innerHTML = (oppState.discard && oppState.discard.length)
+    ? cardHtml(oppState.discard[oppState.discard.length - 1]) + `<div class="label" style="position:absolute; bottom:0; width:100%;">${oppState.discard.length} in discard</div>`
     : `<div class="label">Discard<br>(empty)</div>`;
 
   updateSelectionHint();
