@@ -1348,7 +1348,11 @@ function moveSelectedCardTo(destZone, destIndex) {
       incomingCard.evolves_from.toLowerCase() === allCards[existing.card_id].name.toLowerCase();
 
     // An evolution card can't enter play on its own, and can't be placed onto the wrong base — it must go onto its actual pre-evolution.
-    if (incomingCard && incomingCard.evolves_from && !evolvesFromExisting) {
+    // This only applies when the card is coming from hand (genuinely entering play); a card that's
+    // already in play (bench/active) simply moving to another in-play zone has already legally evolved
+    // at some earlier point, and its own evolves_from lineage shouldn't be re-checked on ordinary movement.
+    const enteringPlayFromHand = selection.zone === "hand";
+    if (enteringPlayFromHand && incomingCard && incomingCard.evolves_from && !evolvesFromExisting) {
       const reason = existing
         ? `${incomingCard.name} evolves from ${incomingCard.evolves_from}, not ${allCards[existing.card_id]?.name || 'that card'}.`
         : `${incomingCard.name} evolves from ${incomingCard.evolves_from} — place it onto that card, not an empty slot.`;
