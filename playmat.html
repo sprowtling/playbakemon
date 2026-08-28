@@ -729,11 +729,15 @@ function setupChatInput() {
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
+
+    const messageToSend = resolveChatCommand(text);
+    if (messageToSend === null) return; // command handled locally, nothing to send (e.g. unrecognized /command)
+
     const { error } = await supabaseClient.from("table_chat_messages").insert({
       table_id: tableId,
       player_id: currentPlayer.id,
       sender_name: currentPlayer.display_name,
-      message: text
+      message: messageToSend
     });
     if (error) console.error("Failed to send chat message:", error);
   };
@@ -741,6 +745,17 @@ function setupChatInput() {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") send();
   });
+}
+
+// Recognizes chat commands and returns the actual message to send, or null to send nothing.
+// Anything that isn't a recognized command is passed through unchanged as a normal message.
+function resolveChatCommand(text) {
+  const lower = text.toLowerCase();
+  if (lower === "/flip" || lower === "/coin" || lower === "/coinflip") {
+    const result = Math.random() < 0.5 ? "Heads" : "Tails";
+    return `🪙 flipped a coin: ${result}`;
+  }
+  return text;
 }
 
 // ---------- Realtime sync ----------
