@@ -358,6 +358,20 @@
     flex-wrap: wrap;
     z-index: 50;
   }
+  #end-match-picker {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--mat-green);
+    border-top: 2px solid var(--card-border);
+    padding: 16px;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 60;
+  }
+  #end-match-picker h3 { margin: 0; color: var(--accent); font-size: 15px; }
+  #end-match-picker .options { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 </style>
 </head>
 <body>
@@ -436,6 +450,7 @@
 
 <div id="energy-picker"></div>
 <div id="status-picker"></div>
+<div id="end-match-picker"></div>
 
 <div id="lightbox-overlay">
   <img id="lightbox-img" src="" alt="">
@@ -652,7 +667,8 @@ async function loadDeckIntoSeat() {
     hand: [],
     deck: pile,
     discard: [],
-    score: 0
+    score: 0,
+    deck_id: currentDeckId
   };
   const newState = { ...tableState.state, [mySeat]: newSeatState };
   await pushState(newState);
@@ -766,9 +782,49 @@ async function pushState(newState) {
 }
 
 // ---------- Rendering ----------
-async function handleEndMatch() {
-  const confirmed = confirm(`End this match and free up room code "${roomCode}"? Both players will be disconnected and the code can be reused.`);
-  if (!confirmed) return;
+function handleEndMatch() {
+  const picker = document.getElementById("end-match-picker");
+  const myName = escapeHtml(currentPlayer.display_name);
+  const oppName = escapeHtml(oppDisplayName || "Opponent");
+  picker.innerHTML = `
+    <h3>How did the match end?</h3>
+    <div class="options">
+      <button data-outcome="me" class="primary">${myName} won</button>
+      <button data-outcome="opponent" class="primary">${oppName} won</button>
+      <button data-outcome="none">No decision (don't count this one)</button>
+      <button data-outcome="cancel">Cancel</button>
+    </div>
+  `;
+  picker.style.display = "flex";
+  picker.querySelectorAll("[data-outcome]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      picker.style.display = "none";
+      const outcome = btn.dataset.outcome;
+      if (outcome === "cancel") return;
+      finishEndMatch(outcome);
+    });
+  });
+}
+
+async function finishEndMatch(outcome) {
+  // Figure out winner_id from the chosen outcome ("me" / "opponent" / "none")
+  let winnerId = null;
+  if (outcome === "me") winnerId = currentPlayer.id;
+  else if (outcome === "opponent") winnerId = (oppSeat === "player_1") ? tableState.player_1_id : tableState.player_2_id;
+
+  const p1DeckId = tableState.state.player_1 ? tableState.state.player_1.deck_id : null;
+  const p2DeckId = tableState.state.player_2 ? tableState.state.player_2.deck_id : null;
+
+  const { error: historyError } = await supabaseClient.from("match_history").insert({
+    room_code: roomCode,
+    player_1_id: tableState.player_1_id,
+    player_1_deck_id: p1DeckId,
+    player_2_id: tableState.player_2_id,
+    player_2_deck_id: p2DeckId,
+    winner_id: winnerId
+  });
+  if (historyError) console.error("Failed to save match history:", historyError);
+  // Don't block ending the match on a history-save failure — the match itself still needs to end cleanly.
 
   if (realtimeChannel) {
     supabaseClient.removeChannel(realtimeChannel);
