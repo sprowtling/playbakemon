@@ -785,12 +785,23 @@ async function pushState(newState) {
 function handleEndMatch() {
   const picker = document.getElementById("end-match-picker");
   const myName = escapeHtml(currentPlayer.display_name);
+  const oppId = (oppSeat === "player_1") ? tableState.player_1_id : tableState.player_2_id;
+  const hasRealOpponent = !!oppId;
   const oppName = escapeHtml(oppDisplayName || "Opponent");
+
+  const winButtons = hasRealOpponent
+    ? `<button data-outcome="me" class="primary">${myName} won</button>
+       <button data-outcome="opponent" class="primary">${oppName} won</button>`
+    : "";
+  const noOpponentNote = hasRealOpponent
+    ? ""
+    : `<p style="font-size:12px; color:var(--text-muted); margin:0; text-align:center;">No opponent ever joined this table — nothing to declare a winner between, so only "no decision" applies.</p>`;
+
   picker.innerHTML = `
     <h3>How did the match end?</h3>
+    ${noOpponentNote}
     <div class="options">
-      <button data-outcome="me" class="primary">${myName} won</button>
-      <button data-outcome="opponent" class="primary">${oppName} won</button>
+      ${winButtons}
       <button data-outcome="none">No decision (don't count this one)</button>
       <button data-outcome="cancel">Cancel</button>
     </div>
