@@ -90,6 +90,8 @@ function highlightCurrentNavLink() {
 
   if (path === "playmat.html") {
     document.getElementById("nav-link-playmat")?.classList.add("current");
+  } else if (path === "history.html") {
+    document.getElementById("nav-link-history")?.classList.add("current");
   } else if (path === "deckbuilder.html") {
     if (tab === "deck") {
       document.getElementById("nav-link-deckbuilder")?.classList.add("current");
