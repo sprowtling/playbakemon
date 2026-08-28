@@ -93,7 +93,9 @@
     <a href="deckbuilder.html?tab=collection">My Collection</a>
     <a href="deckbuilder.html?tab=deck">Deckbuilder</a>
     <a href="playmat.html">Battle</a>
+    <a href="history.html">History</a>
   </div>
+  <div id="leaderboard" style="margin-top:24px;"></div>
 </div>
 
 <script src="shared-header.js"></script>
@@ -160,6 +162,54 @@ function showWelcome(player) {
   document.getElementById("home-screen").style.display = "none";
   document.getElementById("welcome-screen").style.display = "block";
   document.getElementById("welcome-name").textContent = player.display_name;
+  loadLeaderboard();
+}
+
+async function loadLeaderboard() {
+  const el = document.getElementById("leaderboard");
+  const { data: matches, error } = await supabaseClient
+    .from("match_history")
+    .select("player_1_id, player_2_id, winner_id")
+    .not("winner_id", "is", null); // only decided matches count toward win rate
+
+  if (error || !matches || matches.length === 0) {
+    return; // no leaderboard to show yet — quietly skip rather than show an empty/broken section
+  }
+
+  // Tally wins and total decided matches per player
+  const tally = {}; // player_id -> { wins, total }
+  matches.forEach(m => {
+    [m.player_1_id, m.player_2_id].forEach(pid => {
+      if (!pid) return;
+      if (!tally[pid]) tally[pid] = { wins: 0, total: 0 };
+      tally[pid].total += 1;
+    });
+    if (m.winner_id && tally[m.winner_id]) tally[m.winner_id].wins += 1;
+  });
+
+  const ranked = Object.entries(tally)
+    .map(([playerId, stats]) => ({ playerId, ...stats, rate: stats.wins / stats.total }))
+    .filter(r => r.total >= 1)
+    .sort((a, b) => b.rate - a.rate || b.total - a.total)
+    .slice(0, 3);
+
+  if (ranked.length === 0) return;
+
+  const { data: players } = await supabaseClient.from("players").select("id, display_name").in("id", ranked.map(r => r.playerId));
+  const nameById = Object.fromEntries((players || []).map(p => [p.id, p.display_name]));
+
+  const medals = ["🥇", "🥈", "🥉"];
+  el.innerHTML = `
+    <h3 style="color:var(--accent); font-size:14px; text-align:center; margin-bottom:10px;">Top Players</h3>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${ranked.map((r, i) => `
+        <div style="display:flex; justify-content:space-between; background:rgba(255,255,255,0.05); border-radius:6px; padding:6px 12px; font-size:13px;">
+          <span>${medals[i]} ${nameById[r.playerId] || "Unknown"}</span>
+          <span style="color:var(--text-muted);">${Math.round(r.rate * 100)}% (${r.wins}/${r.total})</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 const existingPlayer = window.getBakemonPlayer();
