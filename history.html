@@ -21,17 +21,6 @@
     color: #eee;
     min-height: 100vh;
   }
-  header {
-    background: var(--mat-green);
-    padding: 12px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    border-bottom: 2px solid var(--card-border);
-  }
-  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
   button {
     padding: 6px 14px;
     border-radius: 6px;
@@ -213,8 +202,9 @@ async function loadHistory() {
   listEl.innerHTML = matches.map(m => {
     const isPlayer1 = m.player_1_id === player.id;
     const oppId = isPlayer1 ? m.player_2_id : m.player_1_id;
-    const oppName = playerNameById[oppId] || "Unknown";
-    const myDeckName = deckNameById[isPlayer1 ? m.player_1_deck_id : m.player_2_deck_id] || "Unknown deck";
+    const oppName = oppId === null ? "Deleted Player" : (playerNameById[oppId] || "Unknown");
+    const myDeckId = isPlayer1 ? m.player_1_deck_id : m.player_2_deck_id;
+    const myDeckName = myDeckId === null ? "Deleted Deck" : (deckNameById[myDeckId] || "Unknown deck");
 
     let outcomeClass, outcomeLabel;
     if (m.winner_id === null) {
