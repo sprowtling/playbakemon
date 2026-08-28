@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Match History</title>
+<style>
+  :root {
+    --mat-green: #1d4d3a;
+    --card-cream: #fdf6e3;
+    --card-border: #d9b25c;
+    --accent: #d8e04a;
+    --text-light: #cfe8db;
+    --text-muted: #9fc7ae;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f2e22;
+    color: #eee;
+    min-height: 100vh;
+  }
+  header {
+    background: var(--mat-green);
+    padding: 12px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-bottom: 2px solid var(--card-border);
+  }
+  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
+  button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    color: #3a2f1a;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  #content { max-width: 700px; margin: 24px auto; padding: 0 16px; }
+
+  #stat-summary {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    background: var(--mat-green);
+    border: 0.5px solid var(--card-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat .value { font-size: 26px; font-weight: 700; color: var(--accent); }
+  .stat .label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  #best-deck {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-light);
+    margin-bottom: 20px;
+  }
+  #best-deck strong { color: var(--accent); }
+
+  #match-list { display: flex; flex-direction: column; gap: 8px; }
+  .match-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #164634;
+    border-radius: 8px;
+    padding: 10px 14px;
+    border-left: 4px solid var(--text-muted);
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .match-row.victory { border-left-color: #7fcaa5; }
+  .match-row.defeat { border-left-color: #e0997b; }
+  .match-row.no-decision { border-left-color: var(--text-muted); opacity: 0.75; }
+
+  .match-info { display: flex; flex-direction: column; gap: 2px; }
+  .match-opponent { font-size: 14px; font-weight: 600; color: var(--text-light); }
+  .match-meta { font-size: 11px; color: var(--text-muted); }
+
+  .match-outcome {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .match-outcome.victory { background: #2a6b4f; color: #b8f0d0; }
+  .match-outcome.defeat { background: #6b2e2e; color: #f0c0b0; }
+  .match-outcome.no-decision { background: #3a3a3a; color: var(--text-muted); }
+
+  #empty-message {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px 20px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📜 Match History</h1>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <div id="bakemon-shared-header-slot" data-requires-login="true"></div>
+  </div>
+</header>
+
+<div id="content">
+  <div id="stat-summary">
+    <div class="stat"><div class="value" id="stat-wins">-</div><div class="label">Matches Won</div></div>
+    <div class="stat"><div class="value" id="stat-winrate">-</div><div class="label">Win Rate</div></div>
+    <div class="stat"><div class="value" id="stat-total">-</div><div class="label">Total Matches</div></div>
+  </div>
+  <div id="best-deck"></div>
+  <div id="match-list"></div>
+  <div id="empty-message" style="display:none;">No matches played yet — go start one!</div>
+</div>
+
+<script src="shared-header.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " +
+         d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+async function loadHistory() {
+  const player = window.getBakemonPlayer();
+  if (!player) return; // shared-header.js will already be redirecting to index.html
+
+  // Pull every match this player was part of, either seat
+  const { data: matches, error } = await supabaseClient
+    .from("match_history")
+    .select("*")
+    .or(`player_1_id.eq.${player.id},player_2_id.eq.${player.id}`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to load match history:", error);
+    document.getElementById("empty-message").textContent = "Couldn't load match history — try refreshing.";
+    document.getElementById("empty-message").style.display = "block";
+    return;
+  }
+
+  if (!matches || matches.length === 0) {
+    document.getElementById("empty-message").style.display = "block";
+    document.getElementById("stat-wins").textContent = "0";
+    document.getElementById("stat-winrate").textContent = "—";
+    document.getElementById("stat-total").textContent = "0";
+    return;
+  }
+
+  // Collect every player_id and deck_id we'll need names for, in one batch rather than per-row
+  const playerIds = new Set();
+  const deckIds = new Set();
+  matches.forEach(m => {
+    if (m.player_1_id) playerIds.add(m.player_1_id);
+    if (m.player_2_id) playerIds.add(m.player_2_id);
+    if (m.player_1_deck_id) deckIds.add(m.player_1_deck_id);
+    if (m.player_2_deck_id) deckIds.add(m.player_2_deck_id);
+  });
+
+  const [{ data: players }, { data: decks }] = await Promise.all([
+    supabaseClient.from("players").select("id, display_name").in("id", [...playerIds]),
+    deckIds.size ? supabaseClient.from("decks").select("id, deck_name").in("id", [...deckIds]) : Promise.resolve({ data: [] })
+  ]);
+  const playerNameById = Object.fromEntries((players || []).map(p => [p.id, p.display_name]));
+  const deckNameById = Object.fromEntries((decks || []).map(d => [d.id, d.deck_name]));
+
+  // Compute stats: only matches with a real winner_id count toward win rate
+  const decidedMatches = matches.filter(m => m.winner_id !== null);
+  const wins = decidedMatches.filter(m => m.winner_id === player.id).length;
+  const winRate = decidedMatches.length ? Math.round((wins / decidedMatches.length) * 100) : 0;
+
+  document.getElementById("stat-wins").textContent = wins;
+  document.getElementById("stat-winrate").textContent = decidedMatches.length ? `${winRate}%` : "—";
+  document.getElementById("stat-total").textContent = matches.length;
+
+  // Which deck did this player win with most often?
+  const deckWinCounts = {};
+  decidedMatches.forEach(m => {
+    if (m.winner_id !== player.id) return;
+    const myDeckId = m.player_1_id === player.id ? m.player_1_deck_id : m.player_2_deck_id;
+    if (!myDeckId) return;
+    deckWinCounts[myDeckId] = (deckWinCounts[myDeckId] || 0) + 1;
+  });
+  const bestDeckId = Object.keys(deckWinCounts).sort((a, b) => deckWinCounts[b] - deckWinCounts[a])[0];
+  if (bestDeckId && deckNameById[bestDeckId]) {
+    document.getElementById("best-deck").innerHTML =
+      `Your winningest deck: <strong>${escapeHtml(deckNameById[bestDeckId])}</strong> (${deckWinCounts[bestDeckId]} win${deckWinCounts[bestDeckId] === 1 ? '' : 's'})`;
+  }
+
+  // Render the full list, including no-decision matches
+  const listEl = document.getElementById("match-list");
+  listEl.innerHTML = matches.map(m => {
+    const isPlayer1 = m.player_1_id === player.id;
+    const oppId = isPlayer1 ? m.player_2_id : m.player_1_id;
+    const oppName = playerNameById[oppId] || "Unknown";
+    const myDeckName = deckNameById[isPlayer1 ? m.player_1_deck_id : m.player_2_deck_id] || "Unknown deck";
+
+    let outcomeClass, outcomeLabel;
+    if (m.winner_id === null) {
+      outcomeClass = "no-decision";
+      outcomeLabel = "No Decision";
+    } else if (m.winner_id === player.id) {
+      outcomeClass = "victory";
+      outcomeLabel = "Victory";
+    } else {
+      outcomeClass = "defeat";
+      outcomeLabel = "Defeat";
+    }
+
+    return `
+      <div class="match-row ${outcomeClass}">
+        <div class="match-info">
+          <div class="match-opponent">vs ${escapeHtml(oppName)}</div>
+          <div class="match-meta">${formatDate(m.created_at)} · played ${escapeHtml(myDeckName)}</div>
+        </div>
+        <div class="match-outcome ${outcomeClass}">${outcomeLabel}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+loadHistory();
+</script>
+
+</body>
+</html>
