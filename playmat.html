@@ -169,6 +169,13 @@
     border: 1.5px dashed #6fae8d;
     cursor: pointer;
   }
+  .card-face.face-down {
+    background-image: url('https://hxa.neocities.org/bakemon/cardback.png');
+    background-size: cover;
+    background-position: center;
+    border: 1.5px solid var(--card-border);
+    cursor: default;
+  }
   .card-face.active-size { width: 139px; height: 195px; }
   .card-face.item-slot {
     width: 84px;
@@ -394,6 +401,10 @@
 </div>
 
 <div id="mat-screen">
+  <div id="start-match-banner" style="display:none; text-align:center; margin-bottom:8px;">
+    <button id="start-match-btn" class="primary">Start Match — reveal both fields</button>
+    <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0;">While setting up, you can only see your own active/bench Bakemon. Click when both players are ready.</p>
+  </div>
   <div id="selection-hint"></div>
   <div class="mat">
     <div class="field-col">
@@ -596,7 +607,7 @@ async function joinTableByCode(code, statusEl) {
     const { data: created, error } = await supabaseClient.from("battle_tables").insert({
       room_code: code,
       player_1_id: currentPlayer.id,
-      state: { player_1: null, player_2: null }
+      state: { player_1: null, player_2: null, setup_locked: false }
     }).select().single();
     if (error) { statusEl.textContent = "Couldn't create table: " + error.message; return; }
     existingTable = created;
@@ -868,6 +879,13 @@ function buildActionBar() {
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
   document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
   document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
+  document.getElementById("start-match-btn").addEventListener("click", handleStartMatch);
+}
+
+async function handleStartMatch() {
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  newState.setup_locked = true;
+  await pushState(newState);
 }
 
 function benchHpLine(slot, seat, index, viewOnly) {
@@ -967,8 +985,20 @@ function renderMat() {
     <div class="score-orb ${(myState.score || 0) > i ? 'filled' : ''}" data-score-index="${i}"></div>
   `).join("");
 
-  // Opponent bench — read-only, shows energy/damage/status same as your own bench
-  document.getElementById("opp-bench").innerHTML = (oppState.bench || [null,null,null]).map((slot, i) => `
+  const setupLocked = !!tableState.state.setup_locked;
+  document.getElementById("start-match-banner").style.display = setupLocked ? "none" : "block";
+
+  // Opponent bench — during setup, show face-down placeholders instead of real cards so
+  // neither player can see what the other is placing before the match officially starts.
+  document.getElementById("opp-bench").innerHTML = (oppState.bench || [null,null,null]).map((slot, i) => {
+    if (!setupLocked) {
+      return `
+        <div class="bench-slot">
+          <div class="card-face ${slot ? 'face-down' : 'empty'}" data-view-only="1"></div>
+        </div>
+      `;
+    }
+    return `
     <div class="bench-slot">
       <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">
         ${slot ? `<div class="status-badges">${(slot.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
@@ -979,9 +1009,10 @@ function renderMat() {
         return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
       }).join('')}</div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 
-  document.getElementById("opp-active-row").innerHTML = `
+  document.getElementById("opp-active-row").innerHTML = setupLocked ? `
     <div class="card-face item-slot ${oppState.item_slot ? '' : 'empty'}" data-view-only="1">
       ${oppState.item_slot ? cardHtml(oppState.item_slot.card_id) : '<div class="label">Item<br>equipped</div>'}
     </div>
@@ -989,6 +1020,9 @@ function renderMat() {
       ${oppState.active ? `<div class="status-badges">${(oppState.active.status||[]).map(s=>`<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(oppState.active.card_id)}` : ''}
     </div>
     ${renderReadOnlySidePanel(oppState.active)}
+  ` : `
+    <div class="card-face item-slot empty" data-view-only="1"></div>
+    <div class="card-face active-size face-down" data-view-only="1"></div>
   `;
 
   document.getElementById("my-active-row").innerHTML = `
