@@ -71,7 +71,6 @@
   .field-col { flex: 1; }
   .chat-col {
     width: 200px;
-    max-height: 831px;
     background: #164634;
     border-radius: 10px;
     border: 0.5px solid var(--card-border);
@@ -79,7 +78,6 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    overflow: hidden;
   }
   .hand-strip {
     margin-top: 12px;
@@ -95,7 +93,8 @@
   .chat-col h3 { font-size: 12px; margin: 0; color: var(--accent); text-align: center; }
   .chat-messages {
     flex: 1;
-    min-height: 0;
+    min-height: 200px;
+    max-height: 60vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
