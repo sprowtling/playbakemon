@@ -45,6 +45,11 @@
     border-radius: 12px;
     text-align: center;
   }
+  #welcome-screen {
+    max-width: 480px;
+    text-align: left;
+  }
+  #welcome-screen h2 { text-align: center; margin-bottom: 24px; }
   #home-screen h2, #welcome-screen h2 { color: var(--accent); margin-top: 0; }
   #home-screen input {
     width: 100%;
@@ -56,23 +61,6 @@
     box-sizing: border-box;
   }
   #home-screen p { color: var(--text-light); font-size: 13px; }
-
-  .home-links {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 20px;
-  }
-  .home-links a {
-    color: var(--text-light);
-    font-size: 15px;
-    font-weight: 600;
-    text-decoration: none;
-    padding: 10px;
-    border: 1px solid var(--card-border);
-    border-radius: 6px;
-  }
-  .home-links a:hover { background: rgba(255,255,255,0.05); color: var(--accent); }
 
   #pin-row { margin-top: 12px; }
   #pin-row input {
@@ -90,6 +78,34 @@
   }
   #pin-subtitle { color: var(--text-light); font-size: 13px; margin: 10px 0 0; }
   #pin-error { color: #e0997b; font-size: 13px; min-height: 16px; margin: 2px 0 4px; }
+
+  .welcome-card {
+    background: var(--mat-green-light);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 16px;
+  }
+  .welcome-card h3 {
+    color: var(--accent);
+    font-size: 14px;
+    margin: 0 0 12px;
+  }
+  .welcome-card h3 a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .welcome-card h3 a:hover { text-decoration: underline; }
+
+  #news-list { display: flex; flex-direction: column; gap: 10px; }
+  .news-item { font-size: 13px; color: var(--text-light); }
+  .news-item .news-date {
+    display: block;
+    color: var(--text-muted);
+    font-size: 11px;
+    margin-top: 2px;
+  }
+  #news-empty { color: var(--text-muted); font-size: 13px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -113,13 +129,16 @@
 
 <div id="welcome-screen" style="display:none;">
   <h2>Welcome back, <span id="welcome-name"></span>!</h2>
-  <div class="home-links">
-    <a href="deckbuilder.html?tab=collection">My Collection</a>
-    <a href="deckbuilder.html?tab=deck">Deckbuilder</a>
-    <a href="playmat.html">Battle</a>
-    <a href="history.html">History</a>
+
+  <div class="welcome-card">
+    <h3><a href="players.html">Top Players →</a></h3>
+    <div id="leaderboard"></div>
   </div>
-  <div id="leaderboard" style="margin-top:24px;"></div>
+
+  <div class="welcome-card">
+    <h3>What's New</h3>
+    <div id="news-list"></div>
+  </div>
 </div>
 
 <script src="shared-header.js"></script>
@@ -315,6 +334,7 @@ function showWelcome(player) {
   document.getElementById("welcome-screen").style.display = "block";
   document.getElementById("welcome-name").textContent = player.display_name;
   loadLeaderboard();
+  loadNews();
 }
 
 async function loadLeaderboard() {
@@ -325,7 +345,8 @@ async function loadLeaderboard() {
     .not("winner_id", "is", null); // only decided matches count toward win rate
 
   if (error || !matches || matches.length === 0) {
-    return; // no leaderboard to show yet — quietly skip rather than show an empty/broken section
+    el.innerHTML = `<div id="news-empty">No matches played yet.</div>`;
+    return;
   }
 
   // Tally wins and total decided matches per player
@@ -345,23 +366,63 @@ async function loadLeaderboard() {
     .sort((a, b) => b.rate - a.rate || b.total - a.total)
     .slice(0, 3);
 
-  if (ranked.length === 0) return;
+  if (ranked.length === 0) {
+    el.innerHTML = `<div id="news-empty">No matches played yet.</div>`;
+    return;
+  }
 
   const { data: players } = await supabaseClient.from("players").select("id, display_name").in("id", ranked.map(r => r.playerId));
   const nameById = Object.fromEntries((players || []).map(p => [p.id, p.display_name]));
 
   const medals = ["🥇", "🥈", "🥉"];
   el.innerHTML = `
-    <a href="players.html" style="display:block; text-decoration:none;"><h3 style="color:var(--accent); font-size:14px; text-align:center; margin-bottom:10px;">Top Players →</h3></a>
     <div style="display:flex; flex-direction:column; gap:6px;">
       ${ranked.map((r, i) => `
         <div style="display:flex; justify-content:space-between; background:rgba(255,255,255,0.05); border-radius:6px; padding:6px 12px; font-size:13px;">
-          <span>${medals[i]} ${nameById[r.playerId] || "Unknown"}</span>
+          <span>${medals[i]} ${escapeHtml(nameById[r.playerId] || "Unknown")}</span>
           <span style="color:var(--text-muted);">${Math.round(r.rate * 100)}% (${r.wins}/${r.total})</span>
         </div>
       `).join("")}
     </div>
   `;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function formatUpdateDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+async function loadNews() {
+  const el = document.getElementById("news-list");
+  const { data: updates, error } = await supabaseClient
+    .from("site_updates")
+    .select("id, message, created_at")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error("Failed to load site updates:", error);
+    el.innerHTML = `<div id="news-empty">Couldn't load updates.</div>`;
+    return;
+  }
+
+  if (!updates || updates.length === 0) {
+    el.innerHTML = `<div id="news-empty">No updates yet — check back soon!</div>`;
+    return;
+  }
+
+  el.innerHTML = updates.map(u => `
+    <div class="news-item">
+      ${escapeHtml(u.message)}
+      <span class="news-date">${formatUpdateDate(u.created_at)}</span>
+    </div>
+  `).join("");
 }
 
 const existingPlayer = window.getBakemonPlayer();
