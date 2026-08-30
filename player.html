@@ -268,6 +268,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // different domain than the GitHub Pages-hosted HTML, so this must stay
 // an absolute URL.
 const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
+const CARDBACK_URL = "https://hxa.neocities.org/bakemon/cardback.png";
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -443,6 +444,12 @@ async function loadFavorites() {
 
     if (card) {
       div.innerHTML = `<img src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">`;
+      const img = div.querySelector("img");
+      img.addEventListener("error", () => {
+        if (img.dataset.fallenBack) return;
+        img.dataset.fallenBack = "1";
+        img.src = CARDBACK_URL;
+      });
       if (isOwnProfile) {
         const removeBtn = document.createElement("button");
         removeBtn.className = "remove-btn";
@@ -508,6 +515,15 @@ function renderPickerList(cards) {
   `).join("");
   listEl.querySelectorAll(".picker-option").forEach(el => {
     el.addEventListener("click", () => chooseFavorite(el.dataset.cardId));
+    // Same fallback pattern as deckbuilder.html: if the real art fails to
+    // load (card not yet revealed on Neocities), fall back to the shared
+    // cardback image instead of a broken-image icon.
+    const img = el.querySelector("img");
+    img.addEventListener("error", () => {
+      if (img.dataset.fallenBack) return; // avoid a loop if cardback.png is itself missing
+      img.dataset.fallenBack = "1";
+      img.src = CARDBACK_URL;
+    });
   });
 }
 
