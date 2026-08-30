@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bakemon Player Profile</title>
+<title>Bakemon Player Directory</title>
 <style>
   :root {
     --mat-green: #1d4d3a;
@@ -32,101 +32,39 @@
     font-weight: 500;
   }
   button:hover { background: #f5e3b3; }
-  button.primary { background: var(--accent); border-color: #a8b32e; }
-  button.small { padding: 3px 8px; font-size: 12px; }
+  button.sort-toggle.active { background: var(--accent); border-color: #a8b32e; }
 
   #content { max-width: 700px; margin: 24px auto; padding: 0 16px; }
 
-  #profile-heading {
+  h2 {
     color: var(--accent);
     text-align: center;
     margin-bottom: 4px;
-    font-size: 26px;
   }
-  #profile-subheading {
+  #subheading {
     text-align: center;
     color: var(--text-muted);
     font-size: 13px;
     margin-bottom: 20px;
   }
 
-  #stat-summary {
+  #sort-controls {
     display: flex;
     justify-content: center;
-    gap: 32px;
-    background: var(--mat-green);
-    border: 0.5px solid var(--card-border);
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-  .stat { text-align: center; }
-  .stat .value { font-size: 26px; font-weight: 700; color: var(--accent); }
-  .stat .label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-
-  #best-deck {
-    text-align: center;
-    font-size: 13px;
-    color: var(--text-light);
+    gap: 8px;
     margin-bottom: 20px;
   }
-  #best-deck strong { color: var(--accent); }
 
-  .section-title {
-    color: var(--accent);
-    font-size: 15px;
-    margin: 24px 0 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  #favorites-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-  }
-  .favorite-slot {
-    aspect-ratio: 5 / 7;
-    border-radius: 10px;
-    border: 2px dashed var(--card-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    background: var(--mat-green);
-    cursor: default;
-    position: relative;
-  }
-  .favorite-slot.editable { cursor: pointer; }
-  .favorite-slot.editable:hover { background: var(--mat-green-light, #245a44); }
-  .favorite-slot img { width: 100%; height: 100%; object-fit: cover; border-radius: 8px; }
-  .favorite-slot .empty-label {
+  .section-label {
     color: var(--text-muted);
     font-size: 12px;
-    text-align: center;
-    padding: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 18px 0 8px;
   }
-  .favorite-slot .remove-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: rgba(0,0,0,0.6);
-    color: #fff;
-    border: none;
-    border-radius: 999px;
-    width: 22px;
-    height: 22px;
-    font-size: 13px;
-    line-height: 1;
-    cursor: pointer;
-    display: none;
-  }
-  .favorite-slot.editable:hover .remove-btn { display: block; }
 
-  #match-list { display: flex; flex-direction: column; gap: 8px; }
-  .match-row {
+  #player-list { display: flex; flex-direction: column; gap: 8px; }
+  .player-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -136,92 +74,43 @@
     border-left: 4px solid var(--text-muted);
     gap: 10px;
     flex-wrap: wrap;
+    text-decoration: none;
+    color: inherit;
   }
-  .match-row.victory { border-left-color: #7fcaa5; }
-  .match-row.defeat { border-left-color: #e0997b; }
-  .match-row.no-decision { border-left-color: var(--text-muted); opacity: 0.75; }
+  .player-row:hover { background: #1a5540; }
+  .player-row.ranked { border-left-color: var(--accent); }
 
-  .match-info { display: flex; flex-direction: column; gap: 2px; }
-  .match-opponent { font-size: 14px; font-weight: 600; color: var(--text-light); }
-  .match-meta { font-size: 11px; color: var(--text-muted); }
+  .player-rank {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-muted);
+    width: 26px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .player-row.ranked .player-rank { color: var(--accent); }
 
-  .match-outcome {
-    font-size: 12px;
+  .player-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .player-name { font-size: 14px; font-weight: 600; color: var(--text-light); }
+  .player-meta { font-size: 11px; color: var(--text-muted); }
+
+  .player-winrate {
+    font-size: 13px;
     font-weight: 700;
     padding: 4px 12px;
     border-radius: 999px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    background: #2a6b4f;
+    color: #b8f0d0;
+    white-space: nowrap;
   }
-  .match-outcome.victory { background: #2a6b4f; color: #b8f0d0; }
-  .match-outcome.defeat { background: #6b2e2e; color: #f0c0b0; }
-  .match-outcome.no-decision { background: #3a3a3a; color: var(--text-muted); }
-
-  #see-all-link {
-    display: block;
-    text-align: center;
-    margin-top: 12px;
-    color: var(--text-light);
-    font-size: 13px;
-    text-decoration: none;
-  }
-  #see-all-link:hover { color: var(--accent); }
+  .player-winrate.no-rate { background: #3a3a3a; color: var(--text-muted); }
 
   #empty-message {
     text-align: center;
     color: var(--text-muted);
-    padding: 24px 20px;
+    padding: 40px 20px;
     font-size: 14px;
   }
-
-  /* Card picker modal, reused for favorite selection */
-  #picker-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 200;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  }
-  #picker-backdrop.open { display: flex; }
-  #picker-modal {
-    background: var(--mat-green);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: 18px;
-    max-width: 480px;
-    width: 100%;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #picker-modal h3 { color: var(--accent); margin: 0 0 10px; }
-  #picker-search {
-    width: 100%;
-    padding: 8px 10px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    margin-bottom: 10px;
-    box-sizing: border-box;
-  }
-  #picker-list {
-    overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-  }
-  .picker-option {
-    aspect-ratio: 5 / 7;
-    border-radius: 6px;
-    overflow: hidden;
-    cursor: pointer;
-    border: 2px solid transparent;
-  }
-  .picker-option:hover { border-color: var(--accent); }
-  .picker-option img { width: 100%; height: 100%; object-fit: cover; }
-  #picker-close { margin-top: 10px; align-self: flex-end; }
 </style>
 </head>
 <body>
@@ -229,32 +118,23 @@
 <div id="bakemon-shared-header-slot"></div>
 
 <div id="content">
-  <h2 id="profile-heading">Loading…</h2>
-  <div id="profile-subheading"></div>
+  <h2>Player Directory</h2>
+  <div id="subheading"></div>
 
-  <div id="stat-summary">
-    <div class="stat"><div class="value" id="stat-wins">-</div><div class="label">Matches Won</div></div>
-    <div class="stat"><div class="value" id="stat-winrate">-</div><div class="label">Win Rate</div></div>
-    <div class="stat"><div class="value" id="stat-total">-</div><div class="label">Total Matches</div></div>
+  <div id="sort-controls">
+    <button class="sort-toggle" id="sort-name-btn">Alphabetical</button>
+    <button class="sort-toggle" id="sort-winrate-btn">Win Rate</button>
   </div>
-  <div id="best-deck"></div>
 
-  <div class="section-title">Favorite Bakemon</div>
-  <div id="favorites-grid"></div>
+  <div id="ranked-label" class="section-label" style="display:none;">Ranked (5+ matches)</div>
+  <div id="ranked-list" class="player-list"></div>
 
-  <div class="section-title">Recent Matches</div>
-  <div id="match-list"></div>
-  <div id="empty-message" style="display:none;"></div>
-  <a id="see-all-link" href="#" style="display:none;">See full match history →</a>
-</div>
+  <div id="unranked-label" class="section-label" style="display:none;">Fewer Than 5 Matches</div>
+  <div id="unranked-list" class="player-list"></div>
 
-<div id="picker-backdrop">
-  <div id="picker-modal">
-    <h3>Choose a favorite</h3>
-    <input type="text" id="picker-search" placeholder="Search cards...">
-    <div id="picker-list"></div>
-    <button id="picker-close" class="small">Cancel</button>
-  </div>
+  <div id="all-list" class="player-list"></div>
+
+  <div id="empty-message" style="display:none;">No players registered yet.</div>
 </div>
 
 <script src="shared-header.js"></script>
@@ -264,11 +144,7 @@ const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Same convention as deckbuilder.html — images live on Neocities, a
-// different domain than the GitHub Pages-hosted HTML, so this must stay
-// an absolute URL.
-const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
-const CARDBACK_URL = "https://hxa.neocities.org/bakemon/cardback.png";
+const RANKED_MIN_MATCHES = 5;
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -276,310 +152,129 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function formatDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " +
-         d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-let targetPlayer = null;   // { id, display_name } — whose profile we're looking at
-let isOwnProfile = false;
-let allCards = [];         // fetched once, reused by the favorite picker
-let activeSlot = null;     // which slot (1/2/3) the picker is currently filling
+let allPlayers = []; // [{ id, display_name, wins, total, rate }]
+let currentSort = "name"; // "name" | "winrate"
 
 async function init() {
-  const viewingId = new URLSearchParams(location.search).get("id");
-  const loggedInPlayer = window.getBakemonPlayer();
-
-  const idToLoad = viewingId || (loggedInPlayer ? loggedInPlayer.id : null);
-  if (!idToLoad) {
-    // No id in the URL and nobody logged in — nothing to show.
-    location.href = "index.html";
-    return;
-  }
-
-  const { data: found, error } = await supabaseClient
-    .from("players")
-    .select("id, display_name, created_at")
-    .eq("id", idToLoad)
-    .maybeSingle();
-
-  if (error || !found) {
-    document.getElementById("profile-heading").textContent = "Player not found";
-    return;
-  }
-
-  targetPlayer = found;
-  isOwnProfile = !!(loggedInPlayer && loggedInPlayer.id === targetPlayer.id);
-
-  document.getElementById("profile-heading").textContent = targetPlayer.display_name;
-  document.getElementById("profile-subheading").textContent = isOwnProfile
-    ? "This is your profile."
-    : "";
-
-  await Promise.all([loadMatchSnapshot(), loadFavorites()]);
-}
-
-async function loadMatchSnapshot() {
-  const { data: matches, error } = await supabaseClient
-    .from("match_history")
-    .select("*")
-    .or(`player_1_id.eq.${targetPlayer.id},player_2_id.eq.${targetPlayer.id}`)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Failed to load match history:", error);
-    document.getElementById("empty-message").textContent = "Couldn't load match history — try refreshing.";
-    document.getElementById("empty-message").style.display = "block";
-    return;
-  }
-
-  if (!matches || matches.length === 0) {
-    document.getElementById("empty-message").textContent = isOwnProfile
-      ? "No matches played yet — go start one!"
-      : "No matches played yet.";
-    document.getElementById("empty-message").style.display = "block";
-    document.getElementById("stat-wins").textContent = "0";
-    document.getElementById("stat-winrate").textContent = "—";
-    document.getElementById("stat-total").textContent = "0";
-    return;
-  }
-
-  const playerIds = new Set();
-  const deckIds = new Set();
-  matches.forEach(m => {
-    if (m.player_1_id) playerIds.add(m.player_1_id);
-    if (m.player_2_id) playerIds.add(m.player_2_id);
-    if (m.player_1_deck_id) deckIds.add(m.player_1_deck_id);
-    if (m.player_2_deck_id) deckIds.add(m.player_2_deck_id);
-  });
-
-  const [{ data: players }, { data: decks }] = await Promise.all([
-    supabaseClient.from("players").select("id, display_name").in("id", [...playerIds]),
-    deckIds.size ? supabaseClient.from("decks").select("id, deck_name").in("id", [...deckIds]) : Promise.resolve({ data: [] })
+  const [{ data: players, error: playersErr }, { data: matches, error: matchesErr }] = await Promise.all([
+    supabaseClient.from("players").select("id, display_name").order("display_name"),
+    supabaseClient.from("match_history").select("player_1_id, player_2_id, winner_id")
   ]);
-  const playerNameById = Object.fromEntries((players || []).map(p => [p.id, p.display_name]));
-  const deckNameById = Object.fromEntries((decks || []).map(d => [d.id, d.deck_name]));
 
-  const decidedMatches = matches.filter(m => m.winner_id !== null);
-  const wins = decidedMatches.filter(m => m.winner_id === targetPlayer.id).length;
-  const winRate = decidedMatches.length ? Math.round((wins / decidedMatches.length) * 100) : 0;
-
-  document.getElementById("stat-wins").textContent = wins;
-  document.getElementById("stat-winrate").textContent = decidedMatches.length ? `${winRate}%` : "—";
-  document.getElementById("stat-total").textContent = matches.length;
-
-  const deckWinCounts = {};
-  decidedMatches.forEach(m => {
-    if (m.winner_id !== targetPlayer.id) return;
-    const theirDeckId = m.player_1_id === targetPlayer.id ? m.player_1_deck_id : m.player_2_deck_id;
-    if (!theirDeckId) return;
-    deckWinCounts[theirDeckId] = (deckWinCounts[theirDeckId] || 0) + 1;
-  });
-  const bestDeckId = Object.keys(deckWinCounts).sort((a, b) => deckWinCounts[b] - deckWinCounts[a])[0];
-  if (bestDeckId && deckNameById[bestDeckId]) {
-    const label = isOwnProfile ? "Your winningest deck" : "Winningest deck";
-    document.getElementById("best-deck").innerHTML =
-      `${label}: <strong>${escapeHtml(deckNameById[bestDeckId])}</strong> (${deckWinCounts[bestDeckId]} win${deckWinCounts[bestDeckId] === 1 ? '' : 's'})`;
-  }
-
-  // Snapshot: only the 5 most recent, with a link to the full history page.
-  const recent = matches.slice(0, 5);
-  const listEl = document.getElementById("match-list");
-  listEl.innerHTML = recent.map(m => {
-    const isPlayer1 = m.player_1_id === targetPlayer.id;
-    const oppId = isPlayer1 ? m.player_2_id : m.player_1_id;
-    const oppName = oppId === null ? "Deleted Player" : (playerNameById[oppId] || "Unknown");
-    const theirDeckId = isPlayer1 ? m.player_1_deck_id : m.player_2_deck_id;
-    const theirDeckName = theirDeckId === null ? "Deleted Deck" : (deckNameById[theirDeckId] || "Unknown deck");
-
-    let outcomeClass, outcomeLabel;
-    if (m.winner_id === null) {
-      outcomeClass = "no-decision";
-      outcomeLabel = "No Decision";
-    } else if (m.winner_id === targetPlayer.id) {
-      outcomeClass = "victory";
-      outcomeLabel = "Victory";
-    } else {
-      outcomeClass = "defeat";
-      outcomeLabel = "Defeat";
-    }
-
-    return `
-      <div class="match-row ${outcomeClass}">
-        <div class="match-info">
-          <div class="match-opponent">vs ${escapeHtml(oppName)}</div>
-          <div class="match-meta">${formatDate(m.created_at)} · played ${escapeHtml(theirDeckName)}</div>
-        </div>
-        <div class="match-outcome ${outcomeClass}">${outcomeLabel}</div>
-      </div>
-    `;
-  }).join("");
-
-  const seeAll = document.getElementById("see-all-link");
-  seeAll.href = `history.html?player=${targetPlayer.id}`;
-  seeAll.style.display = "block";
-}
-
-async function loadFavorites() {
-  const { data: favorites, error } = await supabaseClient
-    .from("player_favorite_cards")
-    .select("card_id, sort_order, cards ( id, name, image_filename )")
-    .eq("player_id", targetPlayer.id)
-    .order("sort_order");
-
-  if (error) {
-    console.error("Failed to load favorite cards:", error);
-  }
-
-  const bySlot = {};
-  (favorites || []).forEach(f => { bySlot[f.sort_order] = f.cards; });
-
-  const grid = document.getElementById("favorites-grid");
-  grid.innerHTML = "";
-  for (let slot = 1; slot <= 3; slot++) {
-    const card = bySlot[slot];
-    const div = document.createElement("div");
-    div.className = "favorite-slot" + (isOwnProfile ? " editable" : "");
-
-    if (card) {
-      div.innerHTML = `<img src="${CARD_IMAGE_BASE}${card.image_filename || ''}" alt="${escapeHtml(card.name)}">`;
-      const img = div.querySelector("img");
-      img.addEventListener("error", () => {
-        if (img.dataset.fallenBack) return;
-        img.dataset.fallenBack = "1";
-        img.src = CARDBACK_URL;
-      });
-      if (isOwnProfile) {
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "remove-btn";
-        removeBtn.textContent = "✕";
-        removeBtn.title = "Remove favorite";
-        removeBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          removeFavorite(slot);
-        });
-        div.appendChild(removeBtn);
-      }
-    } else {
-      div.innerHTML = `<div class="empty-label">${isOwnProfile ? "Tap to add" : "Empty"}</div>`;
-    }
-
-    if (isOwnProfile) {
-      div.addEventListener("click", () => openPicker(slot));
-    }
-    grid.appendChild(div);
-  }
-}
-
-async function removeFavorite(slot) {
-  const { error } = await supabaseClient
-    .from("player_favorite_cards")
-    .delete()
-    .eq("player_id", targetPlayer.id)
-    .eq("sort_order", slot);
-  if (error) {
-    console.error(error);
-    alert("Couldn't remove that favorite. Try again?");
+  if (playersErr) {
+    console.error(playersErr);
+    document.getElementById("empty-message").textContent = "Couldn't load the player directory — try refreshing.";
+    document.getElementById("empty-message").style.display = "block";
     return;
   }
-  loadFavorites();
-}
 
-async function openPicker(slot) {
-  activeSlot = slot;
-  if (allCards.length === 0) {
-    const { data, error } = await supabaseClient
-      .from("cards")
-      .select("id, name, image_filename")
-      .eq("card_type", "bakemon")
-      .order("name");
-    if (error) {
-      console.error(error);
-      alert("Couldn't load the card list. Try again?");
-      return;
-    }
-    allCards = data || [];
+  if (!players || players.length === 0) {
+    document.getElementById("empty-message").style.display = "block";
+    return;
   }
-  renderPickerList(allCards);
-  document.getElementById("picker-search").value = "";
-  document.getElementById("picker-backdrop").classList.add("open");
-}
 
-function renderPickerList(cards) {
-  const listEl = document.getElementById("picker-list");
-  listEl.innerHTML = cards.map(c => `
-    <div class="picker-option" data-card-id="${c.id}" title="${escapeHtml(c.name)}">
-      <img src="${CARD_IMAGE_BASE}${c.image_filename || ''}" alt="${escapeHtml(c.name)}">
-    </div>
-  `).join("");
-  listEl.querySelectorAll(".picker-option").forEach(el => {
-    el.addEventListener("click", () => chooseFavorite(el.dataset.cardId));
-    // Same fallback pattern as deckbuilder.html: if the real art fails to
-    // load (card not yet revealed on Neocities), fall back to the shared
-    // cardback image instead of a broken-image icon.
-    const img = el.querySelector("img");
-    img.addEventListener("error", () => {
-      if (img.dataset.fallenBack) return; // avoid a loop if cardback.png is itself missing
-      img.dataset.fallenBack = "1";
-      img.src = CARDBACK_URL;
+  // Tally decided-match wins/totals per player, same logic as index.html's leaderboard
+  const tally = {}; // player_id -> { wins, total }
+  (matches || []).forEach(m => {
+    [m.player_1_id, m.player_2_id].forEach(pid => {
+      if (!pid) return;
+      if (!tally[pid]) tally[pid] = { wins: 0, total: 0 };
     });
+    // Only count decided matches toward win rate, same as history.html/index.html
+    if (m.winner_id === null) return;
+    [m.player_1_id, m.player_2_id].forEach(pid => {
+      if (!pid) return;
+      tally[pid].total += 1;
+    });
+    if (tally[m.winner_id]) tally[m.winner_id].wins += 1;
   });
+
+  allPlayers = players.map(p => {
+    const stats = tally[p.id] || { wins: 0, total: 0 };
+    return {
+      id: p.id,
+      display_name: p.display_name,
+      wins: stats.wins,
+      total: stats.total,
+      rate: stats.total ? stats.wins / stats.total : 0
+    };
+  });
+
+  document.getElementById("subheading").textContent = `${allPlayers.length} registered player${allPlayers.length === 1 ? '' : 's'}`;
+
+  render();
 }
 
-document.getElementById("picker-search").addEventListener("input", (e) => {
-  const q = e.target.value.trim().toLowerCase();
-  const filtered = q ? allCards.filter(c => c.name.toLowerCase().includes(q)) : allCards;
-  renderPickerList(filtered);
-});
-
-document.getElementById("picker-close").addEventListener("click", closePicker);
-document.getElementById("picker-backdrop").addEventListener("click", (e) => {
-  if (e.target.id === "picker-backdrop") closePicker();
-});
-
-function closePicker() {
-  document.getElementById("picker-backdrop").classList.remove("open");
-  activeSlot = null;
-}
-
-async function chooseFavorite(cardId) {
-  if (!activeSlot) return;
-  const slot = activeSlot;
-
-  // Clear whatever's currently in this slot, then insert the new pick.
-  // (Two steps rather than upsert, since the unique constraint is on
-  // (player_id, card_id) as well as (player_id, sort_order) — an upsert
-  // keyed on one alone can't safely resolve both at once here.)
-  const { error: deleteErr } = await supabaseClient
-    .from("player_favorite_cards")
-    .delete()
-    .eq("player_id", targetPlayer.id)
-    .eq("sort_order", slot);
-  if (deleteErr) {
-    console.error(deleteErr);
-    alert("Couldn't update that favorite. Try again?");
-    return;
+function render() {
+  if (currentSort === "name") {
+    renderAlphabetical();
+  } else {
+    renderByWinRate();
   }
-
-  const { error: insertErr } = await supabaseClient
-    .from("player_favorite_cards")
-    .insert({ player_id: targetPlayer.id, card_id: cardId, sort_order: slot });
-  if (insertErr) {
-    console.error(insertErr);
-    // Most likely cause: this card is already favorited in a different slot
-    // (unique player_id+card_id). Give a clear reason rather than a raw error.
-    if (insertErr.code === "23505") {
-      alert("That card is already one of your favorites in another slot.");
-    } else {
-      alert("Couldn't save that favorite. Try again?");
-    }
-    return;
-  }
-
-  closePicker();
-  loadFavorites();
+  document.getElementById("sort-name-btn").classList.toggle("active", currentSort === "name");
+  document.getElementById("sort-winrate-btn").classList.toggle("active", currentSort === "winrate");
 }
+
+function renderAlphabetical() {
+  document.getElementById("ranked-label").style.display = "none";
+  document.getElementById("ranked-list").innerHTML = "";
+  document.getElementById("unranked-label").style.display = "none";
+  document.getElementById("unranked-list").innerHTML = "";
+
+  const sorted = [...allPlayers].sort((a, b) => a.display_name.localeCompare(b.display_name));
+  document.getElementById("all-list").innerHTML = sorted.map(p => playerRowHtml(p)).join("");
+}
+
+function renderByWinRate() {
+  document.getElementById("all-list").innerHTML = "";
+
+  const ranked = allPlayers
+    .filter(p => p.total >= RANKED_MIN_MATCHES)
+    .sort((a, b) => b.rate - a.rate || b.total - a.total);
+  const unranked = allPlayers
+    .filter(p => p.total < RANKED_MIN_MATCHES)
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+
+  const rankedLabel = document.getElementById("ranked-label");
+  const unrankedLabel = document.getElementById("unranked-label");
+
+  rankedLabel.style.display = ranked.length ? "block" : "none";
+  unrankedLabel.style.display = unranked.length ? "block" : "none";
+
+  document.getElementById("ranked-list").innerHTML = ranked
+    .map((p, i) => playerRowHtml(p, i + 1, true))
+    .join("");
+  document.getElementById("unranked-list").innerHTML = unranked
+    .map(p => playerRowHtml(p))
+    .join("");
+}
+
+function playerRowHtml(p, rank, ranked) {
+  const winRateLabel = p.total > 0 ? `${Math.round(p.rate * 100)}%` : "—";
+  const metaLabel = p.total > 0
+    ? `${p.wins}W · ${p.total} match${p.total === 1 ? '' : 'es'}`
+    : "No matches yet";
+
+  return `
+    <a class="player-row${ranked ? ' ranked' : ''}" href="player.html?id=${p.id}">
+      ${rank ? `<div class="player-rank">#${rank}</div>` : ''}
+      <div class="player-info">
+        <div class="player-name">${escapeHtml(p.display_name)}</div>
+        <div class="player-meta">${metaLabel}</div>
+      </div>
+      <div class="player-winrate${p.total === 0 ? ' no-rate' : ''}">${winRateLabel}</div>
+    </a>
+  `;
+}
+
+document.getElementById("sort-name-btn").addEventListener("click", () => {
+  currentSort = "name";
+  render();
+});
+document.getElementById("sort-winrate-btn").addEventListener("click", () => {
+  currentSort = "winrate";
+  render();
+});
 
 init();
 </script>
