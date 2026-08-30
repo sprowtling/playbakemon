@@ -99,9 +99,10 @@
 </head>
 <body>
 
-<div id="bakemon-shared-header-slot" data-requires-login="true"></div>
+<div id="bakemon-shared-header-slot"></div>
 
 <div id="content">
+  <h2 id="history-heading" style="color:var(--accent); text-align:center; margin-bottom:4px;"></h2>
   <div id="stat-summary">
     <div class="stat"><div class="value" id="stat-wins">-</div><div class="label">Matches Won</div></div>
     <div class="stat"><div class="value" id="stat-winrate">-</div><div class="label">Win Rate</div></div>
@@ -132,14 +133,43 @@ function formatDate(iso) {
 }
 
 async function loadHistory() {
-  const player = window.getBakemonPlayer();
-  if (!player) return; // shared-header.js will already be redirecting to index.html
+  const loggedInPlayer = window.getBakemonPlayer();
+  const viewingId = new URLSearchParams(location.search).get("player");
+  const isOwnHistory = !viewingId || (loggedInPlayer && viewingId === loggedInPlayer.id);
+
+  let targetPlayer;
+  if (isOwnHistory) {
+    if (!loggedInPlayer) {
+      // No one logged in and no specific player requested — nothing to show.
+      location.href = "index.html";
+      return;
+    }
+    targetPlayer = loggedInPlayer;
+  } else {
+    // Viewing someone else's history — look up their display name for the heading.
+    const { data: found, error: findErr } = await supabaseClient
+      .from("players")
+      .select("id, display_name")
+      .eq("id", viewingId)
+      .maybeSingle();
+    if (findErr || !found) {
+      document.getElementById("history-heading").textContent = "Player not found";
+      document.getElementById("empty-message").style.display = "block";
+      document.getElementById("empty-message").textContent = "This player doesn't exist.";
+      return;
+    }
+    targetPlayer = found;
+  }
+
+  document.getElementById("history-heading").textContent = isOwnHistory
+    ? "Your Match History"
+    : `${targetPlayer.display_name}'s Match History`;
 
   // Pull every match this player was part of, either seat
   const { data: matches, error } = await supabaseClient
     .from("match_history")
     .select("*")
-    .or(`player_1_id.eq.${player.id},player_2_id.eq.${player.id}`)
+    .or(`player_1_id.eq.${targetPlayer.id},player_2_id.eq.${targetPlayer.id}`)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -151,6 +181,9 @@ async function loadHistory() {
 
   if (!matches || matches.length === 0) {
     document.getElementById("empty-message").style.display = "block";
+    document.getElementById("empty-message").textContent = isOwnHistory
+      ? "No matches played yet — go start one!"
+      : "No matches played yet.";
     document.getElementById("stat-wins").textContent = "0";
     document.getElementById("stat-winrate").textContent = "—";
     document.getElementById("stat-total").textContent = "0";
@@ -176,7 +209,7 @@ async function loadHistory() {
 
   // Compute stats: only matches with a real winner_id count toward win rate
   const decidedMatches = matches.filter(m => m.winner_id !== null);
-  const wins = decidedMatches.filter(m => m.winner_id === player.id).length;
+  const wins = decidedMatches.filter(m => m.winner_id === targetPlayer.id).length;
   const winRate = decidedMatches.length ? Math.round((wins / decidedMatches.length) * 100) : 0;
 
   document.getElementById("stat-wins").textContent = wins;
@@ -186,31 +219,32 @@ async function loadHistory() {
   // Which deck did this player win with most often?
   const deckWinCounts = {};
   decidedMatches.forEach(m => {
-    if (m.winner_id !== player.id) return;
-    const myDeckId = m.player_1_id === player.id ? m.player_1_deck_id : m.player_2_deck_id;
-    if (!myDeckId) return;
-    deckWinCounts[myDeckId] = (deckWinCounts[myDeckId] || 0) + 1;
+    if (m.winner_id !== targetPlayer.id) return;
+    const theirDeckId = m.player_1_id === targetPlayer.id ? m.player_1_deck_id : m.player_2_deck_id;
+    if (!theirDeckId) return;
+    deckWinCounts[theirDeckId] = (deckWinCounts[theirDeckId] || 0) + 1;
   });
   const bestDeckId = Object.keys(deckWinCounts).sort((a, b) => deckWinCounts[b] - deckWinCounts[a])[0];
   if (bestDeckId && deckNameById[bestDeckId]) {
+    const label = isOwnHistory ? "Your winningest deck" : "Winningest deck";
     document.getElementById("best-deck").innerHTML =
-      `Your winningest deck: <strong>${escapeHtml(deckNameById[bestDeckId])}</strong> (${deckWinCounts[bestDeckId]} win${deckWinCounts[bestDeckId] === 1 ? '' : 's'})`;
+      `${label}: <strong>${escapeHtml(deckNameById[bestDeckId])}</strong> (${deckWinCounts[bestDeckId]} win${deckWinCounts[bestDeckId] === 1 ? '' : 's'})`;
   }
 
   // Render the full list, including no-decision matches
   const listEl = document.getElementById("match-list");
   listEl.innerHTML = matches.map(m => {
-    const isPlayer1 = m.player_1_id === player.id;
+    const isPlayer1 = m.player_1_id === targetPlayer.id;
     const oppId = isPlayer1 ? m.player_2_id : m.player_1_id;
     const oppName = oppId === null ? "Deleted Player" : (playerNameById[oppId] || "Unknown");
-    const myDeckId = isPlayer1 ? m.player_1_deck_id : m.player_2_deck_id;
-    const myDeckName = myDeckId === null ? "Deleted Deck" : (deckNameById[myDeckId] || "Unknown deck");
+    const theirDeckId = isPlayer1 ? m.player_1_deck_id : m.player_2_deck_id;
+    const theirDeckName = theirDeckId === null ? "Deleted Deck" : (deckNameById[theirDeckId] || "Unknown deck");
 
     let outcomeClass, outcomeLabel;
     if (m.winner_id === null) {
       outcomeClass = "no-decision";
       outcomeLabel = "No Decision";
-    } else if (m.winner_id === player.id) {
+    } else if (m.winner_id === targetPlayer.id) {
       outcomeClass = "victory";
       outcomeLabel = "Victory";
     } else {
@@ -222,7 +256,7 @@ async function loadHistory() {
       <div class="match-row ${outcomeClass}">
         <div class="match-info">
           <div class="match-opponent">vs ${escapeHtml(oppName)}</div>
-          <div class="match-meta">${formatDate(m.created_at)} · played ${escapeHtml(myDeckName)}</div>
+          <div class="match-meta">${formatDate(m.created_at)} · played ${escapeHtml(theirDeckName)}</div>
         </div>
         <div class="match-outcome ${outcomeClass}">${outcomeLabel}</div>
       </div>
