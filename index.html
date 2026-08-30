@@ -352,7 +352,7 @@ async function loadLeaderboard() {
 
   const medals = ["🥇", "🥈", "🥉"];
   el.innerHTML = `
-    <h3 style="color:var(--accent); font-size:14px; text-align:center; margin-bottom:10px;">Top Players</h3>
+    <a href="players.html" style="display:block; text-decoration:none;"><h3 style="color:var(--accent); font-size:14px; text-align:center; margin-bottom:10px;">Top Players →</h3></a>
     <div style="display:flex; flex-direction:column; gap:6px;">
       ${ranked.map((r, i) => `
         <div style="display:flex; justify-content:space-between; background:rgba(255,255,255,0.05); border-radius:6px; padding:6px 12px; font-size:13px;">
