@@ -74,27 +74,22 @@
   }
   .home-links a:hover { background: rgba(255,255,255,0.05); color: var(--accent); }
 
-  #pin-screen input {
+  #pin-row { margin-top: 12px; }
+  #pin-row input {
     width: 30%;
+    min-width: 90px;
     padding: 10px 12px;
     border-radius: 6px;
     border: 1px solid var(--card-border);
     font-size: 22px;
     letter-spacing: 8px;
     text-align: center;
-    margin: 12px 0;
+    margin: 8px auto;
     box-sizing: border-box;
+    display: block;
   }
-  #pin-screen p { color: var(--text-light); font-size: 13px; }
-  #pin-error { color: #e0997b; font-size: 13px; min-height: 16px; margin: 4px 0; }
-  #pin-back-link {
-    display: inline-block;
-    margin-top: 10px;
-    color: var(--text-muted);
-    font-size: 12px;
-    cursor: pointer;
-    text-decoration: underline;
-  }
+  #pin-subtitle { color: var(--text-light); font-size: 13px; margin: 10px 0 0; }
+  #pin-error { color: #e0997b; font-size: 13px; min-height: 16px; margin: 2px 0 4px; }
 </style>
 </head>
 <body>
@@ -105,17 +100,15 @@
   <h2>Who's playing?</h2>
   <input type="text" id="name-input" placeholder="Type your name...">
   <datalist id="known-players"></datalist>
+
+  <div id="pin-row" style="display:none;">
+    <p id="pin-subtitle"></p>
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pin-input" placeholder="••••">
+    <div id="pin-error"></div>
+  </div>
+
   <button class="primary" id="login-btn">Continue</button>
   <p>New name? We'll create a profile for you. Your decks and collection are saved permanently.</p>
-</div>
-
-<div id="pin-screen" style="display:none;">
-  <h2 id="pin-screen-title">Enter your PIN</h2>
-  <p id="pin-screen-subtitle">Type your 4-digit PIN for <strong id="pin-screen-name"></strong>.</p>
-  <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pin-input" placeholder="••••">
-  <div id="pin-error"></div>
-  <button class="primary" id="pin-submit-btn">Continue</button>
-  <div><span id="pin-back-link">Not you? Go back</span></div>
 </div>
 
 <div id="welcome-screen" style="display:none;">
@@ -148,30 +141,52 @@ async function loadKnownPlayers() {
   });
 }
 
-document.getElementById("login-btn").addEventListener("click", handleLogin);
-document.getElementById("name-input").addEventListener("keydown", e => {
-  if (e.key === "Enter") handleLogin();
-});
-document.getElementById("pin-submit-btn").addEventListener("click", handlePinSubmit);
-document.getElementById("pin-input").addEventListener("keydown", e => {
-  if (e.key === "Enter") handlePinSubmit();
-});
-document.getElementById("pin-back-link").addEventListener("click", showHomeScreen);
+const nameInput = document.getElementById("name-input");
+const pinInput = document.getElementById("pin-input");
+const pinRow = document.getElementById("pin-row");
+const pinSubtitle = document.getElementById("pin-subtitle");
+const pinError = document.getElementById("pin-error");
+const loginBtn = document.getElementById("login-btn");
 
-// Holds the in-progress login while we're on the pin screen — cleared once
-// login actually completes. { name, isNewPlayer, existingPlayer }
+document.getElementById("login-btn").addEventListener("click", handleContinue);
+pinInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") handleContinue();
+});
+
+// Resolve the name (and reveal the pin row) when the player leaves the
+// name field or presses Enter in it — NOT on every keystroke, so we're
+// not hammering the database while someone's still typing.
+nameInput.addEventListener("blur", resolveName);
+nameInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    resolveName();
+  }
+});
+
+// If the name changes after the pin row is already showing (player edited
+// it instead of starting over), collapse the pin row again — it belongs
+// to whichever name was last resolved, not necessarily this one anymore.
+nameInput.addEventListener("input", () => {
+  if (pendingLogin && nameInput.value.trim() !== pendingLogin.name) {
+    hidePinRow();
+  }
+});
+
+// Holds the resolved name we're currently showing a pin row for.
+// { name, isNewPlayer, existingPlayer, hasPin }
 let pendingLogin = null;
 
-async function handleLogin() {
-  const nameInput = document.getElementById("name-input");
+async function resolveName() {
   const name = nameInput.value.trim();
   if (!name) return;
+  if (pendingLogin && pendingLogin.name === name) return; // already resolved, don't re-fetch
 
   // Note: no "*" here — the pin column is deliberately unreadable via a
   // normal select (see verify_player_pin / player_has_pin for how the pin
-  // itself gets checked). Listing columns explicitly is required now for
-  // any query against players.
-  let { data: existing, error } = await supabaseClient
+  // itself gets checked). Listing columns explicitly is required for any
+  // query against players.
+  const { data: existing, error } = await supabaseClient
     .from("players")
     .select("id, display_name, created_at")
     .ilike("display_name", name)
@@ -184,7 +199,6 @@ async function handleLogin() {
   }
 
   if (existing) {
-    // Player exists — check whether they've set a pin yet.
     const { data: hasPin, error: hasPinErr } = await supabaseClient.rpc("player_has_pin", {
       p_display_name: existing.display_name
     });
@@ -193,64 +207,52 @@ async function handleLogin() {
       alert("Something went wrong checking your profile. Try again?");
       return;
     }
-
-    if (hasPin) {
-      // Known player with a pin already set — ask them to enter it.
-      pendingLogin = { name: existing.display_name, isNewPlayer: false, existingPlayer: existing };
-      showPinScreen({ mode: "enter", displayName: existing.display_name });
-    } else {
-      // Known player, no pin yet — let them in, but ask them to set one now.
-      pendingLogin = { name: existing.display_name, isNewPlayer: false, existingPlayer: existing };
-      showPinScreen({ mode: "set", displayName: existing.display_name });
-    }
+    pendingLogin = { name: existing.display_name, isNewPlayer: false, existingPlayer: existing, hasPin };
+    showPinRow(hasPin
+      ? `Type your 4-digit PIN for <strong>${existing.display_name}</strong>.`
+      : `Set a 4-digit PIN for <strong>${existing.display_name}</strong> so only you can log in as this player.`);
   } else {
-    // Brand new name — will be created once they choose a pin.
-    pendingLogin = { name, isNewPlayer: true, existingPlayer: null };
-    showPinScreen({ mode: "set", displayName: name });
+    pendingLogin = { name, isNewPlayer: true, existingPlayer: null, hasPin: false };
+    showPinRow(`Set a 4-digit PIN for <strong>${name}</strong> so only you can log in as this player.`);
   }
 }
 
-function showPinScreen({ mode, displayName }) {
-  document.getElementById("home-screen").style.display = "none";
-  document.getElementById("pin-screen").style.display = "block";
-  document.getElementById("pin-screen-name").textContent = displayName;
-  document.getElementById("pin-error").textContent = "";
-  document.getElementById("pin-input").value = "";
-
-  if (mode === "set") {
-    document.getElementById("pin-screen-title").textContent = "Choose a PIN";
-    document.getElementById("pin-screen-subtitle").innerHTML =
-      `Set a 4-digit PIN for <strong>${displayName}</strong> so only you can log in as this player.`;
-  } else {
-    document.getElementById("pin-screen-title").textContent = "Enter your PIN";
-    document.getElementById("pin-screen-subtitle").innerHTML =
-      `Type your 4-digit PIN for <strong>${displayName}</strong>.`;
-  }
-
-  document.getElementById("pin-input").focus();
+function showPinRow(subtitleHtml) {
+  pinSubtitle.innerHTML = subtitleHtml;
+  pinError.textContent = "";
+  pinInput.value = "";
+  pinRow.style.display = "block";
+  pinInput.focus();
 }
 
-function showHomeScreen() {
+function hidePinRow() {
   pendingLogin = null;
-  document.getElementById("pin-screen").style.display = "none";
-  document.getElementById("home-screen").style.display = "block";
-  document.getElementById("name-input").value = "";
-  document.getElementById("name-input").focus();
+  pinRow.style.display = "none";
+  pinInput.value = "";
+  pinError.textContent = "";
 }
 
-async function handlePinSubmit() {
-  if (!pendingLogin) return;
-  const pinInput = document.getElementById("pin-input");
+// The single Continue button: if the name hasn't been resolved into a pin
+// prompt yet (e.g. player typed a name and clicked Continue without ever
+// leaving the field), resolve it first, then fall through to the pin step
+// once it's showing.
+async function handleContinue() {
+  if (!pendingLogin || pendingLogin.name !== nameInput.value.trim()) {
+    await resolveName();
+    return; // let them see/fill the pin row; Continue again submits it
+  }
+  await submitPin();
+}
+
+async function submitPin() {
   const pin = pinInput.value.trim();
-  const errorEl = document.getElementById("pin-error");
 
   if (!/^[0-9]{4}$/.test(pin)) {
-    errorEl.textContent = "PIN must be exactly 4 digits.";
+    pinError.textContent = "PIN must be exactly 4 digits.";
     return;
   }
 
   if (pendingLogin.isNewPlayer) {
-    // Create the player with this pin in one insert.
     const { data: created, error: createErr } = await supabaseClient
       .from("players")
       .insert({ display_name: pendingLogin.name, pin })
@@ -258,19 +260,14 @@ async function handlePinSubmit() {
       .single();
     if (createErr) {
       console.error(createErr);
-      errorEl.textContent = "Couldn't create a profile. Try again?";
+      pinError.textContent = "Couldn't create a profile. Try again?";
       return;
     }
     finishLogin(created);
     return;
   }
 
-  // Existing player — is this a "set your first pin" or a "verify your pin" flow?
-  const { data: hasPin } = await supabaseClient.rpc("player_has_pin", {
-    p_display_name: pendingLogin.name
-  });
-
-  if (!hasPin) {
+  if (!pendingLogin.hasPin) {
     // First time setting a pin for an existing account.
     // Update policy only allows this while pin is currently null, matching
     // this exact situation — see "players can set their own pin once".
@@ -280,7 +277,7 @@ async function handlePinSubmit() {
       .ilike("display_name", pendingLogin.name);
     if (updateErr) {
       console.error(updateErr);
-      errorEl.textContent = "Couldn't save your PIN. Try again?";
+      pinError.textContent = "Couldn't save your PIN. Try again?";
       return;
     }
     finishLogin(pendingLogin.existingPlayer);
@@ -294,11 +291,11 @@ async function handlePinSubmit() {
   });
   if (verifyErr) {
     console.error(verifyErr);
-    errorEl.textContent = "Something went wrong. Try again?";
+    pinError.textContent = "Something went wrong. Try again?";
     return;
   }
   if (!correct) {
-    errorEl.textContent = "That PIN doesn't match. Try again.";
+    pinError.textContent = "That PIN doesn't match. Try again.";
     pinInput.value = "";
     pinInput.focus();
     return;
@@ -309,7 +306,6 @@ async function handlePinSubmit() {
 
 function finishLogin(player) {
   pendingLogin = null;
-  document.getElementById("pin-screen").style.display = "none";
   window.setBakemonPlayer(player);
   showWelcome(player);
 }
