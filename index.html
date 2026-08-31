@@ -131,13 +131,13 @@
   <h2>Welcome back, <span id="welcome-name"></span>!</h2>
 
   <div class="welcome-card">
+    <h3><a href="players.html">Top Players →</a></h3>
+    <div id="leaderboard"></div>
+  </div>
+
+  <div class="welcome-card">
     <h3>What's New</h3>
     <div id="news-list"></div>
-  </div>
-  
-  <div class="welcome-card">
-    <h3><a href="players.html">See All Players →</a></h3>
-    <div id="leaderboard"></div>
   </div>
 </div>
 
@@ -187,7 +187,7 @@ nameInput.addEventListener("keydown", e => {
 // it instead of starting over), collapse the pin row again — it belongs
 // to whichever name was last resolved, not necessarily this one anymore.
 nameInput.addEventListener("input", () => {
-  if (pendingLogin && nameInput.value.trim() !== pendingLogin.name) {
+  if (pendingLogin && nameInput.value.trim().toLowerCase() !== pendingLogin.name.toLowerCase()) {
     hidePinRow();
   }
 });
@@ -199,7 +199,11 @@ let pendingLogin = null;
 async function resolveName() {
   const name = nameInput.value.trim();
   if (!name) return;
-  if (pendingLogin && pendingLogin.name === name) return; // already resolved, don't re-fetch
+  // Case-insensitive check, matching the database's ilike lookup below —
+  // otherwise typing a name in different casing than pendingLogin.name
+  // (which holds the database's stored capitalization once resolved)
+  // would wrongly look like a "different" name and re-fetch unnecessarily.
+  if (pendingLogin && pendingLogin.name.toLowerCase() === name.toLowerCase()) return;
 
   // Note: no "*" here — the pin column is deliberately unreadable via a
   // normal select (see verify_player_pin / player_has_pin for how the pin
@@ -256,7 +260,7 @@ function hidePinRow() {
 // leaving the field), resolve it first, then fall through to the pin step
 // once it's showing.
 async function handleContinue() {
-  if (!pendingLogin || pendingLogin.name !== nameInput.value.trim()) {
+  if (!pendingLogin || pendingLogin.name.toLowerCase() !== nameInput.value.trim().toLowerCase()) {
     await resolveName();
     return; // let them see/fill the pin row; Continue again submits it
   }
