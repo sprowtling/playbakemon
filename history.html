@@ -255,7 +255,7 @@ async function loadHistory() {
     return `
       <div class="match-row ${outcomeClass}">
         <div class="match-info">
-          <div class="match-opponent">vs ${escapeHtml(oppName)}</div>
+          <div class="match-opponent">vs ${oppId ? `<a href="player.html?id=${oppId}" style="color:inherit;">${escapeHtml(oppName)}</a>` : escapeHtml(oppName)}</div>
           <div class="match-meta">${formatDate(m.created_at)} · played ${escapeHtml(theirDeckName)}</div>
         </div>
         <div class="match-outcome ${outcomeClass}">${outcomeLabel}</div>
