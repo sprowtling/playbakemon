@@ -126,9 +126,15 @@ function formatDate(iso) {
 }
 
 async function loadRecentMatches() {
+  // A solo table (nobody ever joined as player 2) has BOTH player_2_id and
+  // player_2_deck_id null. A genuinely deleted player only has player_2_id
+  // null — player_2_deck_id stays behind as a real value, since deck_id
+  // isn't affected by a player being deleted later. Filtering on the deck
+  // id (not just the player id) is what tells these two cases apart.
   const { data: matches, error } = await supabaseClient
     .from("match_history")
     .select("*")
+    .not("player_2_deck_id", "is", null)
     .order("created_at", { ascending: false })
     .limit(MATCH_LIMIT);
 
