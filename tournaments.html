@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Tournaments</title>
+<style>
+  :root {
+    --mat-green: #1d4d3a;
+    --card-cream: #fdf6e3;
+    --card-border: #d9b25c;
+    --accent: #d8e04a;
+    --text-light: #cfe8db;
+    --text-muted: #9fc7ae;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f2e22;
+    color: #eee;
+    min-height: 100vh;
+  }
+  button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    color: #3a2f1a;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button.primary { background: var(--accent); border-color: #a8b32e; }
+
+  #content { max-width: 700px; margin: 24px auto; padding: 0 16px; }
+  h2 { color: var(--accent); text-align: center; margin-bottom: 4px; }
+  #subheading { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+
+  #new-tournament-row { text-align: center; margin-bottom: 20px; }
+
+  #tournament-list { display: flex; flex-direction: column; gap: 8px; }
+  .tournament-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #164634;
+    border-radius: 8px;
+    padding: 12px 16px;
+    border-left: 4px solid var(--text-muted);
+    gap: 10px;
+    flex-wrap: wrap;
+    text-decoration: none;
+    color: inherit;
+  }
+  .tournament-row:hover { background: #1a5540; }
+  .tournament-row.completed { border-left-color: var(--accent); }
+
+  .tournament-info { display: flex; flex-direction: column; gap: 2px; }
+  .tournament-name { font-size: 14px; font-weight: 600; color: var(--text-light); }
+  .tournament-meta { font-size: 11px; color: var(--text-muted); }
+
+  .tournament-status {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tournament-status.completed { background: #2a6b4f; color: #b8f0d0; }
+  .tournament-status.active { background: #3a3a3a; color: var(--text-muted); }
+
+  #empty-message { text-align: center; color: var(--text-muted); padding: 40px 20px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div id="bakemon-shared-header-slot"></div>
+
+<div id="content">
+  <h2>Tournaments</h2>
+  <div id="subheading"></div>
+  <div style="text-align:center; margin-bottom:16px;">
+    <a href="players.html" style="color:var(--text-light); font-size:13px;">← Player directory</a>
+  </div>
+
+  <div id="new-tournament-row">
+    <a href="tournament.html"><button class="primary">+ New Tournament</button></a>
+  </div>
+
+  <div id="tournament-list"></div>
+  <div id="empty-message" style="display:none;">No tournaments yet.</div>
+</div>
+
+<script src="shared-header.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+async function loadTournaments() {
+  const { data: tournaments, error } = await supabaseClient
+    .from("tournaments")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    document.getElementById("empty-message").textContent = "Couldn't load tournaments — try refreshing.";
+    document.getElementById("empty-message").style.display = "block";
+    return;
+  }
+
+  if (!tournaments || tournaments.length === 0) {
+    document.getElementById("empty-message").style.display = "block";
+    return;
+  }
+
+  document.getElementById("subheading").textContent = `${tournaments.length} tournament${tournaments.length === 1 ? '' : 's'} played`;
+
+  // Get champion name for each completed tournament — the final round's single
+  // match's winner. One query for all of it rather than per-tournament round-trips.
+  const { data: allMatches } = await supabaseClient
+    .from("tournament_matches")
+    .select("tournament_id, round, winner_name_snapshot")
+    .in("tournament_id", tournaments.map(t => t.id));
+
+  const championByTournament = {};
+  (allMatches || []).forEach(m => {
+    const existing = championByTournament[m.tournament_id];
+    if (!existing || m.round > existing.round) {
+      championByTournament[m.tournament_id] = { round: m.round, name: m.winner_name_snapshot };
+    }
+  });
+
+  document.getElementById("tournament-list").innerHTML = tournaments.map(t => {
+    const champion = t.status === "completed" ? championByTournament[t.id]?.name : null;
+    const metaLabel = champion
+      ? `Winner: ${escapeHtml(champion)} · ${formatDate(t.created_at)}`
+      : formatDate(t.created_at);
+
+    return `
+      <a class="tournament-row ${t.status}" href="tournament.html?id=${t.id}">
+        <div class="tournament-info">
+          <div class="tournament-name">${escapeHtml(t.name)}</div>
+          <div class="tournament-meta">${metaLabel}</div>
+        </div>
+        <div class="tournament-status ${t.status}">${t.status === 'completed' ? 'Completed' : 'In Progress'}</div>
+      </a>
+    `;
+  }).join("");
+}
+
+loadTournaments();
+</script>
+
+</body>
+</html>
