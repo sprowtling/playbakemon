@@ -292,8 +292,13 @@ function buildBracketMatches(tournamentId, playerIds, nameById) {
         player_2_name_snapshot: p2 ? p2.name : null,
         winner_id: isBye ? p1.id : null,
         winner_name_snapshot: isBye ? p1.name : null,
-        advances_to_match_position: currentRoundPlayers.length > 1 ? nextRoundMatchPosition : null,
-        advances_to_slot: currentRoundPlayers.length > 1 ? nextRoundSlot : null
+        // A match advances its winner somewhere only if THIS round has more
+        // than one match — meaning a next round genuinely exists. A round
+        // with a single match IS the final; there's nowhere further to go.
+        // (Checking currentRoundPlayers.length here was the bug — that's
+        // this round's player count, not whether another round follows.)
+        advances_to_match_position: matchesThisRound > 1 ? nextRoundMatchPosition : null,
+        advances_to_slot: matchesThisRound > 1 ? nextRoundSlot : null
       });
 
       winnersAdvancing.push(isBye ? { id: p1.id, name: p1.name } : null);
