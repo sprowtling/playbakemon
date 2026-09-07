@@ -395,49 +395,79 @@ async function createTournament() {
 // Builds every match row for every round up front. Round 1 comes DIRECTLY
 // from the human-assigned slots — no algorithmic pairing, no bye-spreading
 // math. A round-1 match with exactly one real player is an immediate bye
-// (that real player is the winner, no game played). Every round after
-// that starts empty/TBD and fills in as real matches get decided via the
-// UI, same as before. Because a person placed the byes by hand (with the
-// whole bracket visible to them), there is no way for the generator
-// itself to create an unfair double-bye — that risk only existed in the
-// automatic pairing this replaces.
+// (that real player is the winner, no game played).
+//
+// Every round AFTER round 1 is always built fully empty (TBD vs TBD),
+// full stop — never auto-decided, even if one side happens to already be
+// known (e.g. a bye winner). This matters because "empty" means two
+// different things depending on the round: in round 1, an empty slot
+// means nobody was ever placed there (a real bye). In round 2+, an empty
+// slot ALWAYS means "outcome not decided yet" — even if the OTHER slot in
+// that same match already has a name in it. Treating those the same
+// (checked here as "exactly one side present = bye") was the bug: it let
+// a bye winner's arrival into round 2 get mistaken for winning round 2
+// itself, before their actual opponent had even been determined.
 function buildBracketMatches(tournamentId, seeds, size) {
   const rows = [];
   let round = 1;
-  let currentRoundEntrants = seeds; // array of {id,name} or null, length = size
+  let currentRoundSize = size;
 
-  while (currentRoundEntrants.length >= 2) {
-    const matchesThisRound = currentRoundEntrants.length / 2;
-    const winnersAdvancing = [];
+  // Round 1 only: resolve real byes from the human-placed seeds.
+  const round1WinnersAdvancing = [];
+  for (let m = 0; m < currentRoundSize / 2; m++) {
+    const p1 = seeds[m * 2];
+    const p2 = seeds[m * 2 + 1];
+    const isBye = (p1 && !p2) || (!p1 && p2);
+    const byeWinner = p1 || p2 || null;
 
+    const matchesThisRound = currentRoundSize / 2;
+    const nextRoundMatchPosition = Math.floor(m / 2) + 1;
+    const nextRoundSlot = (m % 2) + 1;
+    const hasNextRound = matchesThisRound > 1;
+
+    rows.push({
+      tournament_id: tournamentId,
+      round: 1,
+      match_position: m + 1,
+      player_1_id: p1 ? p1.id : null,
+      player_1_name_snapshot: p1 ? p1.name : null,
+      player_2_id: p2 ? p2.id : null,
+      player_2_name_snapshot: p2 ? p2.name : null,
+      winner_id: isBye ? byeWinner.id : null,
+      winner_name_snapshot: isBye ? byeWinner.name : null,
+      advances_to_match_position: hasNextRound ? nextRoundMatchPosition : null,
+      advances_to_slot: hasNextRound ? nextRoundSlot : null
+    });
+
+    round1WinnersAdvancing.push(isBye ? byeWinner : null); // tracked only so we know a bye winner exists to forward later — NOT reused to decide round 2's shape
+  }
+
+  // Every round after round 1: always fully empty, no auto-deciding,
+  // regardless of whether a bye winner is already known for one slot.
+  currentRoundSize = currentRoundSize / 2;
+  round = 2;
+  while (currentRoundSize >= 1) {
+    const matchesThisRound = currentRoundSize / 2;
+    if (matchesThisRound < 1) break;
     for (let m = 0; m < matchesThisRound; m++) {
-      const p1 = currentRoundEntrants[m * 2];
-      const p2 = currentRoundEntrants[m * 2 + 1];
-      const isBye = (p1 && !p2) || (!p1 && p2);
-      const byeWinner = p1 || p2 || null;
-
       const nextRoundMatchPosition = Math.floor(m / 2) + 1;
       const nextRoundSlot = (m % 2) + 1;
       const hasNextRound = matchesThisRound > 1;
-
       rows.push({
         tournament_id: tournamentId,
         round,
         match_position: m + 1,
-        player_1_id: p1 ? p1.id : null,
-        player_1_name_snapshot: p1 ? p1.name : null,
-        player_2_id: p2 ? p2.id : null,
-        player_2_name_snapshot: p2 ? p2.name : null,
-        winner_id: isBye ? byeWinner.id : null,
-        winner_name_snapshot: isBye ? byeWinner.name : null,
+        player_1_id: null,
+        player_1_name_snapshot: null,
+        player_2_id: null,
+        player_2_name_snapshot: null,
+        winner_id: null,
+        winner_name_snapshot: null,
         advances_to_match_position: hasNextRound ? nextRoundMatchPosition : null,
         advances_to_slot: hasNextRound ? nextRoundSlot : null
       });
-
-      winnersAdvancing.push(isBye ? byeWinner : null); // null = real match, winner fills in later via the UI
     }
-
-    currentRoundEntrants = winnersAdvancing;
+    currentRoundSize = matchesThisRound;
     round += 1;
   }
 
