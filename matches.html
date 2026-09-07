@@ -97,6 +97,7 @@
   <h2>Recent Matches</h2>
   <div id="subheading">The last 25 matches played, across all players</div>
   <div style="text-align:center; margin-bottom:16px;">
+    <a href="players.html" style="color:var(--text-light); font-size:13px;">← Player directory</a>
   </div>
 
   <div id="match-list"></div>
@@ -130,12 +131,20 @@ async function loadRecentMatches() {
   // null — player_2_deck_id stays behind as a real value, since deck_id
   // isn't affected by a player being deleted later. Filtering on the deck
   // id (not just the player id) is what tells these two cases apart.
-  const { data: matches, error } = await supabaseClient
-    .from("match_history")
-    .select("*")
-    .not("player_2_deck_id", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(MATCH_LIMIT);
+  const [{ data: matches, error }, { data: tournaments, error: tErr }] = await Promise.all([
+    supabaseClient
+      .from("match_history")
+      .select("*")
+      .not("player_2_deck_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(MATCH_LIMIT),
+    supabaseClient
+      .from("tournaments")
+      .select("*")
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+      .limit(MATCH_LIMIT)
+  ]);
 
   if (error) {
     console.error("Failed to load recent matches:", error);
@@ -143,17 +152,49 @@ async function loadRecentMatches() {
     document.getElementById("empty-message").style.display = "block";
     return;
   }
+  if (tErr) console.error("Failed to load tournaments for the feed:", tErr);
 
-  if (!matches || matches.length === 0) {
+  // Champion name for each completed tournament — same "final round's single
+  // match winner" logic as tournaments.html — plus player count for the card.
+  let championByTournament = {};
+  let playerCountByTournament = {};
+  if (tournaments && tournaments.length) {
+    const tournamentIds = tournaments.map(t => t.id);
+    const [{ data: allMatches }, { data: allPlayers }] = await Promise.all([
+      supabaseClient.from("tournament_matches").select("tournament_id, round, winner_name_snapshot").in("tournament_id", tournamentIds),
+      supabaseClient.from("tournament_players").select("tournament_id").in("tournament_id", tournamentIds)
+    ]);
+    (allMatches || []).forEach(m => {
+      const existing = championByTournament[m.tournament_id];
+      if (!existing || m.round > existing.round) {
+        championByTournament[m.tournament_id] = { round: m.round, name: m.winner_name_snapshot };
+      }
+    });
+    (allPlayers || []).forEach(p => {
+      playerCountByTournament[p.tournament_id] = (playerCountByTournament[p.tournament_id] || 0) + 1;
+    });
+  }
+
+  // Merge matches and tournaments into one feed, sorted by their own
+  // relevant timestamp (match created_at, tournament completed_at), newest
+  // first — then trim to MATCH_LIMIT total entries across both.
+  const feedItems = [
+    ...(matches || []).map(m => ({ kind: "match", data: m, sortAt: m.created_at })),
+    ...(tournaments || []).map(t => ({ kind: "tournament", data: t, sortAt: t.completed_at || t.created_at }))
+  ].sort((a, b) => new Date(b.sortAt) - new Date(a.sortAt)).slice(0, MATCH_LIMIT);
+
+  if (feedItems.length === 0) {
     document.getElementById("empty-message").style.display = "block";
     return;
   }
 
-  // Batch-fetch every player and deck name referenced, same pattern as
-  // history.html/player.html — one query each rather than one per row.
+  // Batch-fetch every player and deck name referenced by MATCH items, same
+  // pattern as history.html/player.html — one query each rather than one
+  // per row. Tournament items already carry their own names as snapshots.
+  const matchItems = feedItems.filter(item => item.kind === "match").map(item => item.data);
   const playerIds = new Set();
   const deckIds = new Set();
-  matches.forEach(m => {
+  matchItems.forEach(m => {
     if (m.player_1_id) playerIds.add(m.player_1_id);
     if (m.player_2_id) playerIds.add(m.player_2_id);
     if (m.player_1_deck_id) deckIds.add(m.player_1_deck_id);
@@ -175,8 +216,7 @@ async function loadRecentMatches() {
     ? `<a href="player.html?id=${id}">${escapeHtml(nameFor(id))}</a>`
     : escapeHtml(nameFor(id));
 
-  const listEl = document.getElementById("match-list");
-  listEl.innerHTML = matches.map(m => {
+  function matchCardHtml(m) {
     const decided = m.winner_id !== null;
     const p1IsWinner = decided && m.winner_id === m.player_1_id;
     const p2IsWinner = decided && m.winner_id === m.player_2_id;
@@ -200,7 +240,31 @@ async function loadRecentMatches() {
         </div>
       </div>
     `;
-  }).join("");
+  }
+
+  function tournamentCardHtml(t) {
+    const champion = championByTournament[t.id]?.name;
+    const playerCount = playerCountByTournament[t.id] || 0;
+    return `
+      <a class="match-row decided" href="tournament.html?id=${t.id}" style="text-decoration:none; display:block;">
+        <div class="match-players">
+          <span>🏆 ${escapeHtml(t.name)}</span>
+        </div>
+        <div class="match-decks">
+          <span>${playerCount} player${playerCount === 1 ? '' : 's'}${champion ? ` · Winner: ${escapeHtml(champion)}` : ''}</span>
+        </div>
+        <div class="match-footer">
+          <span>${formatDate(t.completed_at || t.created_at)}</span>
+          <span>·</span>
+          <span class="match-outcome-label decided">Tournament</span>
+        </div>
+      </a>
+    `;
+  }
+
+  document.getElementById("match-list").innerHTML = feedItems.map(item =>
+    item.kind === "match" ? matchCardHtml(item.data) : tournamentCardHtml(item.data)
+  ).join("");
 }
 
 loadRecentMatches();
