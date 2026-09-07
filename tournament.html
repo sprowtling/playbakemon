@@ -38,15 +38,6 @@
   button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   #content { max-width: 900px; margin: 24px auto; padding: 0 16px; }
-  /* The bracket itself needs real horizontal room to avoid scrolling on
-     anything but a small screen — break it out of the 900px content cap
-     specifically, while headings/banner above it stay at a readable width. */
-  #bracket-screen { max-width: none; }
-  #bracket-screen h2, #bracket-screen #subheading, #bracket-screen #champion-banner {
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-  }
   h2 { color: var(--accent); text-align: center; margin-bottom: 4px; }
   #subheading { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
 
@@ -270,56 +261,26 @@ async function createTournament() {
 
 // Builds every match row for every round up front, including empty
 // (not-yet-decided) later rounds, each one wired to know where its winner
-// advances to.
-//
-// Byes only ever happen in round 1. The bracket size is padded up to the
-// next power of 2 (e.g. 9 players -> a 16-slot bracket) by adding empty
-// seeds; any round-1 match paired against an empty seed is an automatic
-// bye, and its "winner" is just the real player who showed up. Once
-// round 1 is resolved, every subsequent round is a clean, even field of
-// real winners — there is no way for a bye to recur in round 2+, since a
-// bye's winner IS a normal player from that point on, not a placeholder.
-// (The earlier version re-derived matchesThisRound from the round's raw
-// player count on every iteration, which let an unresolved bye slot
-// silently re-propagate as its own "match" every round — this rewrite
-// avoids that by only ever creating byes once, during padding.)
+// advances to. Round 1 seeds real players in; a lone unpaired player in an
+// odd-numbered field gets a bye (auto-filled as the winner of an empty slot).
 function buildBracketMatches(tournamentId, playerIds, nameById) {
   const rows = [];
-  const realPlayers = playerIds.map(pid => ({ id: pid, name: nameById[pid] }));
-
-  let bracketSize = 1;
-  while (bracketSize < realPlayers.length) bracketSize *= 2;
-  const byeCount = bracketSize - realPlayers.length;
-
-  // Distribute phantom byes evenly through the seed order rather than
-  // clustering them at the end — clustering can pair a phantom against
-  // another phantom, which is neither a real match nor a valid bye (a bye
-  // needs exactly one real player present). Spacing them out at a regular
-  // interval guarantees every phantom lands next to a real player.
-  const paddedSeeds = [...realPlayers];
-  if (byeCount > 0) {
-    const interval = Math.floor(bracketSize / byeCount);
-    for (let i = byeCount - 1; i >= 0; i--) {
-      paddedSeeds.splice(Math.min(i * interval, paddedSeeds.length), 0, null);
-    }
-  }
-
   let round = 1;
-  let currentRoundEntrants = paddedSeeds; // real players and/or already-resolved winners
+  // Track, for the round we're currently building, an ordered list of
+  // "who/what occupies each slot" so byes can be resolved immediately.
+  let currentRoundPlayers = playerIds.map(pid => ({ id: pid, name: nameById[pid] }));
 
-  while (currentRoundEntrants.length >= 2) {
-    const matchesThisRound = currentRoundEntrants.length / 2; // always exact — bracketSize is a power of 2
-    const winnersAdvancing = [];
+  while (currentRoundPlayers.length > 1 || round === 1) {
+    const matchesThisRound = Math.ceil(currentRoundPlayers.length / 2);
+    const winnersAdvancing = []; // built as we go, for byes decided immediately
 
     for (let m = 0; m < matchesThisRound; m++) {
-      const p1 = currentRoundEntrants[m * 2];
-      const p2 = currentRoundEntrants[m * 2 + 1];
-      const isBye = (p1 && !p2) || (!p1 && p2); // exactly one real player present
-      const byeWinner = p1 || p2 || null;
+      const p1 = currentRoundPlayers[m * 2] || null;
+      const p2 = currentRoundPlayers[m * 2 + 1] || null;
+      const isBye = p1 && !p2; // odd one out — auto-advances, no real match
 
       const nextRoundMatchPosition = Math.floor(m / 2) + 1;
       const nextRoundSlot = (m % 2) + 1;
-      const hasNextRound = matchesThisRound > 1;
 
       rows.push({
         tournament_id: tournamentId,
@@ -329,16 +290,17 @@ function buildBracketMatches(tournamentId, playerIds, nameById) {
         player_1_name_snapshot: p1 ? p1.name : null,
         player_2_id: p2 ? p2.id : null,
         player_2_name_snapshot: p2 ? p2.name : null,
-        winner_id: isBye ? byeWinner.id : null,
-        winner_name_snapshot: isBye ? byeWinner.name : null,
-        advances_to_match_position: hasNextRound ? nextRoundMatchPosition : null,
-        advances_to_slot: hasNextRound ? nextRoundSlot : null
+        winner_id: isBye ? p1.id : null,
+        winner_name_snapshot: isBye ? p1.name : null,
+        advances_to_match_position: currentRoundPlayers.length > 1 ? nextRoundMatchPosition : null,
+        advances_to_slot: currentRoundPlayers.length > 1 ? nextRoundSlot : null
       });
 
-      winnersAdvancing.push(isBye ? byeWinner : null); // null = real match, winner fills in later via the UI
+      winnersAdvancing.push(isBye ? { id: p1.id, name: p1.name } : null);
     }
 
-    currentRoundEntrants = winnersAdvancing;
+    if (currentRoundPlayers.length <= 1) break;
+    currentRoundPlayers = winnersAdvancing; // byes carry through; real winners fill in later via the UI
     round += 1;
   }
 
