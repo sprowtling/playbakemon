@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Tournament</title>
+<style>
+  :root {
+    --mat-green: #1d4d3a;
+    --mat-green-light: #245a44;
+    --card-cream: #fdf6e3;
+    --card-border: #d9b25c;
+    --accent: #d8e04a;
+    --text-light: #cfe8db;
+    --text-muted: #9fc7ae;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f2e22;
+    color: #eee;
+    min-height: 100vh;
+  }
+  button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    background: var(--card-cream);
+    color: #3a2f1a;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: #f5e3b3; }
+  button.primary { background: var(--accent); border-color: #a8b32e; }
+  button.small { padding: 3px 8px; font-size: 12px; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  #content { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+  h2 { color: var(--accent); text-align: center; margin-bottom: 4px; }
+  #subheading { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+
+  /* ---- Create screen ---- */
+  #create-screen {
+    max-width: 460px;
+    margin: 20px auto;
+    background: var(--mat-green);
+    padding: 24px;
+    border-radius: 12px;
+  }
+  #create-screen label { display: block; font-size: 13px; color: var(--text-light); margin: 14px 0 6px; }
+  #create-screen input[type="text"] {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    box-sizing: border-box;
+  }
+  #player-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 8px;
+  }
+  .player-chip {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--card-border);
+    font-size: 13px;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-light);
+  }
+  .player-chip.selected { background: var(--accent); color: #2a2a1a; border-color: #a8b32e; font-weight: 600; }
+  #create-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; }
+
+  /* ---- Bracket ---- */
+  #bracket {
+    display: flex;
+    gap: 32px;
+    overflow-x: auto;
+    padding: 16px 4px 24px;
+  }
+  .round-col { display: flex; flex-direction: column; justify-content: space-around; gap: 16px; min-width: 200px; }
+  .round-title { text-align: center; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .match-box {
+    background: #164634;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .match-slot {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--text-light);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .match-slot:last-child { border-bottom: none; }
+  .match-slot:hover { background: rgba(255,255,255,0.05); }
+  .match-slot.winner { background: rgba(216,224,74,0.15); color: var(--accent); font-weight: 700; }
+  .match-slot.empty { color: var(--text-muted); font-style: italic; cursor: default; }
+  .match-slot.empty:hover { background: transparent; }
+  .match-slot.decided { cursor: default; }
+  .match-slot.decided:hover { background: inherit; }
+
+  #champion-banner {
+    display: none;
+    text-align: center;
+    background: var(--mat-green);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  #champion-banner .crown { font-size: 24px; }
+  #champion-banner .name { color: var(--accent); font-size: 20px; font-weight: 700; margin-top: 4px; }
+
+  #back-link { display: block; text-align: center; margin-bottom: 16px; color: var(--text-light); font-size: 13px; text-decoration: none; }
+  #back-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="bakemon-shared-header-slot"></div>
+
+<div id="content">
+  <a id="back-link" href="tournaments.html">← All tournaments</a>
+
+  <div id="create-screen">
+    <h2 style="margin-top:0;">New Tournament</h2>
+    <label for="tournament-name-input">Tournament name</label>
+    <input type="text" id="tournament-name-input" placeholder="e.g. Friday Night Bakemon">
+
+    <label>Players (click to select, in seed order)</label>
+    <div id="player-picker"></div>
+
+    <div id="create-status"></div>
+    <button class="primary" id="create-btn" style="margin-top:14px; width:100%;">Create Bracket</button>
+  </div>
+
+  <div id="bracket-screen" style="display:none;">
+    <h2 id="tournament-title"></h2>
+    <div id="subheading"></div>
+    <div id="champion-banner">
+      <div class="crown">🏆</div>
+      <div class="name" id="champion-name"></div>
+    </div>
+    <div id="bracket"></div>
+  </div>
+</div>
+
+<script src="shared-header.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+const tournamentId = new URLSearchParams(location.search).get("id");
+let selectedPlayerIds = []; // in click order = seed order
+let allPlayersForPicker = [];
+
+async function init() {
+  if (tournamentId) {
+    document.getElementById("create-screen").style.display = "none";
+    document.getElementById("bracket-screen").style.display = "block";
+    await loadBracket();
+  } else {
+    document.getElementById("create-screen").style.display = "block";
+    document.getElementById("bracket-screen").style.display = "none";
+    await loadPlayerPicker();
+  }
+}
+
+async function loadPlayerPicker() {
+  const { data: players, error } = await supabaseClient
+    .from("players")
+    .select("id, display_name")
+    .order("display_name");
+  if (error) {
+    console.error(error);
+    document.getElementById("create-status").textContent = "Couldn't load players.";
+    return;
+  }
+  allPlayersForPicker = players || [];
+  renderPlayerPicker();
+}
+
+function renderPlayerPicker() {
+  const el = document.getElementById("player-picker");
+  el.innerHTML = allPlayersForPicker.map(p => {
+    const seedIndex = selectedPlayerIds.indexOf(p.id);
+    const selected = seedIndex !== -1;
+    return `<div class="player-chip${selected ? ' selected' : ''}" data-player-id="${p.id}">
+      ${escapeHtml(p.display_name)}${selected ? ` (${seedIndex + 1})` : ''}
+    </div>`;
+  }).join("");
+  el.querySelectorAll(".player-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const id = chip.dataset.playerId;
+      const idx = selectedPlayerIds.indexOf(id);
+      if (idx === -1) selectedPlayerIds.push(id);
+      else selectedPlayerIds.splice(idx, 1);
+      renderPlayerPicker();
+    });
+  });
+}
+
+document.getElementById("create-btn").addEventListener("click", createTournament);
+
+async function createTournament() {
+  const nameInput = document.getElementById("tournament-name-input");
+  const name = nameInput.value.trim();
+  const statusEl = document.getElementById("create-status");
+
+  if (!name) { statusEl.textContent = "Give the tournament a name."; return; }
+  if (selectedPlayerIds.length < 2) { statusEl.textContent = "Pick at least 2 players."; return; }
+
+  statusEl.textContent = "Creating bracket...";
+
+  const { data: tournament, error: tErr } = await supabaseClient
+    .from("tournaments")
+    .insert({ name })
+    .select()
+    .single();
+  if (tErr) { console.error(tErr); statusEl.textContent = "Couldn't create the tournament."; return; }
+
+  const nameById = Object.fromEntries(allPlayersForPicker.map(p => [p.id, p.display_name]));
+
+  const playerRows = selectedPlayerIds.map((pid, i) => ({
+    tournament_id: tournament.id,
+    player_id: pid,
+    display_name_snapshot: nameById[pid],
+    seed_position: i + 1
+  }));
+  const { error: pErr } = await supabaseClient.from("tournament_players").insert(playerRows);
+  if (pErr) { console.error(pErr); statusEl.textContent = "Couldn't save the player list."; return; }
+
+  const matchRows = buildBracketMatches(tournament.id, selectedPlayerIds, nameById);
+  const { error: mErr } = await supabaseClient.from("tournament_matches").insert(matchRows);
+  if (mErr) { console.error(mErr); statusEl.textContent = "Couldn't generate the bracket."; return; }
+
+  location.href = `tournament.html?id=${tournament.id}`;
+}
+
+// Builds every match row for every round up front, including empty
+// (not-yet-decided) later rounds, each one wired to know where its winner
+// advances to. Round 1 seeds real players in; a lone unpaired player in an
+// odd-numbered field gets a bye (auto-filled as the winner of an empty slot).
+function buildBracketMatches(tournamentId, playerIds, nameById) {
+  const rows = [];
+  let round = 1;
+  // Track, for the round we're currently building, an ordered list of
+  // "who/what occupies each slot" so byes can be resolved immediately.
+  let currentRoundPlayers = playerIds.map(pid => ({ id: pid, name: nameById[pid] }));
+
+  while (currentRoundPlayers.length > 1 || round === 1) {
+    const matchesThisRound = Math.ceil(currentRoundPlayers.length / 2);
+    const winnersAdvancing = []; // built as we go, for byes decided immediately
+
+    for (let m = 0; m < matchesThisRound; m++) {
+      const p1 = currentRoundPlayers[m * 2] || null;
+      const p2 = currentRoundPlayers[m * 2 + 1] || null;
+      const isBye = p1 && !p2; // odd one out — auto-advances, no real match
+
+      const nextRoundMatchPosition = Math.floor(m / 2) + 1;
+      const nextRoundSlot = (m % 2) + 1;
+
+      rows.push({
+        tournament_id: tournamentId,
+        round,
+        match_position: m + 1,
+        player_1_id: p1 ? p1.id : null,
+        player_1_name_snapshot: p1 ? p1.name : null,
+        player_2_id: p2 ? p2.id : null,
+        player_2_name_snapshot: p2 ? p2.name : null,
+        winner_id: isBye ? p1.id : null,
+        winner_name_snapshot: isBye ? p1.name : null,
+        advances_to_match_position: currentRoundPlayers.length > 1 ? nextRoundMatchPosition : null,
+        advances_to_slot: currentRoundPlayers.length > 1 ? nextRoundSlot : null
+      });
+
+      winnersAdvancing.push(isBye ? { id: p1.id, name: p1.name } : null);
+    }
+
+    if (currentRoundPlayers.length <= 1) break;
+    currentRoundPlayers = winnersAdvancing; // byes carry through; real winners fill in later via the UI
+    round += 1;
+  }
+
+  return rows;
+}
+
+async function loadBracket() {
+  const [{ data: tournament, error: tErr }, { data: matches, error: mErr }] = await Promise.all([
+    supabaseClient.from("tournaments").select("*").eq("id", tournamentId).maybeSingle(),
+    supabaseClient.from("tournament_matches").select("*").eq("tournament_id", tournamentId).order("round").order("match_position")
+  ]);
+
+  if (tErr || !tournament) {
+    document.getElementById("tournament-title").textContent = "Tournament not found";
+    return;
+  }
+  if (mErr) {
+    console.error(mErr);
+    return;
+  }
+
+  document.getElementById("tournament-title").textContent = tournament.name;
+
+  const rounds = {};
+  (matches || []).forEach(m => {
+    if (!rounds[m.round]) rounds[m.round] = [];
+    rounds[m.round].push(m);
+  });
+  const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b);
+  const finalRound = roundNumbers[roundNumbers.length - 1];
+  const finalMatch = rounds[finalRound] && rounds[finalRound][0];
+  const champion = finalMatch && finalMatch.winner_name_snapshot;
+
+  document.getElementById("subheading").textContent = champion
+    ? "This tournament has concluded."
+    : "Click a name to declare the winner of that match.";
+
+  const banner = document.getElementById("champion-banner");
+  if (champion) {
+    banner.style.display = "block";
+    document.getElementById("champion-name").textContent = champion;
+  } else {
+    banner.style.display = "none";
+  }
+
+  const roundLabel = (roundNum) => {
+    const totalRounds = roundNumbers.length;
+    const fromEnd = totalRounds - roundNum;
+    if (fromEnd === 0) return "Final";
+    if (fromEnd === 1) return "Semifinal";
+    if (fromEnd === 2) return "Quarterfinal";
+    return `Round ${roundNum}`;
+  };
+
+  document.getElementById("bracket").innerHTML = roundNumbers.map(roundNum => `
+    <div class="round-col">
+      <div class="round-title">${roundLabel(roundNum)}</div>
+      ${rounds[roundNum].map(m => matchBoxHtml(m)).join("")}
+    </div>
+  `).join("");
+
+  attachMatchHandlers();
+}
+
+function matchBoxHtml(m) {
+  const decided = !!m.winner_id || !!m.winner_name_snapshot;
+  const slotHtml = (name, isWinnerSlot, playerId, otherFilled) => {
+    if (!name) {
+      return `<div class="match-slot empty">${otherFilled ? 'Waiting...' : 'TBD'}</div>`;
+    }
+    const classes = ["match-slot"];
+    if (isWinnerSlot) classes.push("winner");
+    if (decided) classes.push("decided");
+    // Only clickable if this match has both slots filled, isn't decided yet
+    const clickable = m.player_1_name_snapshot && m.player_2_name_snapshot && !decided;
+    return `<div class="${classes.join(' ')}" ${clickable ? `data-declare-winner data-match-id="${m.id}" data-winner-name="${escapeHtml(name)}" data-winner-player-id="${playerId || ''}"` : ''}>
+      <span>${escapeHtml(name)}</span>
+    </div>`;
+  };
+
+  const p1Winner = decided && m.winner_name_snapshot === m.player_1_name_snapshot;
+  const p2Winner = decided && m.winner_name_snapshot === m.player_2_name_snapshot;
+
+  return `
+    <div class="match-box">
+      ${slotHtml(m.player_1_name_snapshot, p1Winner, m.player_1_id, !!m.player_2_name_snapshot)}
+      ${slotHtml(m.player_2_name_snapshot, p2Winner, m.player_2_id, !!m.player_1_name_snapshot)}
+    </div>
+  `;
+}
+
+function attachMatchHandlers() {
+  document.querySelectorAll("[data-declare-winner]").forEach(el => {
+    el.addEventListener("click", () => declareWinner(el.dataset.matchId, el.dataset.winnerPlayerId || null, el.dataset.winnerName));
+  });
+}
+
+async function declareWinner(matchId, winnerPlayerId, winnerName) {
+  const { data: match, error: fetchErr } = await supabaseClient
+    .from("tournament_matches")
+    .select("*")
+    .eq("id", matchId)
+    .maybeSingle();
+  if (fetchErr || !match) { console.error(fetchErr); return; }
+
+  const { error: updateErr } = await supabaseClient
+    .from("tournament_matches")
+    .update({ winner_id: winnerPlayerId, winner_name_snapshot: winnerName })
+    .eq("id", matchId);
+  if (updateErr) { console.error(updateErr); alert("Couldn't record that result. Try again?"); return; }
+
+  // Advance the winner into the next round's match/slot, if there is one.
+  if (match.advances_to_match_position) {
+    const { data: nextMatch, error: nextErr } = await supabaseClient
+      .from("tournament_matches")
+      .select("*")
+      .eq("tournament_id", match.tournament_id)
+      .eq("round", match.round + 1)
+      .eq("match_position", match.advances_to_match_position)
+      .maybeSingle();
+    if (nextErr || !nextMatch) { console.error(nextErr); }
+    else {
+      const field = match.advances_to_slot === 1
+        ? { player_1_id: winnerPlayerId, player_1_name_snapshot: winnerName }
+        : { player_2_id: winnerPlayerId, player_2_name_snapshot: winnerName };
+      const { error: advanceErr } = await supabaseClient
+        .from("tournament_matches")
+        .update(field)
+        .eq("id", nextMatch.id);
+      if (advanceErr) console.error(advanceErr);
+    }
+  } else {
+    // No next match — this WAS the final. Mark the tournament completed.
+    await supabaseClient.from("tournaments").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", match.tournament_id);
+  }
+
+  await loadBracket();
+}
+
+init();
+</script>
+
+</body>
+</html>
