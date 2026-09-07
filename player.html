@@ -242,6 +242,10 @@
   <div class="section-title">Favorite Bakemon</div>
   <div id="favorites-grid"></div>
 
+  <div class="section-title">Tournaments</div>
+  <div id="tournament-list"></div>
+  <div id="tournament-empty" style="display:none; color:var(--text-muted); font-size:13px; padding:8px 0;"></div>
+
   <div class="section-title">Recent Matches</div>
   <div id="match-list"></div>
   <div id="empty-message" style="display:none;"></div>
@@ -317,7 +321,78 @@ async function init() {
     ? "This is your profile."
     : "";
 
-  await Promise.all([loadMatchSnapshot(), loadFavorites()]);
+  await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory()]);
+}
+
+async function loadTournamentHistory() {
+  const listEl = document.getElementById("tournament-list");
+  const emptyEl = document.getElementById("tournament-empty");
+
+  const { data: entries, error } = await supabaseClient
+    .from("tournament_players")
+    .select("tournament_id, tournaments ( id, name, status, completed_at, created_at )")
+    .eq("player_id", targetPlayer.id);
+
+  if (error) {
+    console.error("Failed to load tournament history:", error);
+    emptyEl.textContent = "Couldn't load tournament history.";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  if (!entries || entries.length === 0) {
+    emptyEl.textContent = isOwnProfile
+      ? "No tournaments entered yet."
+      : "No tournaments entered yet.";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  const tournamentIds = entries.map(e => e.tournament_id);
+  // Figure out which of these tournaments this player actually WON — same
+  // "final round's single match, does its winner_id match us" logic used
+  // elsewhere. Only need this for completed tournaments; in-progress ones
+  // have no final result yet.
+  const { data: finalMatches } = await supabaseClient
+    .from("tournament_matches")
+    .select("tournament_id, round, winner_id")
+    .in("tournament_id", tournamentIds);
+
+  const highestRoundByTournament = {};
+  (finalMatches || []).forEach(m => {
+    const existing = highestRoundByTournament[m.tournament_id];
+    if (!existing || m.round > existing.round) {
+      highestRoundByTournament[m.tournament_id] = { round: m.round, winner_id: m.winner_id };
+    }
+  });
+
+  // Sort by most recent first — completed tournaments by completion time,
+  // in-progress ones by creation time (they have no completed_at yet).
+  const sorted = entries
+    .map(e => e.tournaments)
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.completed_at || b.created_at) - new Date(a.completed_at || a.created_at));
+
+  listEl.innerHTML = sorted.map(t => {
+    const finalResult = highestRoundByTournament[t.id];
+    const won = t.status === "completed" && finalResult && finalResult.winner_id === targetPlayer.id;
+    const inProgress = t.status !== "completed";
+
+    let outcomeClass, outcomeLabel;
+    if (inProgress) { outcomeClass = "no-decision"; outcomeLabel = "In Progress"; }
+    else if (won) { outcomeClass = "victory"; outcomeLabel = "Champion"; }
+    else { outcomeClass = "defeat"; outcomeLabel = "Entered"; }
+
+    return `
+      <a class="match-row ${outcomeClass}" href="tournament.html?id=${t.id}" style="text-decoration:none;">
+        <div class="match-info">
+          <div class="match-opponent">🏆 ${escapeHtml(t.name)}</div>
+          <div class="match-meta">${formatDate(t.completed_at || t.created_at)}</div>
+        </div>
+        <div class="match-outcome ${outcomeClass}">${outcomeLabel}</div>
+      </a>
+    `;
+  }).join("");
 }
 
 async function loadMatchSnapshot() {
