@@ -500,6 +500,7 @@ async function loadBracket() {
   const finalRound = roundNumbers[roundNumbers.length - 1];
   const finalMatch = rounds[finalRound] && rounds[finalRound][0];
   const champion = finalMatch && finalMatch.winner_name_snapshot;
+  const championId = finalMatch && finalMatch.winner_id;
 
   document.getElementById("subheading").textContent = champion
     ? "This tournament has concluded."
@@ -508,7 +509,10 @@ async function loadBracket() {
   const banner = document.getElementById("champion-banner");
   if (champion) {
     banner.style.display = "block";
-    document.getElementById("champion-name").textContent = champion;
+    const championNameEl = document.getElementById("champion-name");
+    championNameEl.innerHTML = championId
+      ? `<a href="player.html?id=${championId}" style="color:inherit; text-decoration:none;">${escapeHtml(champion)}</a>`
+      : escapeHtml(champion);
   } else {
     banner.style.display = "none";
   }
