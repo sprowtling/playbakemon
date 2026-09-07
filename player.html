@@ -409,23 +409,9 @@ async function loadMatchSnapshot() {
     return;
   }
 
-  // Tournament matches count toward the stat block too — a match played as
-  // part of a bracket is still a match that was actually played. A bye is
-  // NOT counted here: nobody played it, so it shouldn't inflate the total.
-  // "Actually played" means both seats were real players, not an empty
-  // bye slot — checked via player_2_id/player_1_id both being non-null.
-  const { data: tourneyMatches, error: tErr } = await supabaseClient
-    .from("tournament_matches")
-    .select("player_1_id, player_2_id, winner_id")
-    .or(`player_1_id.eq.${targetPlayer.id},player_2_id.eq.${targetPlayer.id}`)
-    .not("player_1_id", "is", null)
-    .not("player_2_id", "is", null);
-  if (tErr) console.error("Failed to load tournament matches for stats:", tErr);
-
   const realMatches = matches || [];
-  const realTourneyMatches = tourneyMatches || [];
 
-  if (realMatches.length === 0 && realTourneyMatches.length === 0) {
+  if (realMatches.length === 0) {
     document.getElementById("empty-message").textContent = isOwnProfile
       ? "No matches played yet — go start one!"
       : "No matches played yet.";
@@ -453,18 +439,12 @@ async function loadMatchSnapshot() {
   const deckNameById = Object.fromEntries((decks || []).map(d => [d.id, d.deck_name]));
 
   const decidedMatches = realMatches.filter(m => m.winner_id !== null);
-  const decidedTourneyMatches = realTourneyMatches.filter(m => m.winner_id !== null);
+  const wins = decidedMatches.filter(m => m.winner_id === targetPlayer.id).length;
+  const winRate = decidedMatches.length ? Math.round((wins / decidedMatches.length) * 100) : 0;
 
-  const regularWins = decidedMatches.filter(m => m.winner_id === targetPlayer.id).length;
-  const tourneyWins = decidedTourneyMatches.filter(m => m.winner_id === targetPlayer.id).length;
-  const totalWins = regularWins + tourneyWins;
-  const totalDecided = decidedMatches.length + decidedTourneyMatches.length;
-  const totalPlayed = realMatches.length + realTourneyMatches.length;
-  const winRate = totalDecided ? Math.round((totalWins / totalDecided) * 100) : 0;
-
-  document.getElementById("stat-wins").textContent = totalWins;
-  document.getElementById("stat-winrate").textContent = totalDecided ? `${winRate}%` : "—";
-  document.getElementById("stat-total").textContent = totalPlayed;
+  document.getElementById("stat-wins").textContent = wins;
+  document.getElementById("stat-winrate").textContent = decidedMatches.length ? `${winRate}%` : "—";
+  document.getElementById("stat-total").textContent = realMatches.length;
 
   const deckWinCounts = {};
   decidedMatches.forEach(m => {
@@ -478,13 +458,6 @@ async function loadMatchSnapshot() {
     const label = isOwnProfile ? "Your winningest deck" : "Winningest deck";
     document.getElementById("best-deck").innerHTML =
       `${label}: <strong>${escapeHtml(deckNameById[bestDeckId])}</strong> (${deckWinCounts[bestDeckId]} win${deckWinCounts[bestDeckId] === 1 ? '' : 's'})`;
-  }
-
-  if (realMatches.length === 0) {
-    // No regular matches at all — nothing to render in the "Recent Matches"
-    // list itself (that stays regular-matches-only; tournaments already
-    // have their own section above), but the stats above are still valid.
-    return;
   }
 
   // Snapshot: only the 5 most recent, with a link to the full history page.
