@@ -38,12 +38,21 @@
   button:disabled { opacity: 0.45; cursor: not-allowed; }
 
   #content { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+  /* The bracket itself needs real horizontal room to avoid scrolling on
+     anything but a small screen — break it out of the 900px content cap
+     specifically, while headings/banner above it stay at a readable width. */
+  #bracket-screen { max-width: none; }
+  #bracket-screen h2, #bracket-screen #subheading, #bracket-screen #champion-banner {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
   h2 { color: var(--accent); text-align: center; margin-bottom: 4px; }
   #subheading { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
 
   /* ---- Create screen ---- */
   #create-screen {
-    max-width: 460px;
+    max-width: 640px;
     margin: 20px auto;
     background: var(--mat-green);
     padding: 24px;
@@ -57,27 +66,57 @@
     border: 1px solid var(--card-border);
     box-sizing: border-box;
   }
-  #player-picker {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 8px;
-    background: rgba(0,0,0,0.15);
-    border-radius: 8px;
+  #bracket-size-row { display: flex; gap: 8px; }
+  #bracket-size-row button { flex: 1; }
+  #bracket-size-row button.selected { background: var(--accent); border-color: #a8b32e; }
+
+  #slot-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 8px;
   }
-  .player-chip {
-    padding: 5px 10px;
-    border-radius: 999px;
+  .slot-btn {
+    padding: 10px 12px;
+    border-radius: 6px;
     border: 1px solid var(--card-border);
-    font-size: 13px;
-    cursor: pointer;
-    background: transparent;
+    background: rgba(0,0,0,0.15);
     color: var(--text-light);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
   }
-  .player-chip.selected { background: var(--accent); color: #2a2a1a; border-color: #a8b32e; font-weight: 600; }
+  .slot-btn:hover { background: rgba(255,255,255,0.05); }
+  .slot-btn.filled { background: var(--mat-green-light); color: var(--accent); font-weight: 600; }
+  .slot-btn .slot-num { color: var(--text-muted); font-size: 11px; margin-right: 6px; }
   #create-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; }
+
+  #slot-picker-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #slot-picker-backdrop.open { display: flex; }
+  #slot-picker-modal {
+    background: var(--mat-green);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 18px;
+    max-width: 360px;
+    width: 100%;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #slot-picker-modal h3 { color: var(--accent); margin: 0 0 10px; font-size: 15px; }
+  #slot-picker-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+  #slot-picker-list button { text-align: left; }
+  #slot-picker-close { margin-top: 12px; align-self: flex-end; }
 
   /* ---- Bracket ---- */
   #bracket {
@@ -141,11 +180,26 @@
     <label for="tournament-name-input">Tournament name</label>
     <input type="text" id="tournament-name-input" placeholder="e.g. Friday Night Bakemon">
 
-    <label>Players (click to select, in seed order)</label>
-    <div id="player-picker"></div>
+    <label>Bracket size</label>
+    <div id="bracket-size-row">
+      <button data-size="4">4 players</button>
+      <button data-size="8">8 players</button>
+      <button data-size="16">16 players</button>
+    </div>
+
+    <label>Assign each slot — click to pick a player, or leave empty for a bye</label>
+    <div id="slot-grid"></div>
 
     <div id="create-status"></div>
     <button class="primary" id="create-btn" style="margin-top:14px; width:100%;">Create Bracket</button>
+  </div>
+
+  <div id="slot-picker-backdrop">
+    <div id="slot-picker-modal">
+      <h3 id="slot-picker-title">Choose a player</h3>
+      <div id="slot-picker-list"></div>
+      <button id="slot-picker-close" class="small">Cancel</button>
+    </div>
   </div>
 
   <div id="bracket-screen" style="display:none;">
@@ -173,8 +227,10 @@ function escapeHtml(str) {
 }
 
 const tournamentId = new URLSearchParams(location.search).get("id");
-let selectedPlayerIds = []; // in click order = seed order
 let allPlayersForPicker = [];
+let bracketSize = null;
+let slotAssignments = []; // array of length bracketSize, each entry: { id, name } or null (bye)
+let activeSlotIndex = null;
 
 async function init() {
   if (tournamentId) {
@@ -185,6 +241,7 @@ async function init() {
     document.getElementById("create-screen").style.display = "block";
     document.getElementById("bracket-screen").style.display = "none";
     await loadPlayerPicker();
+    wireBracketSizeButtons();
   }
 }
 
@@ -199,28 +256,70 @@ async function loadPlayerPicker() {
     return;
   }
   allPlayersForPicker = players || [];
-  renderPlayerPicker();
 }
 
-function renderPlayerPicker() {
-  const el = document.getElementById("player-picker");
-  el.innerHTML = allPlayersForPicker.map(p => {
-    const seedIndex = selectedPlayerIds.indexOf(p.id);
-    const selected = seedIndex !== -1;
-    return `<div class="player-chip${selected ? ' selected' : ''}" data-player-id="${p.id}">
-      ${escapeHtml(p.display_name)}${selected ? ` (${seedIndex + 1})` : ''}
-    </div>`;
-  }).join("");
-  el.querySelectorAll(".player-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      const id = chip.dataset.playerId;
-      const idx = selectedPlayerIds.indexOf(id);
-      if (idx === -1) selectedPlayerIds.push(id);
-      else selectedPlayerIds.splice(idx, 1);
-      renderPlayerPicker();
+function wireBracketSizeButtons() {
+  document.querySelectorAll("#bracket-size-row [data-size]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      bracketSize = parseInt(btn.dataset.size);
+      slotAssignments = new Array(bracketSize).fill(null);
+      document.querySelectorAll("#bracket-size-row [data-size]").forEach(b => b.classList.toggle("selected", b === btn));
+      renderSlotGrid();
     });
   });
 }
+
+function renderSlotGrid() {
+  const grid = document.getElementById("slot-grid");
+  if (!bracketSize) { grid.innerHTML = ""; return; }
+  grid.innerHTML = slotAssignments.map((assignment, i) => `
+    <button type="button" class="slot-btn${assignment ? ' filled' : ''}" data-slot-index="${i}">
+      <span class="slot-num">#${i + 1}</span>${assignment ? escapeHtml(assignment.name) : 'Empty (bye)'}
+    </button>
+  `).join("");
+  grid.querySelectorAll("[data-slot-index]").forEach(btn => {
+    btn.addEventListener("click", () => openSlotPicker(parseInt(btn.dataset.slotIndex)));
+  });
+}
+
+function openSlotPicker(slotIndex) {
+  activeSlotIndex = slotIndex;
+  document.getElementById("slot-picker-title").textContent = `Slot #${slotIndex + 1}`;
+  const alreadyUsedIds = new Set(slotAssignments.filter(a => a).map(a => a.id));
+
+  const listEl = document.getElementById("slot-picker-list");
+  const emptyBtn = `<button type="button" data-clear="1">— Leave empty (bye) —</button>`;
+  const playerBtns = allPlayersForPicker.map(p => {
+    const usedElsewhere = alreadyUsedIds.has(p.id) && slotAssignments[slotIndex]?.id !== p.id;
+    return `<button type="button" data-player-id="${p.id}" ${usedElsewhere ? 'disabled title="Already assigned to another slot"' : ''}>${escapeHtml(p.display_name)}</button>`;
+  }).join("");
+  listEl.innerHTML = emptyBtn + playerBtns;
+
+  listEl.querySelector("[data-clear]").addEventListener("click", () => {
+    slotAssignments[activeSlotIndex] = null;
+    closeSlotPicker();
+    renderSlotGrid();
+  });
+  listEl.querySelectorAll("[data-player-id]:not([disabled])").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const player = allPlayersForPicker.find(p => p.id === btn.dataset.playerId);
+      slotAssignments[activeSlotIndex] = { id: player.id, name: player.display_name };
+      closeSlotPicker();
+      renderSlotGrid();
+    });
+  });
+
+  document.getElementById("slot-picker-backdrop").classList.add("open");
+}
+
+function closeSlotPicker() {
+  document.getElementById("slot-picker-backdrop").classList.remove("open");
+  activeSlotIndex = null;
+}
+document.getElementById("slot-picker-close").addEventListener("click", closeSlotPicker);
+document.getElementById("slot-picker-backdrop").addEventListener("click", (e) => {
+  if (e.target.id === "slot-picker-backdrop") closeSlotPicker();
+});
 
 document.getElementById("create-btn").addEventListener("click", createTournament);
 
@@ -230,7 +329,24 @@ async function createTournament() {
   const statusEl = document.getElementById("create-status");
 
   if (!name) { statusEl.textContent = "Give the tournament a name."; return; }
-  if (selectedPlayerIds.length < 2) { statusEl.textContent = "Pick at least 2 players."; return; }
+  if (!bracketSize) { statusEl.textContent = "Pick a bracket size."; return; }
+
+  const filledSlots = slotAssignments.filter(a => a);
+  if (filledSlots.length < 2) { statusEl.textContent = "Assign at least 2 players to slots."; return; }
+  // Exactly one real player and one empty slot in the SAME match is a valid
+  // bye; two real players in the same match is normal; what's never valid
+  // is a lone real player with no opponent anywhere near them in a bracket
+  // that otherwise has room — that's just an unfilled slot, not a bye, and
+  // would silently make that match un-playable. Simplest safe rule for a
+  // manual bracket: every match (pair of adjacent slots) must have at
+  // least one real player. Check that here rather than let it surface as
+  // a confusing "TBD vs TBD" match later.
+  for (let m = 0; m < bracketSize / 2; m++) {
+    if (!slotAssignments[m * 2] && !slotAssignments[m * 2 + 1]) {
+      statusEl.textContent = `Match #${m + 1} (slots ${m * 2 + 1} & ${m * 2 + 2}) has no players in it — assign at least one.`;
+      return;
+    }
+  }
 
   statusEl.textContent = "Creating bracket...";
 
@@ -241,46 +357,68 @@ async function createTournament() {
     .single();
   if (tErr) { console.error(tErr); statusEl.textContent = "Couldn't create the tournament."; return; }
 
-  const nameById = Object.fromEntries(allPlayersForPicker.map(p => [p.id, p.display_name]));
-
-  const playerRows = selectedPlayerIds.map((pid, i) => ({
+  const playerRows = filledSlots.map((assignment, i) => ({
     tournament_id: tournament.id,
-    player_id: pid,
-    display_name_snapshot: nameById[pid],
+    player_id: assignment.id,
+    display_name_snapshot: assignment.name,
     seed_position: i + 1
   }));
   const { error: pErr } = await supabaseClient.from("tournament_players").insert(playerRows);
   if (pErr) { console.error(pErr); statusEl.textContent = "Couldn't save the player list."; return; }
 
-  const matchRows = buildBracketMatches(tournament.id, selectedPlayerIds, nameById);
+  const matchRows = buildBracketMatches(tournament.id, slotAssignments, bracketSize);
   const { error: mErr } = await supabaseClient.from("tournament_matches").insert(matchRows);
   if (mErr) { console.error(mErr); statusEl.textContent = "Couldn't generate the bracket."; return; }
+
+  // Byes are decided immediately (their winner_id is set at creation), but
+  // nothing has pushed that winner into the next round yet — the normal
+  // advancement path only runs when a match is clicked, and a bye is never
+  // clicked. Forward every bye's winner now, exactly as declareWinner()
+  // would if a person had clicked it.
+  const byeRows = matchRows.filter(r => r.winner_id && r.advances_to_match_position);
+  for (const bye of byeRows) {
+    const field = bye.advances_to_slot === 1
+      ? { player_1_id: bye.winner_id, player_1_name_snapshot: bye.winner_name_snapshot }
+      : { player_2_id: bye.winner_id, player_2_name_snapshot: bye.winner_name_snapshot };
+    const { error: advanceErr } = await supabaseClient
+      .from("tournament_matches")
+      .update(field)
+      .eq("tournament_id", tournament.id)
+      .eq("round", bye.round + 1)
+      .eq("match_position", bye.advances_to_match_position);
+    if (advanceErr) console.error("Failed to advance a bye winner:", advanceErr);
+  }
 
   location.href = `tournament.html?id=${tournament.id}`;
 }
 
-// Builds every match row for every round up front, including empty
-// (not-yet-decided) later rounds, each one wired to know where its winner
-// advances to. Round 1 seeds real players in; a lone unpaired player in an
-// odd-numbered field gets a bye (auto-filled as the winner of an empty slot).
-function buildBracketMatches(tournamentId, playerIds, nameById) {
+// Builds every match row for every round up front. Round 1 comes DIRECTLY
+// from the human-assigned slots — no algorithmic pairing, no bye-spreading
+// math. A round-1 match with exactly one real player is an immediate bye
+// (that real player is the winner, no game played). Every round after
+// that starts empty/TBD and fills in as real matches get decided via the
+// UI, same as before. Because a person placed the byes by hand (with the
+// whole bracket visible to them), there is no way for the generator
+// itself to create an unfair double-bye — that risk only existed in the
+// automatic pairing this replaces.
+function buildBracketMatches(tournamentId, seeds, size) {
   const rows = [];
   let round = 1;
-  // Track, for the round we're currently building, an ordered list of
-  // "who/what occupies each slot" so byes can be resolved immediately.
-  let currentRoundPlayers = playerIds.map(pid => ({ id: pid, name: nameById[pid] }));
+  let currentRoundEntrants = seeds; // array of {id,name} or null, length = size
 
-  while (currentRoundPlayers.length > 1 || round === 1) {
-    const matchesThisRound = Math.ceil(currentRoundPlayers.length / 2);
-    const winnersAdvancing = []; // built as we go, for byes decided immediately
+  while (currentRoundEntrants.length >= 2) {
+    const matchesThisRound = currentRoundEntrants.length / 2;
+    const winnersAdvancing = [];
 
     for (let m = 0; m < matchesThisRound; m++) {
-      const p1 = currentRoundPlayers[m * 2] || null;
-      const p2 = currentRoundPlayers[m * 2 + 1] || null;
-      const isBye = p1 && !p2; // odd one out — auto-advances, no real match
+      const p1 = currentRoundEntrants[m * 2];
+      const p2 = currentRoundEntrants[m * 2 + 1];
+      const isBye = (p1 && !p2) || (!p1 && p2);
+      const byeWinner = p1 || p2 || null;
 
       const nextRoundMatchPosition = Math.floor(m / 2) + 1;
       const nextRoundSlot = (m % 2) + 1;
+      const hasNextRound = matchesThisRound > 1;
 
       rows.push({
         tournament_id: tournamentId,
@@ -290,17 +428,16 @@ function buildBracketMatches(tournamentId, playerIds, nameById) {
         player_1_name_snapshot: p1 ? p1.name : null,
         player_2_id: p2 ? p2.id : null,
         player_2_name_snapshot: p2 ? p2.name : null,
-        winner_id: isBye ? p1.id : null,
-        winner_name_snapshot: isBye ? p1.name : null,
-        advances_to_match_position: currentRoundPlayers.length > 1 ? nextRoundMatchPosition : null,
-        advances_to_slot: currentRoundPlayers.length > 1 ? nextRoundSlot : null
+        winner_id: isBye ? byeWinner.id : null,
+        winner_name_snapshot: isBye ? byeWinner.name : null,
+        advances_to_match_position: hasNextRound ? nextRoundMatchPosition : null,
+        advances_to_slot: hasNextRound ? nextRoundSlot : null
       });
 
-      winnersAdvancing.push(isBye ? { id: p1.id, name: p1.name } : null);
+      winnersAdvancing.push(isBye ? byeWinner : null); // null = real match, winner fills in later via the UI
     }
 
-    if (currentRoundPlayers.length <= 1) break;
-    currentRoundPlayers = winnersAdvancing; // byes carry through; real winners fill in later via the UI
+    currentRoundEntrants = winnersAdvancing;
     round += 1;
   }
 
@@ -369,7 +506,11 @@ function matchBoxHtml(m) {
   const decided = !!m.winner_id || !!m.winner_name_snapshot;
   const slotHtml = (name, isWinnerSlot, playerId, otherFilled) => {
     if (!name) {
-      return `<div class="match-slot empty">${otherFilled ? 'Waiting...' : 'TBD'}</div>`;
+      // A decided match with an empty slot is a genuine bye (nobody was
+      // ever there) — label it plainly rather than "Waiting...", which
+      // would wrongly imply someone is still expected to show up.
+      const label = decided ? 'Bye' : (otherFilled ? 'Waiting...' : 'TBD');
+      return `<div class="match-slot empty">${label}</div>`;
     }
     const classes = ["match-slot"];
     if (isWinnerSlot) classes.push("winner");
