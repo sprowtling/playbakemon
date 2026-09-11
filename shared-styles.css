@@ -42,6 +42,12 @@
   --panel-shadow: 0 8px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
   --nav-text-transform: none;
   --nav-letter-spacing: normal;
+  /* "Good stat" badges (win rate, victory, completed) stay green — that's
+     a near-universal convention, not a theme choice — but each theme gets
+     its own shade so it reads as intentional instead of an untouched
+     leftover from a different palette. */
+  --success-bg: #2a6b4f;
+  --success-text: #b8f0d0;
 }
 
 [data-bakemon-theme="parchment"] {
@@ -68,6 +74,8 @@
   --panel-shadow: 0 4px 14px rgba(60,44,20,0.16);
   --nav-text-transform: none;
   --nav-letter-spacing: normal;
+  --success-bg: #5c7a2e;
+  --success-text: #f3f7de;
 }
 
 [data-bakemon-theme="arcade"] {
@@ -103,6 +111,8 @@
   --panel-shadow: 0 0 0 1px rgba(82,224,255,0.12), 0 10px 26px rgba(0,0,0,0.5);
   --nav-text-transform: uppercase;
   --nav-letter-spacing: 0.04em;
+  --success-bg: #158f6e;
+  --success-text: #baffe9;
 }
 
 * { box-sizing: border-box; }
