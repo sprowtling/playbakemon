@@ -160,7 +160,7 @@
     border: 1px solid var(--card-border);
     border-radius: 12px;
     padding: 18px;
-    max-width: 480px;
+    max-width: 560px;
     width: 100%;
     max-height: 80vh;
     display: flex;
@@ -177,19 +177,38 @@
   }
   #picker-list {
     overflow-y: auto;
+    overflow-x: hidden;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    gap: 10px;
+    padding: 4px;
   }
+  /* aspect-ratio lives on the <img>, not this wrapper — putting it on a grid
+     item fights with the grid's own auto row-sizing and the image ends up
+     squashed to a sliver with everything below the fold cropped off. */
   .picker-option {
-    aspect-ratio: 5 / 7;
-    border-radius: 6px;
-    overflow: hidden;
     cursor: pointer;
+    border-radius: 8px;
     border: 2px solid transparent;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
-  .picker-option:hover { border-color: var(--accent); }
-  .picker-option img { width: 100%; height: 100%; object-fit: cover; }
+  .picker-option img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 5 / 7;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+  /* Hovered card pops forward above its neighbors instead of just getting
+     an outline — scale is contained to the wrapper so it doesn't reflow
+     the grid, just overlaps on top of it. */
+  .picker-option:hover {
+    border-color: var(--accent);
+    transform: scale(1.7);
+    position: relative;
+    z-index: 5;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  }
   #picker-close { margin-top: 10px; align-self: flex-end; }
 </style>
 </head>
@@ -537,9 +556,9 @@ async function openPicker(slot) {
   if (allCards.length === 0) {
     const { data, error } = await supabaseClient
       .from("cards")
-      .select("id, name, image_filename")
+      .select("id, name, image_filename, card_number")
       .eq("card_type", "bakemon")
-      .order("name");
+      .order("card_number");
     if (error) {
       console.error(error);
       alert("Couldn't load the card list. Try again?");
