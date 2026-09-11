@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Tournaments</title>
+<script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
 <link rel="stylesheet" href="shared-styles.css">
 <style>
   #new-tournament-row { text-align: center; margin-bottom: 20px; }
@@ -13,7 +14,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: #164634;
+    background: var(--row-bg);
     border-radius: 8px;
     padding: 12px 16px;
     border-left: 4px solid var(--text-muted);

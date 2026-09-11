@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Battle Mat</title>
+<script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
 <link rel="stylesheet" href="shared-styles.css">
 <style>
   :root { --panel-brown: #b98a5f; }
@@ -34,7 +35,7 @@
   .field-col { flex: 1; }
   .chat-col {
     width: 200px;
-    background: #164634;
+    background: var(--row-bg);
     border-radius: 10px;
     border: 0.5px solid var(--card-border);
     padding: 10px 8px;
@@ -44,7 +45,7 @@
   }
   .hand-strip {
     margin-top: 12px;
-    background: #164634;
+    background: var(--row-bg);
     border-radius: 10px;
     border: 0.5px solid var(--card-border);
     padding: 10px 12px;

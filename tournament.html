@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Tournament</title>
+<script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
 <link rel="stylesheet" href="shared-styles.css">
 <style>
   /* This page's content column is wider than the shared 700px default —
@@ -97,7 +98,7 @@
   .round-col { display: flex; flex-direction: column; justify-content: space-around; gap: 16px; min-width: 200px; }
   .round-title { text-align: center; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
   .match-box {
-    background: #164634;
+    background: var(--row-bg);
     border: 1px solid var(--card-border);
     border-radius: 8px;
     overflow: hidden;

@@ -67,6 +67,7 @@ window.clearBakemonPlayer = clearBakemonPlayer;
   renderIdentity();
   wireRulesDrawer();
   wireNavDropdowns();
+  wireThemeSwitch();
 
   // Let the host page know the shared header is ready, in case it needs to do anything after
   document.dispatchEvent(new CustomEvent("bakemon-shared-header-ready"));
@@ -157,6 +158,34 @@ function wireNavDropdowns() {
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") items.forEach(i => i.classList.remove("open"));
+  });
+}
+
+const BAKEMON_THEME_KEY = "bakemon_theme";
+
+// The theme itself is already applied by the tiny inline script at the top
+// of every page's <head> (before shared-header.html has even loaded) so
+// there's no flash of the wrong theme — this just wires the swatch buttons
+// and reflects whichever theme is currently active.
+function wireThemeSwitch() {
+  const swatches = document.querySelectorAll(".bakemon-theme-swatch");
+  const current = document.documentElement.dataset.bakemonTheme || "felt";
+
+  const syncPressedState = () => {
+    swatches.forEach(sw => {
+      sw.setAttribute("aria-pressed", sw.dataset.theme === document.documentElement.dataset.bakemonTheme ? "true" : "false");
+    });
+  };
+
+  document.documentElement.dataset.bakemonTheme = current;
+  syncPressedState();
+
+  swatches.forEach(sw => {
+    sw.addEventListener("click", () => {
+      document.documentElement.dataset.bakemonTheme = sw.dataset.theme;
+      localStorage.setItem(BAKEMON_THEME_KEY, sw.dataset.theme);
+      syncPressedState();
+    });
   });
 }
 

@@ -1,52 +1,132 @@
 /* Bakemon shared design tokens + base element styles.
    Loaded via <link rel="stylesheet" href="shared-styles.css"> on every page,
    before that page's own <style> block so page-specific rules still win.
-   Put anything reused across pages here instead of re-declaring it per page. */
+   Put anything reused across pages here instead of re-declaring it per page.
+
+   Theming: the bare :root block below is the "Underlit Felt" theme and also
+   the no-JS fallback. [data-bakemon-theme="parchment"] and
+   [data-bakemon-theme="arcade"] on <html> override the same token set for
+   the other two. The attribute is set by a tiny inline script at the top of
+   every page's <head> (reading localStorage) so the right theme applies
+   before first paint — see any page's <head> for that snippet — and by the
+   switcher in shared-header.js at runtime. */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=Mulish:wght@400;600;700;800&family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --mat-green: #1d4d3a;
-  --mat-green-light: #245a44;
-  --card-cream: #fdf6e3;
-  --card-border: #d9b25c;
-  --accent: #d8e04a;
-  --text-light: #cfe8db;
-  --text-muted: #9fc7ae;
+  /* Underlit Felt (default) */
+  --mat-green: #163d29;
+  --mat-green-light: #1f4d34;
+  --card-cream: #f6ecc9;
+  --card-border: #d9c65a;
+  --accent: #d9c65a;
+  --accent-border: #b89a3c;
+  --accent-hover: #e8d879;
+  --text-light: #eef4ec;
+  --text-muted: #9cc2ab;
+  --body-bg: #0c2419;
+  --body-text: #eef4ec;
+  --button-text: #2a2410;
+  --button-hover-bg: #f0e3ad;
+  --row-bg: #16442e;
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Karla', system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-base: 8px;
+  --body-bg-image:
+    radial-gradient(ellipse 120% 70% at 50% -10%, #234f36 0%, transparent 55%),
+    radial-gradient(ellipse 140% 90% at 50% 120%, #071811 0%, transparent 60%);
+  --nav-border-style: solid;
+}
+
+[data-bakemon-theme="parchment"] {
+  --mat-green: #fbf4df;
+  --mat-green-light: #f3e7c4;
+  --card-cream: #fffaf0;
+  --card-border: #c9a86b;
+  --accent: #916a22;
+  --accent-border: #7a5619;
+  --accent-hover: #a97c2b;
+  --text-light: #3c2c14;
+  --text-muted: #8a744a;
+  --body-bg: #f4e9c9;
+  --body-text: #3c2c14;
+  --button-text: #3c2c14;
+  --button-hover-bg: #f3e0b0;
+  --row-bg: #fbf4df;
+  --font-display: 'Baloo 2', system-ui, sans-serif;
+  --font-body: 'Mulish', system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-base: 12px;
+  --body-bg-image: linear-gradient(155deg, #f4e9c9 0%, #ecdca8 100%);
+  --nav-border-style: dashed;
+}
+
+[data-bakemon-theme="arcade"] {
+  --mat-green: #171a42;
+  --mat-green-light: #212658;
+  /* Kept light (not inverted to navy) on purpose — several pages hardcode
+     dark text assuming --card-cream is a light surface (deckbuilder's card
+     tiles in particular). Icy cyan-white keeps that legible while still
+     reading as this theme's own color, not a leftover from Felt/Parchment. */
+  --card-cream: #e8f6ff;
+  --card-border: #52e0ff;
+  --accent: #52e0ff;
+  --accent-border: #2fb8d6;
+  --accent-hover: #7ee9ff;
+  --text-light: #eef1ff;
+  --text-muted: #8992c9;
+  --body-bg: #0c0e26;
+  --body-text: #eef1ff;
+  --button-text: #0d2233;
+  --button-hover-bg: #c7ecff;
+  --row-bg: #171a42;
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius-base: 4px;
+  --body-bg-image:
+    radial-gradient(ellipse 90% 60% at 15% 0%, rgba(82,224,255,0.14), transparent 60%),
+    radial-gradient(ellipse 90% 60% at 100% 100%, rgba(255,79,184,0.12), transparent 60%);
+  --nav-border-style: solid;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #0f2e22;
-  color: #eee;
+  font-family: var(--font-body);
+  background-color: var(--body-bg);
+  background-image: var(--body-bg-image);
+  background-attachment: fixed;
+  color: var(--body-text);
   min-height: 100vh;
 }
+
+h2, h3, .bakemon-logo { font-family: var(--font-display); }
 
 a { color: inherit; text-decoration: none; }
 a:hover { font-weight: 700; }
 
 button {
   padding: 6px 14px;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   border: 1px solid var(--card-border);
   background: var(--card-cream);
-  color: #3a2f1a;
+  color: var(--button-text);
   font-size: 13px;
   cursor: pointer;
   font-weight: 500;
 }
-button:hover { background: #f5e3b3; }
+button:hover { background: var(--button-hover-bg); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
-button.primary { background: var(--accent); border-color: #a8b32e; }
-button.primary:hover { background: #c7ce3f; }
+button.primary { background: var(--accent); border-color: var(--accent-border); color: var(--button-text); }
+button.primary:hover { background: var(--accent-hover); }
 button.small { padding: 3px 8px; font-size: 12px; }
 
 input, select {
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-base);
   border: 1px solid var(--card-border);
   background: var(--card-cream);
+  color: var(--button-text);
   font-size: 14px;
 }
 
