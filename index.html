@@ -70,6 +70,12 @@
 
   #news-list { display: flex; flex-direction: column; gap: 10px; }
   .news-item { font-size: 13px; color: var(--text-light); }
+  /* The message text in the database can contain real newline characters —
+     by default HTML collapses all whitespace (including line breaks) to a
+     single space, which is why they weren't showing up. pre-line tells the
+     browser to actually respect them, without needing <br> tags inserted
+     into the message itself. */
+  .news-item .news-message { display: block; white-space: pre-line; }
   .news-item .news-date {
     display: block;
     color: var(--text-muted);
@@ -379,12 +385,7 @@ async function loadNews() {
     return;
   }
 
-  el.innerHTML = updates.map(u => `
-    <div class="news-item">
-      ${escapeHtml(u.message)}
-      <span class="news-date">${formatUpdateDate(u.created_at)}</span>
-    </div>
-  `).join("");
+  el.innerHTML = updates.map(u => `<div class="news-item"><span class="news-message">${escapeHtml(u.message)}</span><span class="news-date">${formatUpdateDate(u.created_at)}</span></div>`).join("");
 }
 
 const existingPlayer = window.getBakemonPlayer();
