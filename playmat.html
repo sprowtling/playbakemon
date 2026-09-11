@@ -29,11 +29,20 @@
 
   /* ---- Battle mat ---- */
   #mat-screen { display: none; padding: 12px; max-width: 900px; margin: 0 auto; }
+  /* max-height here is the actual fix: without it, "the row's height" is
+     just whichever column's content is tallest — which works fine while
+     chat is short, but as soon as a long conversation makes chat's own
+     content the tallest thing in the row, the row (and everything
+     stretched to match it, field-col included) grows to match THAT,
+     unbounded, since nothing was ever capping it. This gives both columns
+     a shared ceiling that neither one's content can inflate; each one
+     scrolls its own overflow internally instead. */
   .mat {
     display: flex;
     gap: 12px;
+    max-height: 60vh;
   }
-  .field-col { flex: 1; }
+  .field-col { flex: 1; overflow-y: auto; }
   .chat-col {
     width: 200px;
     background: var(--row-bg);
