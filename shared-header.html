@@ -80,6 +80,13 @@
   .bakemon-dropdown a:hover { background: rgba(255,255,255,0.08); }
   .bakemon-dropdown a.current { color: var(--accent, #d8e04a); }
 
+  .bakemon-header-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
   .bakemon-identity {
     display: flex;
     align-items: center;
@@ -90,6 +97,22 @@
   }
   .bakemon-identity a { color: inherit; }
   .bakemon-identity button.small { padding: 4px 10px; }
+
+  .bakemon-theme-switch { display: flex; gap: 6px; align-items: center; }
+  .bakemon-theme-swatch {
+    all: unset;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+    border: 2px solid transparent;
+  }
+  .bakemon-theme-swatch:hover { transform: scale(1.15); }
+  .bakemon-theme-swatch[aria-pressed="true"] { border-color: var(--accent, #d8e04a); }
+  .bakemon-theme-swatch.felt { background: linear-gradient(135deg, #163d29 50%, #d9c65a 50%); }
+  .bakemon-theme-swatch.parchment { background: linear-gradient(135deg, #fbf4df 50%, #916a22 50%); }
+  .bakemon-theme-swatch.arcade { background: linear-gradient(135deg, #171a42 50%, #52e0ff 50%); }
 
   #rules-backdrop {
     display: none;
@@ -167,7 +190,14 @@
     <a href="players.html" id="nav-link-directory">Directory</a>   
     <a href="#" id="rules-toggle-btn">Rules</a>
   </nav>
-  <div class="bakemon-identity" id="bakemon-identity-slot"></div>
+  <div class="bakemon-header-right">
+    <div class="bakemon-identity" id="bakemon-identity-slot"></div>
+    <div class="bakemon-theme-switch" id="bakemon-theme-switch" role="group" aria-label="Color theme">
+      <button type="button" class="bakemon-theme-swatch felt" data-theme="felt" aria-label="Underlit Felt theme" aria-pressed="false"></button>
+      <button type="button" class="bakemon-theme-swatch parchment" data-theme="parchment" aria-label="Parchment and Brass theme" aria-pressed="false"></button>
+      <button type="button" class="bakemon-theme-swatch arcade" data-theme="arcade" aria-label="Night Arcade theme" aria-pressed="false"></button>
+    </div>
+  </div>
 </header>
 
 <div id="rules-backdrop"></div>
