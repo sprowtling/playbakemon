@@ -66,6 +66,7 @@ window.clearBakemonPlayer = clearBakemonPlayer;
   highlightCurrentNavLink();
   renderIdentity();
   wireRulesDrawer();
+  wireNavDropdowns();
 
   // Let the host page know the shared header is ready, in case it needs to do anything after
   document.dispatchEvent(new CustomEvent("bakemon-shared-header-ready"));
@@ -88,16 +89,27 @@ function highlightCurrentNavLink() {
   const path = location.pathname.split("/").pop() || "index.html";
   const tab = new URLSearchParams(location.search).get("tab");
 
+  // Marks both the dropdown sub-item and its parent trigger as current, so
+  // "which section am I in" reads at a glance even with the dropdown closed.
+  const markCurrent = (linkId, groupId) => {
+    document.getElementById(linkId)?.classList.add("current");
+    if (groupId) document.getElementById(groupId)?.classList.add("current");
+  };
+
   if (path === "playmat.html") {
-    document.getElementById("nav-link-playmat")?.classList.add("current");
-  } else if (path === "player.html" || path === "history.html") {
-    document.getElementById("nav-link-profile")?.classList.add("current");
+    markCurrent("nav-link-playmat", "nav-group-battle");
+  } else if (path === "matches.html") {
+    markCurrent("nav-link-matchhistory", "nav-group-battle");
+  } else if (path === "tournaments.html" || path === "tournament.html") {
+    markCurrent("nav-link-tournaments", "nav-group-battle");
   } else if (path === "deckbuilder.html") {
     if (tab === "deck") {
-      document.getElementById("nav-link-deckbuilder")?.classList.add("current");
+      markCurrent("nav-link-deckbuilder", "nav-group-cards");
     } else {
-      document.getElementById("nav-link-collection")?.classList.add("current");
+      markCurrent("nav-link-collection", "nav-group-cards");
     }
+  } else if (path === "players.html") {
+    markCurrent("nav-link-directory");
   }
 }
 
@@ -108,12 +120,13 @@ function renderIdentity() {
   el.innerHTML = "";
   if (!player) return;
 
-  const nameSpan = document.createElement("span");
-  nameSpan.append("Playing as ");
+  const profileLink = document.createElement("a");
+  profileLink.href = "player.html";
+  profileLink.append("Playing as ");
   const strong = document.createElement("strong");
   strong.textContent = player.display_name;
-  nameSpan.append(strong);
-  el.append(nameSpan);
+  profileLink.append(strong);
+  el.append(profileLink);
 
   const switchBtn = document.createElement("button");
   switchBtn.id = "switch-player-btn";
@@ -124,6 +137,27 @@ function renderIdentity() {
     location.href = "index.html";
   });
   el.append(switchBtn);
+}
+
+// Cards/Battle open on hover for a mouse, but hover doesn't exist on touch —
+// so a tap on the trigger also toggles an "open" class the CSS respects too.
+function wireNavDropdowns() {
+  const items = document.querySelectorAll(".bakemon-nav-item.has-dropdown");
+  items.forEach(item => {
+    const trigger = item.querySelector(".bakemon-nav-trigger");
+    trigger?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const wasOpen = item.classList.contains("open");
+      items.forEach(i => i.classList.remove("open"));
+      if (!wasOpen) item.classList.add("open");
+    });
+  });
+  document.addEventListener("click", () => {
+    items.forEach(i => i.classList.remove("open"));
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") items.forEach(i => i.classList.remove("open"));
+  });
 }
 
 function wireRulesDrawer() {
