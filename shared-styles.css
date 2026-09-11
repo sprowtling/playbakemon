@@ -9,7 +9,63 @@
    the other two. The attribute is set by a tiny inline script at the top of
    every page's <head> (reading localStorage) so the right theme applies
    before first paint — see any page's <head> for that snippet — and by the
-   switcher in shared-header.js at runtime. */
+   switcher in shared-header.js at runtime.
+
+   TO TWEAK A COLOR/FONT/SHAPE: find the token below (same name in all three
+   theme blocks) and edit its value under the theme you want to change. That
+   one edit applies everywhere the token is used — no need to hunt through
+   individual pages. What each token actually controls:
+
+   --mat-green          Solid panel background: headers, modals, the profile
+                         stat box, deckbuilder's deck panel.
+   --mat-green-light    Lighter variant of the above — hover state for that
+                         same kind of panel (e.g. a favorite-card slot).
+   --card-cream         Light surface for buttons/inputs/card art backing.
+                         Kept LIGHT in every theme on purpose — several pages
+                         assume dark text sits on top of it (see the note in
+                         the Arcade block below before changing this one).
+   --card-border        Border color used almost everywhere: panels,
+                         buttons, inputs, dividers.
+   --accent             The theme's primary color — links, headings,
+                         "current page" nav marks, primary buttons.
+   --accent-border      Border paired with --accent on primary buttons.
+   --accent-hover       --accent on hover (primary buttons).
+   --accent-2           A second accent, for a theme that wants one (see
+                         Arcade's magenta): the identity name color, the
+                         dropdown's "current page" mark, the row hover tint,
+                         empty playmat slot borders. A theme that doesn't
+                         want a second color just sets this equal to
+                         --accent, which makes every use of it a no-op.
+   --text-light         Primary readable text on dark panels.
+   --text-muted         Secondary/quieter text (subheadings, meta info).
+   --body-bg            Solid page background color, under --body-bg-image.
+   --body-text          Default text color for the page.
+   --button-text        Text color for anything on a --card-cream (or
+                         --accent) surface — has to stay dark-on-light even
+                         inside a dark theme.
+   --button-hover-bg    Background for a plain (non-primary) button, hover.
+   --row-bg             Background for list rows — match history, the
+                         player/tournament directory, bracket match boxes,
+                         the playmat's chat and hand panels.
+   --success-bg /
+   --success-text       A real win/loss or completed/active signal (a
+                         match's outcome, a tournament's status) — NOT used
+                         for the win-rate % chip, since a raw stat isn't
+                         inherently "good" just because it's a number (0%
+                         shouldn't look like a success).
+   --font-display       Headings, the site logo, big numbers.
+   --font-body          Everything else.
+   --radius-base        Corner rounding on buttons/inputs/panels — this is
+                         most of what makes Parchment read as "rounded" and
+                         Arcade read as "sharp."
+   --body-bg-image      The atmospheric gradient behind the page.
+   --nav-border-style   Only used for Parchment's dashed nav underline —
+                         safe to ignore otherwise.
+   --nav-text-transform /
+   --nav-letter-spacing Nav link casing — Arcade sets these for its
+                         capitalized, letter-spaced HUD-style menu.
+   --panel-shadow       Depth on every panel/row/card — this is what stops
+                         things from reading as flat. */
 
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=Mulish:wght@400;600;700;800&family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
@@ -42,6 +98,12 @@
   --panel-shadow: 0 8px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
   --nav-text-transform: none;
   --nav-letter-spacing: normal;
+  /* "Good stat" badges (win rate, victory, completed) stay green — that's
+     a near-universal convention, not a theme choice — but each theme gets
+     its own shade so it reads as intentional instead of an untouched
+     leftover from a different palette. */
+  --success-bg: #2a6b4f;
+  --success-text: #b8f0d0;
 }
 
 [data-bakemon-theme="parchment"] {
@@ -68,6 +130,8 @@
   --panel-shadow: 0 4px 14px rgba(60,44,20,0.16);
   --nav-text-transform: none;
   --nav-letter-spacing: normal;
+  --success-bg: #5c7a2e;
+  --success-text: #f3f7de;
 }
 
 [data-bakemon-theme="arcade"] {
@@ -103,6 +167,8 @@
   --panel-shadow: 0 0 0 1px rgba(82,224,255,0.12), 0 10px 26px rgba(0,0,0,0.5);
   --nav-text-transform: uppercase;
   --nav-letter-spacing: 0.04em;
+  --success-bg: #158f6e;
+  --success-text: #baffe9;
 }
 
 * { box-sizing: border-box; }

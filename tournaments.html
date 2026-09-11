@@ -24,7 +24,7 @@
     text-decoration: none;
     color: inherit;
   }
-  .tournament-row:hover { background: color-mix(in srgb, var(--accent-2) 22%, var(--row-bg)); }
+  .tournament-row:hover { background: color-mix(in srgb, var(--accent-2) 55%, var(--row-bg)); }
   .tournament-row.completed { border-left-color: var(--accent); }
 
   .tournament-info { display: flex; flex-direction: column; gap: 2px; }
@@ -39,7 +39,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  .tournament-status.completed { background: #2a6b4f; color: #b8f0d0; }
+  .tournament-status.completed { background: var(--success-bg); color: var(--success-text); }
   .tournament-status.active { background: #3a3a3a; color: var(--text-muted); }
 
 </style>

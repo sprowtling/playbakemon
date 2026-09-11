@@ -39,7 +39,7 @@
     text-decoration: none;
     color: inherit;
   }
-  .player-row:hover { background: color-mix(in srgb, var(--accent-2) 22%, var(--row-bg)); }
+  .player-row:hover { background: color-mix(in srgb, var(--accent-2) 55%, var(--row-bg)); }
   .player-row.ranked { border-left-color: var(--accent); }
 
   .player-rank {
@@ -56,16 +56,20 @@
   .player-name { font-size: 14px; font-weight: 600; color: var(--text-light); }
   .player-meta { font-size: 11px; color: var(--text-muted); }
 
+  /* Not a win/loss signal — a 0% win rate is just as "green" as 100% would
+     be, since this is a raw stat, not a judgment. Styled as a plain
+     theme-accent chip instead of the --success tokens used for actual
+     win/loss outcomes elsewhere (match history, tournament status). */
   .player-winrate {
     font-size: 13px;
     font-weight: 700;
     padding: 4px 12px;
     border-radius: 999px;
-    background: #2a6b4f;
-    color: #b8f0d0;
+    background: var(--accent);
+    color: var(--button-text);
     white-space: nowrap;
   }
-  .player-winrate.no-rate { background: #3a3a3a; color: var(--text-muted); }
+  .player-winrate.no-rate { background: var(--mat-green-light); color: var(--text-muted); }
 </style>
 </head>
 <body>
