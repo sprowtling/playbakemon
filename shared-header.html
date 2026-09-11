@@ -13,6 +13,9 @@
     flex-wrap: wrap;
     gap: 12px;
     border-bottom: 2px solid var(--card-border, #d9b25c);
+    box-shadow: var(--panel-shadow, none);
+    position: relative;
+    z-index: 10;
   }
   .bakemon-logo {
     font-size: 20px;
@@ -32,6 +35,8 @@
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
+    text-transform: var(--nav-text-transform, none);
+    letter-spacing: var(--nav-letter-spacing, normal);
   }
   .bakemon-nav a:hover { font-weight: 800; }
   .bakemon-nav a.current { font-weight: 800; }
@@ -43,6 +48,8 @@
     color: var(--accent, #d8e04a);
     font-size: 14px;
     font-weight: 600;
+    text-transform: var(--nav-text-transform, none);
+    letter-spacing: var(--nav-letter-spacing, normal);
   }
   .bakemon-nav-trigger:hover { font-weight: 800; }
   .bakemon-nav-item.current > .bakemon-nav-trigger { font-weight: 800; }
@@ -76,9 +83,11 @@
     font-size: 13px;
     font-weight: 600;
     white-space: nowrap;
+    text-transform: var(--nav-text-transform, none);
+    letter-spacing: var(--nav-letter-spacing, normal);
   }
   .bakemon-dropdown a:hover { background: rgba(255,255,255,0.08); }
-  .bakemon-dropdown a.current { color: var(--accent, #d8e04a); }
+  .bakemon-dropdown a.current { color: var(--accent-2, var(--accent, #d8e04a)); }
 
   .bakemon-header-right {
     display: flex;
@@ -96,6 +105,7 @@
     white-space: nowrap;
   }
   .bakemon-identity a { color: inherit; }
+  .bakemon-identity a strong { color: var(--accent-2, var(--accent, #d8e04a)); }
   .bakemon-identity button.small { padding: 4px 10px; }
 
   .bakemon-theme-switch { display: flex; gap: 6px; align-items: center; }

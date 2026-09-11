@@ -36,6 +36,12 @@
     radial-gradient(ellipse 120% 70% at 50% -10%, #234f36 0%, transparent 55%),
     radial-gradient(ellipse 140% 90% at 50% 120%, #071811 0%, transparent 60%);
   --nav-border-style: solid;
+  /* No second accent for Felt — same value so anything styled with
+     --accent-2 is a harmless no-op here instead of needing its own rule. */
+  --accent-2: #d9c65a;
+  --panel-shadow: 0 8px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+  --nav-text-transform: none;
+  --nav-letter-spacing: normal;
 }
 
 [data-bakemon-theme="parchment"] {
@@ -58,6 +64,10 @@
   --radius-base: 12px;
   --body-bg-image: linear-gradient(155deg, #f4e9c9 0%, #ecdca8 100%);
   --nav-border-style: dashed;
+  --accent-2: #916a22;
+  --panel-shadow: 0 4px 14px rgba(60,44,20,0.16);
+  --nav-text-transform: none;
+  --nav-letter-spacing: normal;
 }
 
 [data-bakemon-theme="arcade"] {
@@ -86,6 +96,13 @@
     radial-gradient(ellipse 90% 60% at 15% 0%, rgba(82,224,255,0.14), transparent 60%),
     radial-gradient(ellipse 90% 60% at 100% 100%, rgba(255,79,184,0.12), transparent 60%);
   --nav-border-style: solid;
+  /* The duotone from the look book — cyan carries the interface, magenta
+     is the pop (identity, current-page marks) so it stays a highlight
+     instead of competing with cyan everywhere. */
+  --accent-2: #ff4fb8;
+  --panel-shadow: 0 0 0 1px rgba(82,224,255,0.12), 0 10px 26px rgba(0,0,0,0.5);
+  --nav-text-transform: uppercase;
+  --nav-letter-spacing: 0.04em;
 }
 
 * { box-sizing: border-box; }

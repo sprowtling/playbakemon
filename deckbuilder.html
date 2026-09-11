@@ -29,6 +29,7 @@
     min-width: 240px;
     background: var(--mat-green);
     border-radius: 10px;
+    box-shadow: var(--panel-shadow);
     padding: 14px;
     position: sticky;
     top: 16px;
@@ -91,15 +92,16 @@
     background: var(--card-cream);
     border: 2px solid var(--card-border);
     border-radius: 10px;
+    box-shadow: var(--panel-shadow);
     padding: 8px;
     cursor: pointer;
     text-align: center;
-    color: #3a2f1a;
+    color: var(--button-text);
     position: relative;
-    transition: transform 0.08s ease;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
     user-select: none;
   }
-  .card-tile:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card-tile:hover { transform: translateY(-3px); border-color: var(--accent); box-shadow: 0 10px 22px rgba(0,0,0,0.3); }
   .card-tile img {
     width: 100%;
     aspect-ratio: 3/4;
