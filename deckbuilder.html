@@ -4,42 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Deck Editor</title>
+<link rel="stylesheet" href="shared-styles.css">
 <style>
-  :root {
-    --mat-green: #1d4d3a;
-    --mat-green-light: #245a44;
-    --card-cream: #fdf6e3;
-    --card-border: #d9b25c;
-    --accent: #d8e04a;
-    --text-light: #cfe8db;
-    --text-muted: #9fc7ae;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #0f2e22;
-    color: #eee;
-    min-height: 100vh;
-  }
-  button {
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    color: #3a2f1a;
-    font-size: 14px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  button:hover { background: #f5e3b3; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button.primary {
-    background: var(--accent);
-    border-color: #a8b32e;
-  }
-  button.primary:hover { background: #c7ce3f; }
-
   #main {
     padding: 16px 24px 60px;
   }
@@ -50,14 +16,7 @@
     margin-bottom: 20px;
     flex-wrap: wrap;
   }
-  #deck-select-bar select {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    font-size: 14px;
-    min-width: 180px;
-  }
+  #deck-select-bar select { min-width: 180px; }
   .layout {
     display: flex;
     gap: 20px;
@@ -120,13 +79,6 @@
     gap: 10px;
     margin-bottom: 16px;
     flex-wrap: wrap;
-  }
-  #filters input, #filters select {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    font-size: 14px;
   }
 
   #card-grid, #collection-grid {
