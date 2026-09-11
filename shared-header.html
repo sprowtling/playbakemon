@@ -108,21 +108,52 @@
   .bakemon-identity a strong { color: var(--accent-2, var(--accent, #d8e04a)); }
   .bakemon-identity button.small { padding: 4px 10px; }
 
-  .bakemon-theme-switch { display: flex; gap: 6px; align-items: center; }
-  .bakemon-theme-swatch {
+  /* One small swatch showing the CURRENT theme, doubling as the dropdown's
+     trigger — reuses the same has-dropdown/.bakemon-dropdown mechanism as
+     the Cards/Battle nav menus (hover, tap-to-toggle, focus-within, outside
+     click and Escape to close) instead of its own bespoke behavior. */
+  .bakemon-theme-trigger {
     all: unset;
     cursor: pointer;
-    width: 18px;
-    height: 18px;
+    display: block;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
-    border: 2px solid transparent;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35), 0 0 0 2px var(--card-border, #d9b25c);
   }
-  .bakemon-theme-swatch:hover { transform: scale(1.15); }
-  .bakemon-theme-swatch[aria-pressed="true"] { border-color: var(--accent, #d8e04a); }
-  .bakemon-theme-swatch.felt { background: linear-gradient(135deg, #163d29 50%, #d9c65a 50%); }
-  .bakemon-theme-swatch.parchment { background: linear-gradient(135deg, #fbf4df 50%, #916a22 50%); }
-  .bakemon-theme-swatch.arcade { background: linear-gradient(135deg, #171a42 50%, #52e0ff 50%); }
+  .bakemon-theme-trigger:hover { transform: scale(1.1); }
+  .bakemon-theme-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+  }
+  .bakemon-theme-trigger.felt, .bakemon-theme-swatch.felt { background: linear-gradient(135deg, #163d29 50%, #d9c65a 50%); }
+  .bakemon-theme-trigger.parchment, .bakemon-theme-swatch.parchment { background: linear-gradient(135deg, #fbf4df 50%, #916a22 50%); }
+  .bakemon-theme-trigger.arcade, .bakemon-theme-swatch.arcade { background: linear-gradient(135deg, #171a42 50%, #52e0ff 50%); }
+
+  /* This dropdown sits at the far-right edge of the header, so it opens
+     leftward instead of the default left-anchored Cards/Battle style —
+     anchoring it left here would run it off the edge of the screen. */
+  .bakemon-dropdown.align-right { left: auto; right: 0; }
+  .bakemon-theme-option {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    color: var(--text-light, #cfe8db);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .bakemon-theme-option:hover { background: rgba(255,255,255,0.08); }
+  .bakemon-theme-option.current { color: var(--accent-2, var(--accent, #d8e04a)); }
 
   #rules-backdrop {
     display: none;
@@ -202,10 +233,13 @@
   </nav>
   <div class="bakemon-header-right">
     <div class="bakemon-identity" id="bakemon-identity-slot"></div>
-    <div class="bakemon-theme-switch" id="bakemon-theme-switch" role="group" aria-label="Color theme">
-      <button type="button" class="bakemon-theme-swatch felt" data-theme="felt" aria-label="Underlit Felt theme" aria-pressed="false"></button>
-      <button type="button" class="bakemon-theme-swatch parchment" data-theme="parchment" aria-label="Parchment and Brass theme" aria-pressed="false"></button>
-      <button type="button" class="bakemon-theme-swatch arcade" data-theme="arcade" aria-label="Night Arcade theme" aria-pressed="false"></button>
+    <div class="bakemon-nav-item has-dropdown" id="bakemon-theme-switch">
+      <button type="button" class="bakemon-theme-trigger" id="bakemon-theme-trigger" aria-label="Change color theme"></button>
+      <div class="bakemon-dropdown align-right">
+        <button type="button" class="bakemon-theme-option" data-theme="felt"><span class="bakemon-theme-swatch felt"></span>Underlit Felt</button>
+        <button type="button" class="bakemon-theme-option" data-theme="parchment"><span class="bakemon-theme-swatch parchment"></span>Parchment &amp; Brass</button>
+        <button type="button" class="bakemon-theme-option" data-theme="arcade"><span class="bakemon-theme-swatch arcade"></span>Night Arcade</button>
+      </div>
     </div>
   </div>
 </header>
