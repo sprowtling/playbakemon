@@ -4,39 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon</title>
+<link rel="stylesheet" href="shared-styles.css">
 <style>
-  :root {
-    --mat-green: #1d4d3a;
-    --mat-green-light: #245a44;
-    --card-cream: #fdf6e3;
-    --card-border: #d9b25c;
-    --accent: #d8e04a;
-    --text-light: #cfe8db;
-    --text-muted: #9fc7ae;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #0f2e22;
-    color: #eee;
-    min-height: 100vh;
-  }
-  button {
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    color: #3a2f1a;
-    font-size: 14px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  button:hover { background: #f5e3b3; }
-  button.primary { background: var(--accent); border-color: #a8b32e; }
-  button.primary:hover { background: #c7ce3f; }
-  button.small { padding: 3px 8px; font-size: 12px; }
-
   #home-screen, #welcome-screen {
     max-width: 420px;
     margin: 100px auto;
@@ -114,11 +83,11 @@
 
 <div id="home-screen">
   <h2>Who's playing?</h2>
-  <input type="text" id="name-input" placeholder="Type your name...">
+  <input type="text" id="name-input" placeholder="Type your name..." autocomplete="off">
 
   <div id="pin-row" style="display:none;">
     <p id="pin-subtitle"></p>
-    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pin-input" placeholder="••••">
+    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="pin-input" placeholder="••••" autocomplete="off">
     <div id="pin-error"></div>
   </div>
 
@@ -146,18 +115,6 @@
 const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-async function loadKnownPlayers() {
-  const { data, error } = await supabaseClient.from("players").select("display_name").order("display_name");
-  if (error) return;
-  const datalist = document.getElementById("known-players");
-  datalist.innerHTML = "";
-  data.forEach(p => {
-    const opt = document.createElement("option");
-    opt.value = p.display_name;
-    datalist.appendChild(opt);
-  });
-}
 
 const nameInput = document.getElementById("name-input");
 const pinInput = document.getElementById("pin-input");
@@ -431,8 +388,6 @@ async function loadNews() {
 const existingPlayer = window.getBakemonPlayer();
 if (existingPlayer) {
   showWelcome(existingPlayer);
-} else {
-  loadKnownPlayers();
 }
 </script>
 

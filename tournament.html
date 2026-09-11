@@ -4,39 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Tournament</title>
+<link rel="stylesheet" href="shared-styles.css">
 <style>
-  :root {
-    --mat-green: #1d4d3a;
-    --mat-green-light: #245a44;
-    --card-cream: #fdf6e3;
-    --card-border: #d9b25c;
-    --accent: #d8e04a;
-    --text-light: #cfe8db;
-    --text-muted: #9fc7ae;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #0f2e22;
-    color: #eee;
-    min-height: 100vh;
-  }
-  button {
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    color: #3a2f1a;
-    font-size: 13px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  button:hover { background: #f5e3b3; }
-  button.primary { background: var(--accent); border-color: #a8b32e; }
-  button.small { padding: 3px 8px; font-size: 12px; }
-  button:disabled { opacity: 0.45; cursor: not-allowed; }
-
+  /* This page's content column is wider than the shared 700px default —
+     the bracket needs the room. */
   #content { max-width: 900px; margin: 24px auto; padding: 0 16px; }
   /* The bracket itself needs real horizontal room to avoid scrolling on
      anything but a small screen — break it out of the 900px content cap
@@ -47,8 +18,6 @@
     margin-left: auto;
     margin-right: auto;
   }
-  h2 { color: var(--accent); text-align: center; margin-bottom: 4px; }
-  #subheading { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
 
   /* ---- Create screen ---- */
   #create-screen {
@@ -142,15 +111,16 @@
     justify-content: space-between;
     align-items: center;
     gap: 6px;
-    cursor: pointer;
+    cursor: default;
   }
   .match-slot:last-child { border-bottom: none; }
-  .match-slot:hover { background: rgba(255,255,255,0.05); }
+  /* Only a slot the viewer can actually act on (has the declare-winner
+     hookup) gets the pointer cursor and hover feedback — otherwise it looks
+     clickable to people who aren't allowed to declare a winner. */
+  .match-slot[data-declare-winner] { cursor: pointer; }
+  .match-slot[data-declare-winner]:hover { background: rgba(255,255,255,0.05); }
   .match-slot.winner { background: rgba(216,224,74,0.15); color: var(--accent); font-weight: 700; }
-  .match-slot.empty { color: var(--text-muted); font-style: italic; cursor: default; }
-  .match-slot.empty:hover { background: transparent; }
-  .match-slot.decided { cursor: default; }
-  .match-slot.decided:hover { background: inherit; }
+  .match-slot.empty { color: var(--text-muted); font-style: italic; }
 
   #champion-banner {
     display: none;
@@ -328,6 +298,9 @@ async function createTournament() {
   const name = nameInput.value.trim();
   const statusEl = document.getElementById("create-status");
 
+  const loggedInPlayer = window.getBakemonPlayer();
+  if (!loggedInPlayer) { statusEl.textContent = "Log in first so we know who's running this tournament."; return; }
+
   if (!name) { statusEl.textContent = "Give the tournament a name."; return; }
   if (!bracketSize) { statusEl.textContent = "Pick a bracket size."; return; }
 
@@ -352,7 +325,7 @@ async function createTournament() {
 
   const { data: tournament, error: tErr } = await supabaseClient
     .from("tournaments")
-    .insert({ name })
+    .insert({ name, created_by: loggedInPlayer.id })
     .select()
     .single();
   if (tErr) { console.error(tErr); statusEl.textContent = "Couldn't create the tournament."; return; }
@@ -491,6 +464,9 @@ async function loadBracket() {
 
   document.getElementById("tournament-title").textContent = tournament.name;
 
+  const loggedInPlayer = window.getBakemonPlayer();
+  const isOwner = !!(loggedInPlayer && tournament.created_by && loggedInPlayer.id === tournament.created_by);
+
   const rounds = {};
   (matches || []).forEach(m => {
     if (!rounds[m.round]) rounds[m.round] = [];
@@ -504,7 +480,9 @@ async function loadBracket() {
 
   document.getElementById("subheading").textContent = champion
     ? "This tournament has concluded."
-    : "Click a name to declare the winner of that match.";
+    : isOwner
+      ? "Click a name to declare the winner of that match."
+      : "Only this tournament's creator can declare winners.";
 
   const banner = document.getElementById("champion-banner");
   if (champion) {
@@ -529,14 +507,14 @@ async function loadBracket() {
   document.getElementById("bracket").innerHTML = roundNumbers.map(roundNum => `
     <div class="round-col">
       <div class="round-title">${roundLabel(roundNum)}</div>
-      ${rounds[roundNum].map(m => matchBoxHtml(m)).join("")}
+      ${rounds[roundNum].map(m => matchBoxHtml(m, isOwner)).join("")}
     </div>
   `).join("");
 
   attachMatchHandlers();
 }
 
-function matchBoxHtml(m) {
+function matchBoxHtml(m, isOwner) {
   const decided = !!m.winner_id || !!m.winner_name_snapshot;
   const slotHtml = (name, isWinnerSlot, playerId, otherFilled) => {
     if (!name) {
@@ -549,8 +527,9 @@ function matchBoxHtml(m) {
     const classes = ["match-slot"];
     if (isWinnerSlot) classes.push("winner");
     if (decided) classes.push("decided");
-    // Only clickable if this match has both slots filled, isn't decided yet
-    const clickable = m.player_1_name_snapshot && m.player_2_name_snapshot && !decided;
+    // Only clickable if this match has both slots filled, isn't decided yet,
+    // and the viewer is this tournament's creator.
+    const clickable = isOwner && m.player_1_name_snapshot && m.player_2_name_snapshot && !decided;
     return `<div class="${classes.join(' ')}" ${clickable ? `data-declare-winner data-match-id="${m.id}" data-winner-name="${escapeHtml(name)}" data-winner-player-id="${playerId || ''}"` : ''}>
       <span>${escapeHtml(name)}</span>
     </div>`;

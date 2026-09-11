@@ -4,47 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Battle Mat</title>
+<link rel="stylesheet" href="shared-styles.css">
 <style>
-  :root {
-    --mat-green: #1d4d3a;
-    --mat-green-light: #245a44;
-    --card-cream: #fdf6e3;
-    --card-border: #d9b25c;
-    --accent: #d8e04a;
-    --text-light: #cfe8db;
-    --text-muted: #9fc7ae;
-    --panel-brown: #b98a5f;
-  }
-  * { box-sizing: border-box; }
+  :root { --panel-brown: #b98a5f; }
   #mat-screen { zoom: 1.25; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #0f2e22;
-    color: #eee;
-    min-height: 100vh;
-  }
-  button {
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    color: #3a2f1a;
-    font-size: 13px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  button:hover { background: #f5e3b3; }
-  button:disabled { opacity: 0.45; cursor: not-allowed; }
-  button.primary { background: var(--accent); border-color: #a8b32e; }
-  button.small { padding: 3px 8px; font-size: 12px; }
-  input, select {
-    padding: 8px 12px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    font-size: 14px;
-  }
 
   /* ---- Setup screen ---- */
   #setup-screen {
@@ -94,7 +57,6 @@
   .chat-messages {
     flex: 1;
     min-height: 200px;
-    max-height: 60vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

@@ -4,36 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bakemon Match History</title>
+<link rel="stylesheet" href="shared-styles.css">
 <style>
-  :root {
-    --mat-green: #1d4d3a;
-    --card-cream: #fdf6e3;
-    --card-border: #d9b25c;
-    --accent: #d8e04a;
-    --text-light: #cfe8db;
-    --text-muted: #9fc7ae;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    background: #0f2e22;
-    color: #eee;
-    min-height: 100vh;
-  }
-  button {
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--card-border);
-    background: var(--card-cream);
-    color: #3a2f1a;
-    font-size: 13px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-
-  #content { max-width: 700px; margin: 24px auto; padding: 0 16px; }
-
   #stat-summary {
     display: flex;
     justify-content: center;
@@ -88,13 +60,6 @@
   .match-outcome.victory { background: #2a6b4f; color: #b8f0d0; }
   .match-outcome.defeat { background: #6b2e2e; color: #f0c0b0; }
   .match-outcome.no-decision { background: #3a3a3a; color: var(--text-muted); }
-
-  #empty-message {
-    text-align: center;
-    color: var(--text-muted);
-    padding: 40px 20px;
-    font-size: 14px;
-  }
 </style>
 </head>
 <body>
