@@ -146,7 +146,12 @@
     justify-content: center;
     align-items: center;
   }
-  .divider-line { height: 1px; background: rgba(255,255,255,0.15); margin: 10px 0; }
+  /* A plain white tint at low opacity is only visible against a dark
+     background — invisible on Parchment's light one. --card-border is
+     always a real, contrasting color against its own theme's background
+     (it's used for actual borders elsewhere), so blending toward it
+     instead keeps this line visible no matter which theme is active. */
+  .divider-line { height: 1px; background: color-mix(in srgb, var(--card-border) 45%, transparent); margin: 10px 0; }
 
   .card-face {
     width: 64px;
@@ -273,12 +278,12 @@
     gap: 5px;
     align-items: center;
     font-size: 10px;
-    color: #e0c9a8;
+    color: var(--text-light);
   }
   .side-panel .row { display: flex; align-items: center; gap: 4px; }
   .side-panel .dmg-controls { display: flex; align-items: center; gap: 4px; }
   .side-panel .dmg-controls button { padding: 1px 6px; font-size: 11px; }
-  .side-panel .remaining { font-size: 12px; font-weight: 600; color: #fdf6e3; }
+  .side-panel .remaining { font-size: 12px; font-weight: 600; color: var(--accent); }
   .energy-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 60px; }
   .energy-dot {
     width: 11px; height: 11px; border-radius: 50%;
@@ -412,7 +417,7 @@
           <div class="card-face" id="opp-discard-pile" data-view-only="1" style="border-style:dashed; flex-shrink:0;">
             <div class="label">Discard</div>
           </div>
-          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
           <div class="bench-row" id="opp-bench" style="margin:0;"></div>
         </div>
         <div class="active-row" id="opp-active-row"></div>
@@ -433,9 +438,9 @@
           <div class="card-face" id="my-discard-pile" data-seat="__discard__" data-zone="discard" data-index="0" style="border-style:dashed; flex-shrink:0;">
             <div class="label" id="discard-label">Discard</div>
           </div>
-          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
           <div class="bench-row" id="my-bench" style="margin:0;"></div>
-          <div style="width:1px; align-self:stretch; background:rgba(255,255,255,0.15);"></div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
           <div id="action-bar" style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;"></div>
         </div>
         <div class="row-label" id="my-zone-counts"></div>
@@ -907,10 +912,10 @@ function benchHpLine(slot, seat, index, viewOnly) {
   const maxHp = card.hp;
   const remaining = Math.max(0, maxHp - (slot.damage || 0));
   if (viewOnly) {
-    return `<div style="font-size:9px; color:#e0c9a8; text-align:center;">${remaining} / ${maxHp}</div>`;
+    return `<div style="font-size:9px; color:var(--text-light); text-align:center;">${remaining} / ${maxHp}</div>`;
   }
   return `
-    <div style="display:flex; align-items:center; justify-content:center; gap:3px; font-size:9px; color:#e0c9a8;">
+    <div style="display:flex; align-items:center; justify-content:center; gap:3px; font-size:9px; color:var(--text-light);">
       <button class="small" style="padding:0 4px; font-size:10px;" data-bench-dmg-minus data-seat="${seat}" data-index="${index}">-</button>
       <span>${remaining} / ${maxHp}</span>
       <button class="small" style="padding:0 4px; font-size:10px;" data-bench-dmg-plus data-seat="${seat}" data-index="${index}">+</button>
@@ -944,7 +949,7 @@ function renderSidePanel(seat, zone, index, slot) {
     <div class="side-panel" data-seat="${seat}" data-zone="${zone}" data-index="${index}">
       <div class="row" style="width:100%; justify-content:space-between;">${statusBadges}</div>
       <div>Energy</div>
-      <div class="energy-dots" data-energy-target="${seat}:${zone}:${index}">${energyDots}<span class="energy-dot" style="background:transparent; border:1px dashed #e0c9a8;" data-add-energy="1">+</span></div>
+      <div class="energy-dots" data-energy-target="${seat}:${zone}:${index}">${energyDots}<span class="energy-dot" style="background:transparent; border:1px dashed var(--accent-2);" data-add-energy="1">+</span></div>
       <div class="divider-line" style="width:100%;"></div>
       <div class="dmg-controls">
         <button data-dmg-minus="1">-</button>
@@ -1061,7 +1066,7 @@ function renderMat() {
           const meta = ENERGY_TYPES.find(t => t.key === e) || {color:"#999"};
           return `<span class="energy-dot" style="background:${meta.color}" data-remove-energy="${ei}" title="${e} (click to remove)"></span>`;
         }).join('')}
-        ${slot ? `<span class="energy-dot" style="background:transparent; border:1px dashed #e0c9a8;" data-add-energy="1">+</span>` : ''}
+        ${slot ? `<span class="energy-dot" style="background:transparent; border:1px dashed var(--accent-2);" data-add-energy="1">+</span>` : ''}
       </div>
     </div>
   `).join("");
