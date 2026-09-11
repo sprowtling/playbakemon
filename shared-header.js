@@ -145,7 +145,7 @@ function renderIdentity() {
 function wireNavDropdowns() {
   const items = document.querySelectorAll(".bakemon-nav-item.has-dropdown");
   items.forEach(item => {
-    const trigger = item.querySelector(".bakemon-nav-trigger");
+    const trigger = item.querySelector(".bakemon-nav-trigger, .bakemon-theme-trigger");
     trigger?.addEventListener("click", (e) => {
       e.stopPropagation();
       const wasOpen = item.classList.contains("open");
@@ -165,26 +165,34 @@ const BAKEMON_THEME_KEY = "bakemon_theme";
 
 // The theme itself is already applied by the tiny inline script at the top
 // of every page's <head> (before shared-header.html has even loaded) so
-// there's no flash of the wrong theme — this just wires the swatch buttons
-// and reflects whichever theme is currently active.
+// there's no flash of the wrong theme — this wires the trigger + dropdown
+// (open/close itself is handled by wireNavDropdowns, same as Cards/Battle)
+// and keeps the trigger's own swatch and the dropdown's "current" mark in
+// sync with whichever theme is actually active.
 function wireThemeSwitch() {
-  const swatches = document.querySelectorAll(".bakemon-theme-swatch");
-  const current = document.documentElement.dataset.bakemonTheme || "felt";
+  const trigger = document.getElementById("bakemon-theme-trigger");
+  const wrapper = document.getElementById("bakemon-theme-switch");
+  const options = document.querySelectorAll(".bakemon-theme-option");
+  if (!trigger || !wrapper) return;
 
-  const syncPressedState = () => {
-    swatches.forEach(sw => {
-      sw.setAttribute("aria-pressed", sw.dataset.theme === document.documentElement.dataset.bakemonTheme ? "true" : "false");
+  const applyTheme = (theme) => {
+    document.documentElement.dataset.bakemonTheme = theme;
+    trigger.classList.remove("felt", "parchment", "arcade");
+    trigger.classList.add(theme);
+    options.forEach(opt => {
+      const isCurrent = opt.dataset.theme === theme;
+      opt.classList.toggle("current", isCurrent);
+      opt.setAttribute("aria-pressed", isCurrent ? "true" : "false");
     });
   };
 
-  document.documentElement.dataset.bakemonTheme = current;
-  syncPressedState();
+  applyTheme(document.documentElement.dataset.bakemonTheme || "felt");
 
-  swatches.forEach(sw => {
-    sw.addEventListener("click", () => {
-      document.documentElement.dataset.bakemonTheme = sw.dataset.theme;
-      localStorage.setItem(BAKEMON_THEME_KEY, sw.dataset.theme);
-      syncPressedState();
+  options.forEach(opt => {
+    opt.addEventListener("click", () => {
+      localStorage.setItem(BAKEMON_THEME_KEY, opt.dataset.theme);
+      applyTheme(opt.dataset.theme);
+      wrapper.classList.remove("open"); // picking a theme closes the dropdown too
     });
   });
 }
