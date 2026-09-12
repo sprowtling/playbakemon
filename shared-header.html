@@ -192,10 +192,18 @@
   .rules-sections { display: flex; flex-direction: column; gap: 8px; }
   .rules-section {
     background: rgba(255,255,255,0.04);
-    border: 1px dashed var(--card-border, #d9b25c);
+    border: 1px solid var(--card-border, #d9b25c);
     border-radius: 8px;
     padding: 8px 12px;
   }
+  .rules-inner {
+    background: rgba(255,255,255,0.04);
+    border: 1px dashed var(--card-border, #d9b25c);
+    border-radius: 8px;
+    padding: 8px 12px;     
+  }
+
+     
   .rules-section summary {
     cursor: pointer;
     font-weight: 600;
