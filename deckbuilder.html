@@ -201,6 +201,18 @@
     <div id="filters">
       <input type="text" id="collection-search-input" placeholder="Search by name...">
       <select id="collection-type-filter"><option value="">All types</option></select>
+      <select id="collection-weakness-filter"><option value="">All weaknesses</option></select>
+      <select id="collection-stage-filter">
+        <option value="">All stages</option>
+        <option value="basic">Basic</option>
+        <option value="stage one">Stage 1</option>
+        <option value="stage two">Stage 2</option>
+      </select>
+      <select id="collection-item-kind-filter">
+        <option value="">All items</option>
+        <option value="equip">Equippable</option>
+        <option value="consumable">Consumable</option>
+      </select>
       <select id="collection-owned-filter">
         <option value="all">All cards</option>
         <option value="owned">Owned only</option>
@@ -225,6 +237,20 @@
           <input type="text" id="search-input" placeholder="Search by name...">
           <select id="type-filter">
             <option value="">All types</option>
+          </select>
+          <select id="weakness-filter">
+            <option value="">All weaknesses</option>
+          </select>
+          <select id="stage-filter">
+            <option value="">All stages</option>
+            <option value="basic">Basic</option>
+            <option value="stage one">Stage 1</option>
+            <option value="stage two">Stage 2</option>
+          </select>
+          <select id="item-kind-filter">
+            <option value="">All items</option>
+            <option value="equip">Equippable</option>
+            <option value="consumable">Consumable</option>
           </select>
         </div>
         <div id="no-cards-message" style="display:none; color:var(--text-muted); font-size:13px; padding:20px; text-align:center;">
@@ -308,29 +334,37 @@ async function loadPlayerCollection() {
   (data || []).forEach(row => { playerCollection[row.card_id] = row.quantity; });
 }
 
-function populateCollectionTypeFilter() {
-  const types = new Set();
-  allCards.forEach(c => {
-    if (c.type_1) types.add(c.type_1);
-    if (c.type_2) types.add(c.type_2);
-  });
-  const sel = document.getElementById("collection-type-filter");
-  sel.innerHTML = '<option value="">All types</option>';
-  [...types].sort().forEach(t => {
+// Fills a <select> with the distinct values found across one or more card
+// fields (e.g. type_1/type_2, or weakness_1/weakness_2) — used for any
+// filter whose options come from open-ended data rather than a small fixed
+// set (stage and item kind are hardcoded directly in the HTML instead,
+// since those only ever have the handful of values the game defines).
+function populateFilterOptions(selectId, fields, defaultLabel) {
+  const values = new Set();
+  allCards.forEach(c => fields.forEach(f => { if (c[f]) values.add(c[f]); }));
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = `<option value="">${defaultLabel}</option>`;
+  [...values].sort().forEach(v => {
     const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    opt.value = v;
+    opt.textContent = v.charAt(0).toUpperCase() + v.slice(1);
     sel.appendChild(opt);
   });
 }
 
 document.getElementById("collection-search-input").addEventListener("input", renderCollectionGrid);
 document.getElementById("collection-type-filter").addEventListener("change", renderCollectionGrid);
+document.getElementById("collection-weakness-filter").addEventListener("change", renderCollectionGrid);
+document.getElementById("collection-stage-filter").addEventListener("change", renderCollectionGrid);
+document.getElementById("collection-item-kind-filter").addEventListener("change", renderCollectionGrid);
 document.getElementById("collection-owned-filter").addEventListener("change", renderCollectionGrid);
 
 function renderCollectionGrid() {
   const search = document.getElementById("collection-search-input").value.toLowerCase();
   const typeFilter = document.getElementById("collection-type-filter").value;
+  const weaknessFilter = document.getElementById("collection-weakness-filter").value;
+  const stageFilter = document.getElementById("collection-stage-filter").value;
+  const itemKindFilter = document.getElementById("collection-item-kind-filter").value;
   const ownedFilter = document.getElementById("collection-owned-filter").value;
   const grid = document.getElementById("collection-grid");
   grid.innerHTML = "";
@@ -338,9 +372,12 @@ function renderCollectionGrid() {
   const filtered = allCards.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(search);
     const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
+    const matchesWeakness = !weaknessFilter || c.weakness_1 === weaknessFilter || c.weakness_2 === weaknessFilter;
+    const matchesStage = !stageFilter || c.stage === stageFilter;
+    const matchesItemKind = !itemKindFilter || c.item_kind === itemKindFilter;
     const owned = playerCollection[c.id] || 0;
     const matchesOwned = ownedFilter === "all" || (ownedFilter === "owned" && owned > 0) || (ownedFilter === "unowned" && owned === 0);
-    return matchesSearch && matchesType && matchesOwned;
+    return matchesSearch && matchesType && matchesWeakness && matchesStage && matchesItemKind && matchesOwned;
   });
 
   filtered.forEach(card => {
@@ -417,32 +454,25 @@ async function loadCards() {
     return;
   }
   allCards = data;
-  populateTypeFilter();
-  populateCollectionTypeFilter();
+  populateFilterOptions("type-filter", ["type_1", "type_2"], "All types");
+  populateFilterOptions("collection-type-filter", ["type_1", "type_2"], "All types");
+  populateFilterOptions("weakness-filter", ["weakness_1", "weakness_2"], "All weaknesses");
+  populateFilterOptions("collection-weakness-filter", ["weakness_1", "weakness_2"], "All weaknesses");
   renderCardGrid();
-}
-
-function populateTypeFilter() {
-  const types = new Set();
-  allCards.forEach(c => {
-    if (c.type_1) types.add(c.type_1);
-    if (c.type_2) types.add(c.type_2);
-  });
-  const sel = document.getElementById("type-filter");
-  [...types].sort().forEach(t => {
-    const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t.charAt(0).toUpperCase() + t.slice(1);
-    sel.appendChild(opt);
-  });
 }
 
 document.getElementById("search-input").addEventListener("input", renderCardGrid);
 document.getElementById("type-filter").addEventListener("change", renderCardGrid);
+document.getElementById("weakness-filter").addEventListener("change", renderCardGrid);
+document.getElementById("stage-filter").addEventListener("change", renderCardGrid);
+document.getElementById("item-kind-filter").addEventListener("change", renderCardGrid);
 
 function renderCardGrid() {
   const search = document.getElementById("search-input").value.toLowerCase();
   const typeFilter = document.getElementById("type-filter").value;
+  const weaknessFilter = document.getElementById("weakness-filter").value;
+  const stageFilter = document.getElementById("stage-filter").value;
+  const itemKindFilter = document.getElementById("item-kind-filter").value;
   const grid = document.getElementById("card-grid");
   grid.innerHTML = "";
 
@@ -451,7 +481,10 @@ function renderCardGrid() {
     if (owned <= 0) return false; // only show cards this player actually owns
     const matchesSearch = c.name.toLowerCase().includes(search);
     const matchesType = !typeFilter || c.type_1 === typeFilter || c.type_2 === typeFilter;
-    return matchesSearch && matchesType;
+    const matchesWeakness = !weaknessFilter || c.weakness_1 === weaknessFilter || c.weakness_2 === weaknessFilter;
+    const matchesStage = !stageFilter || c.stage === stageFilter;
+    const matchesItemKind = !itemKindFilter || c.item_kind === itemKindFilter;
+    return matchesSearch && matchesType && matchesWeakness && matchesStage && matchesItemKind;
   });
 
   document.getElementById("no-cards-message").style.display = (allCards.some(c => (playerCollection[c.id] || 0) > 0)) ? "none" : "block";
