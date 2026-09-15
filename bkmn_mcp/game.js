@@ -36,7 +36,12 @@ async function getAllCards(sb) {
 }
 
 // ---------- Player identity ----------
-async function findPlayer(sb, displayName) {
+// Same PIN check index.html itself requires before treating a browser
+// session as a given player — verify_player_pin is the same RPC it calls.
+// Without this, "login" would let anyone act as anyone by display name
+// alone: join tables as them, post chat as them, record match results
+// under their name.
+async function findPlayer(sb, displayName, pin) {
   const { data, error } = await sb
     .from("players")
     .select("id, display_name")
@@ -44,6 +49,17 @@ async function findPlayer(sb, displayName) {
     .maybeSingle();
   if (error) throw new Error(`Player lookup failed: ${error.message}`);
   if (!data) throw new Error(`No player found named "${displayName}". They need to log in via index.html at least once first.`);
+
+  if (!/^[0-9]{4}$/.test(pin || "")) {
+    throw new Error("PIN must be exactly 4 digits.");
+  }
+  const { data: correct, error: pinError } = await sb.rpc("verify_player_pin", {
+    p_display_name: data.display_name,
+    p_guess: pin
+  });
+  if (pinError) throw new Error(`PIN check failed: ${pinError.message}`);
+  if (!correct) throw new Error("That PIN doesn't match.");
+
   return data;
 }
 
@@ -105,6 +121,18 @@ async function pushState(sb, tableId, newState) {
   return data;
 }
 
+// join_table only seats a deck when deck_name was actually provided (it's
+// optional on reconnect, since your seat's state already exists then) — so
+// a first-time join without deck_name leaves state[seat] as null. Every
+// action below reads and mutates state[seat] directly; without this check
+// that's a raw "Cannot read properties of null" instead of a clear reason.
+// seeBoard doesn't need this — it already falls back to {} for every field.
+function requireSeated(newState, seat) {
+  if (!newState[seat]) {
+    throw new Error("You haven't joined this table with a deck yet — call join_table again with a deck_name.");
+  }
+}
+
 // ---------- Reading the board ----------
 // Returns a clean summary of everything the calling player is entitled to
 // see — respecting the same setup_locked face-down rule the UI honors.
@@ -159,6 +187,7 @@ async function drawCard(sb, tableId, seat) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   if (!my.deck || my.deck.length === 0) return { drew: null, reason: "Deck is empty." };
   const drawn = my.deck.shift();
   my.hand.push(drawn);
@@ -181,6 +210,7 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const cards = await getAllCards(sb);
 
   const handIndex = my.hand.indexOf(cardId);
@@ -256,6 +286,7 @@ async function addEnergy(sb, tableId, seat, zone, index, energyType) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const slot = zone === "active" ? my.active : (my.bench || [])[index];
   if (!slot) return { ok: false, reason: "No Bakemon in that slot." };
   slot.energy = slot.energy || [];
@@ -288,6 +319,7 @@ async function moveInPlayCard(sb, tableId, seat, fromZone, fromIndex, toZone, to
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const cards = await getAllCards(sb);
   my.bench = my.bench || [null, null, null];
   my.discard = my.discard || [];
@@ -366,6 +398,7 @@ async function removeEnergy(sb, tableId, seat, zone, index, energyIndex) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const slot = zone === "active" ? my.active : (my.bench || [])[index];
   if (!slot || !slot.energy || slot.energy.length === 0) return { ok: false, reason: "No energy to remove there." };
   if (energyIndex < 0 || energyIndex >= slot.energy.length) return { ok: false, reason: `energy_index must be 0-${slot.energy.length - 1}.` };
@@ -379,6 +412,7 @@ async function adjustDamage(sb, tableId, seat, zone, index, delta) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const slot = zone === "active" ? my.active : (my.bench || [])[index];
   if (!slot) return { ok: false, reason: "No Bakemon in that slot." };
   slot.damage = Math.max(0, (slot.damage || 0) + delta);
@@ -395,6 +429,7 @@ async function setStatus(sb, tableId, seat, zone, index, statusType, add) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const slot = zone === "active" ? my.active : (my.bench || [])[index];
   if (!slot) return { ok: false, reason: "No Bakemon in that slot." };
   slot.status = slot.status || [];
@@ -417,6 +452,7 @@ async function shuffleHandIntoDeck(sb, tableId, seat) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   const handSize = (my.hand || []).length;
   my.deck = shuffle([...(my.deck || []), ...(my.hand || [])]);
   my.hand = [];
@@ -428,6 +464,7 @@ async function reshuffleDiscardIntoDeck(sb, tableId, seat) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   const my = newState[seat];
+  requireSeated(newState, seat);
   if (!my.discard || my.discard.length === 0) return { ok: false, reason: "Discard pile is empty." };
   const discardSize = my.discard.length;
   my.deck = shuffle([...(my.deck || []), ...my.discard]);
@@ -442,6 +479,7 @@ async function setScore(sb, tableId, seat, score) {
   if (score < 0 || score > WIN_SCORE) return { ok: false, reason: `Score must be 0-${WIN_SCORE}.` };
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
+  requireSeated(newState, seat);
   newState[seat].score = score;
   await pushState(sb, tableId, newState);
   return { ok: true, score };
@@ -496,10 +534,44 @@ function coinFlip() {
   return Math.random() < 0.5 ? "Heads" : "Tails";
 }
 
+// Mirrors the /d3, /d6, /d20 chat commands in playmat.html.
+function rollDice(sides) {
+  return Math.floor(Math.random() * sides) + 1;
+}
+
+// Shared by decideFirstPlayer and endTurn: both need the opponent's display
+// name but have no standing variable for it (unlike playmat.html's
+// live-tracked oppDisplayName), so they look the table row up fresh —
+// falls back to "Player 2" if nobody has joined the other seat yet, same
+// as the browser does.
+async function oppDisplayNameFor(sb, tableId, oppSeat) {
+  const { data: table, error } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
+  if (error || !table) throw new Error("Couldn't load table.");
+  const oppId = oppSeat === "player_1" ? table.player_1_id : table.player_2_id;
+  if (!oppId) return "Player 2";
+  const { data: oppPlayer } = await sb.from("players").select("display_name").eq("id", oppId).maybeSingle();
+  return oppPlayer ? oppPlayer.display_name : "Player 2";
+}
+
+// Mirrors the /start chat command in playmat.html.
+async function decideFirstPlayer(sb, tableId, oppSeat, myPlayer) {
+  const oppName = await oppDisplayNameFor(sb, tableId, oppSeat);
+  const players = [myPlayer.display_name, oppName];
+  return players[Math.floor(Math.random() * players.length)];
+}
+
+// Mirrors the /turn chat command in playmat.html — the "⏭️" prefix is what
+// renderChat there matches on to draw the message as a divider line instead
+// of a normal chat bubble, so it has to stay byte-for-byte identical here.
+async function endTurn(sb, tableId, oppSeat, myPlayer) {
+  const oppName = await oppDisplayNameFor(sb, tableId, oppSeat);
+  return `⏭️ ${myPlayer.display_name}'s turn has ended. Your turn, ${oppName}!`;
+}
+
 module.exports = {
   client, getAllCards, findPlayer, joinTable, pushState, seeBoard,
   drawCard, playCardFromHand, addEnergy, sendChat,
   moveInPlayCard, removeEnergy, adjustDamage, setStatus, STATUS_TYPES,
   shuffleHandIntoDeck, reshuffleDiscardIntoDeck, setScore,
-  startMatch, endMatch, coinFlip
+  startMatch, endMatch, coinFlip, rollDice, decideFirstPlayer, endTurn
 };
