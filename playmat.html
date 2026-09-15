@@ -757,6 +757,17 @@ function resolveChatCommand(text) {
     const result = Math.random() < 0.5 ? "Heads" : "Tails";
     return `🪙 flipped a coin: ${result}`;
   }
+  const diceMatch = lower.match(/^\/d(3|6|20)$/);
+  if (diceMatch) {
+    const sides = parseInt(diceMatch[1]);
+    const result = Math.floor(Math.random() * sides) + 1;
+    return `🎲 rolled a d${sides}: ${result}`;
+  }
+  if (lower === "/start") {
+    const players = [currentPlayer.display_name, oppDisplayName || "Player 2"];
+    const winner = players[Math.floor(Math.random() * players.length)];
+    return `🎯 ${winner} goes first!`;
+  }
   return text;
 }
 
