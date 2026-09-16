@@ -80,6 +80,10 @@
   .chat-message { color: var(--text-light); line-height: 1.3; word-wrap: break-word; }
   .chat-message .sender { color: var(--accent); font-weight: 600; }
   .chat-message.own .sender { color: #b8dfc6; }
+  .chat-message.local-message {
+    color: var(--text-muted, #9fc7ae);
+    font-style: italic;
+  }
   .chat-message.turn-divider {
     text-align: center;
     font-weight: 700;
@@ -501,6 +505,12 @@ const ENERGY_TYPES = [
   { key: "fairy", color: "#eb90f0" }
 ];
 const STATUS_TYPES = ["poisoned", "burned", "sleeping", "paralyzed", "frozen", "quaked", "haunted", "taunted", "confused", "enraged"];
+const HELP_TEXT = "Chat commands (only you can see this):\n"
+  + "/flip — flip a coin\n"
+  + "/d3, /d6, /d20 — roll a die\n"
+  + "/start — randomly decide who goes first\n"
+  + "/turn — announce your turn is over\n"
+  + "/help — show this list";
 
 let allCards = {};       // card_id -> card row
 let currentPlayer = null;
@@ -722,10 +732,20 @@ function subscribeToChat() {
     .subscribe();
 }
 
+// Adds a message that only renders in this browser — never sent to
+// table_chat_messages, so the opponent never sees it.
+function showLocalMessage(text) {
+  chatMessages.push({ __local: true, message: text });
+  renderChat();
+}
+
 function renderChat() {
   const container = document.getElementById("chat-messages");
   if (!container) return;
   container.innerHTML = chatMessages.map(m => {
+    if (m.__local) {
+      return `<div class="chat-message local-message">${escapeHtml(m.message).replace(/\n/g, "<br>")}</div>`;
+    }
     if (m.message.startsWith("⏭️")) {
       return `<div class="chat-message turn-divider">${escapeHtml(m.message)}</div>`;
     }
@@ -786,6 +806,12 @@ function resolveChatCommand(text) {
     // The "⏭️" prefix is what renderChat matches on to draw this as a
     // divider line instead of a normal chat bubble.
     return `⏭️ ${currentPlayer.display_name}'s turn has ended. Your turn, ${oppDisplayName || "Player 2"}!`;
+  }
+  if (lower === "/help") {
+    // Shown only in this browser, never written to table_chat_messages —
+    // the opponent never sees it.
+    showLocalMessage(HELP_TEXT);
+    return null;
   }
   return text;
 }
