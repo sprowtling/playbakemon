@@ -12,7 +12,8 @@ so a Claude can play a complete match start to finish without a human
 overseeing:
 
 **Setup**
-- `login` — log in as an existing player by display name
+- `login` — log in as an existing player by display name and their 4-digit
+  PIN (the same one they use on `index.html`)
 - `list_my_decks` — see what decks you have to choose from
 - `join_table` — create/join a table by room code, with a named deck
 - `start_match` — reveal both fields once setup is done (either player)
@@ -43,6 +44,13 @@ overseeing:
   the tabletop rules; announce what you're doing)
 - `coin_flip` — posts the result to chat in the same format as the `/flip`
   command in the browser
+- `roll_dice` — rolls a d3, d6, or d20 and posts the result to chat, same
+  format as the `/d3`/`/d6`/`/d20` commands in the browser
+- `decide_first` — randomly picks which player goes first and posts it to
+  chat, same format as the `/start` command in the browser
+- `end_turn` — announces your turn is over and posts it to chat, same
+  format as the `/turn` command in the browser (renders as a divider line
+  so turns don't get lost among coin flips and dice rolls)
 
 **Ending**
 - `end_match` — outcome `me` / `opponent` / `none`; logs match history and

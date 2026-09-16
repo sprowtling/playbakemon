@@ -80,6 +80,15 @@
   .chat-message { color: var(--text-light); line-height: 1.3; word-wrap: break-word; }
   .chat-message .sender { color: var(--accent); font-weight: 600; }
   .chat-message.own .sender { color: #b8dfc6; }
+  .chat-message.turn-divider {
+    text-align: center;
+    font-weight: 700;
+    color: var(--accent);
+    border-top: 1px dashed var(--card-border, #d9b25c);
+    border-bottom: 1px dashed var(--card-border, #d9b25c);
+    padding: 6px 0;
+    margin: 8px 0;
+  }
   /* One merged pill instead of two separate rounded controls sitting next
      to each other — the outer wrapper carries the shape/border/shadow and
      the input + button inside go borderless and transparent. */
@@ -716,11 +725,16 @@ function subscribeToChat() {
 function renderChat() {
   const container = document.getElementById("chat-messages");
   if (!container) return;
-  container.innerHTML = chatMessages.map(m => `
+  container.innerHTML = chatMessages.map(m => {
+    if (m.message.startsWith("⏭️")) {
+      return `<div class="chat-message turn-divider">${escapeHtml(m.message)}</div>`;
+    }
+    return `
     <div class="chat-message ${m.player_id === currentPlayer.id ? 'own' : ''}">
       <span class="sender">${escapeHtml(m.sender_name)}:</span> ${escapeHtml(m.message)}
     </div>
-  `).join("");
+  `;
+  }).join("");
   container.scrollTop = container.scrollHeight;
 }
 
@@ -767,6 +781,11 @@ function resolveChatCommand(text) {
     const players = [currentPlayer.display_name, oppDisplayName || "Player 2"];
     const winner = players[Math.floor(Math.random() * players.length)];
     return `🎯 ${winner} goes first!`;
+  }
+  if (lower === "/turn") {
+    // The "⏭️" prefix is what renderChat matches on to draw this as a
+    // divider line instead of a normal chat bubble.
+    return `⏭️ ${currentPlayer.display_name}'s turn has ended. Your turn, ${oppDisplayName || "Player 2"}!`;
   }
   return text;
 }

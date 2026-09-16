@@ -28,11 +28,14 @@ const server = new Server(
 const TOOLS = [
   {
     name: "login",
-    description: "Log in as an existing Bakemon player by display name. Must be called before anything else. The player must already have an account (created via index.html at least once).",
+    description: "Log in as an existing Bakemon player by display name and PIN — the same 4-digit PIN they use to log in via index.html. Must be called before anything else. The player must already have an account and a PIN set.",
     inputSchema: {
       type: "object",
-      properties: { display_name: { type: "string", description: "The player's display name, e.g. 'Bryan' or 'Arc'." } },
-      required: ["display_name"]
+      properties: {
+        display_name: { type: "string", description: "The player's display name, e.g. 'Bryan' or 'Arc'." },
+        pin: { type: "string", description: "Their 4-digit PIN." }
+      },
+      required: ["display_name", "pin"]
     }
   },
   {
@@ -177,7 +180,26 @@ const TOOLS = [
   },
   {
     name: "coin_flip",
-    description: "Flip a coin (Heads/Tails). Posts the result to chat automatically so both players see it. Use for deciding who goes first, or for any card effect that calls for a flip.",
+    description: "Flip a coin (Heads/Tails). Posts the result to chat automatically so both players see it. For any card effect that calls for a flip. For deciding who goes first, use decide_first instead.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "roll_dice",
+    description: "Roll a die and post the result to chat automatically, matching the /d3, /d6, /d20 chat commands in the browser.",
+    inputSchema: {
+      type: "object",
+      properties: { sides: { type: "number", enum: [3, 6, 20], description: "Number of sides on the die: 3, 6, or 20." } },
+      required: ["sides"]
+    }
+  },
+  {
+    name: "decide_first",
+    description: "Randomly pick which of the two players at the table goes first, and post it to chat automatically — matching the /start chat command in the browser.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "end_turn",
+    description: "Announce that your turn is over and post it to chat automatically — matching the /turn chat command in the browser. Renders as a divider line in the browser's chat so both players can see where one turn ended and the next began, instead of it getting lost among coin flips and dice rolls. Call this whenever you're done with your turn.",
     inputSchema: { type: "object", properties: {} }
   },
   {
@@ -206,7 +228,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function handleTool(name, args) {
   switch (name) {
     case "login": {
-      session.player = await game.findPlayer(sb, args.display_name);
+      session.player = await game.findPlayer(sb, args.display_name, args.pin);
       return { logged_in_as: session.player.display_name };
     }
 
@@ -308,6 +330,31 @@ async function handleTool(name, args) {
       // looks identical whether a human or a Claude flipped it.
       await game.sendChat(sb, session.tableId, session.player, `🪙 flipped a coin: ${result}`);
       return { result };
+    }
+
+    case "roll_dice": {
+      requireTable();
+      if (![3, 6, 20].includes(args.sides)) throw new Error("sides must be 3, 6, or 20.");
+      const result = game.rollDice(args.sides);
+      // Same message format as /d3, /d6, /d20 in playmat.html.
+      await game.sendChat(sb, session.tableId, session.player, `🎲 rolled a d${args.sides}: ${result}`);
+      return { sides: args.sides, result };
+    }
+
+    case "decide_first": {
+      requireTable();
+      const winner = await game.decideFirstPlayer(sb, session.tableId, session.oppSeat, session.player);
+      // Same message format as /start in playmat.html.
+      await game.sendChat(sb, session.tableId, session.player, `🎯 ${winner} goes first!`);
+      return { goes_first: winner };
+    }
+
+    case "end_turn": {
+      requireTable();
+      const message = await game.endTurn(sb, session.tableId, session.oppSeat, session.player);
+      // Same message format (and "⏭️" prefix, for the browser's divider styling) as /turn in playmat.html.
+      await game.sendChat(sb, session.tableId, session.player, message);
+      return { announced: message };
     }
 
     case "end_match": {
