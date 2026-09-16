@@ -57,8 +57,17 @@ const TOOLS = [
   },
   {
     name: "see_board",
-    description: "Get a full snapshot of the current board: your hand, active, bench, item slot, deck/discard counts, score, the opponent's visible state (face-down if setup isn't locked yet), and recent chat. Call this whenever you need to check the state of the game.",
+    description: "Get a full snapshot of the current board: your hand, active, bench, item slot, deck/discard counts, score, the opponent's visible state (face-down if setup isn't locked yet), and recent chat. Every card mentioned (hand, active, bench, item slot) comes with its full rules text — stats, weakness, retreat cost, and attack/ability/item-effect wording — so you don't need a separate lookup for cards already in those views. Call this whenever you need to check the state of the game.",
     inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "get_card",
+    description: "Look up a card by name and get its full rules text — stats, type, weakness, retreat cost, attacks/abilities (name, energy cost, damage, effect text), or an item card's effect_text. Useful for any card not currently in a view see_board already covers, e.g. something mentioned in chat or a card in your discard pile. Doesn't require being logged in or seated at a table.",
+    inputSchema: {
+      type: "object",
+      properties: { card_name: { type: "string", description: "The exact name of the card, e.g. 'Amptiel'." } },
+      required: ["card_name"]
+    }
   },
   {
     name: "draw_card",
@@ -67,12 +76,12 @@ const TOOLS = [
   },
   {
     name: "play_card",
-    description: "Play a card from your hand into your active slot, an empty bench slot, or the item slot. Supports evolution (an evolution card placed onto an occupied slot whose current Bakemon matches its evolves_from carries damage/energy/status forward and stacks the chain) and equipping (an equip-type item card into the item slot, only if it's empty). Swapping two already-in-play cards isn't supported yet by this tool.",
+    description: "Play a card from your hand into your active slot, an empty bench slot, the item slot, or straight to discard. Supports evolution (an evolution card placed onto an occupied slot whose current Bakemon matches its evolves_from carries damage/energy/status forward and stacks the chain) and equipping (an equip-type item card into the item slot, only if it's empty). Consumable item cards have no board effect this tool applies automatically — play them with destination 'discard' after narrating their effect in chat via send_chat, same as combat. Swapping two already-in-play cards isn't supported yet by this tool.",
     inputSchema: {
       type: "object",
       properties: {
         card_name: { type: "string", description: "The exact name of the card in your hand to play." },
-        destination: { type: "string", enum: ["active", "bench", "item_slot"], description: "Where to play it." },
+        destination: { type: "string", enum: ["active", "bench", "item_slot", "discard"], description: "Where to play it." },
         bench_index: { type: "number", description: "Which bench slot (0, 1, or 2) — only used when destination is 'bench'." }
       },
       required: ["card_name", "destination"]
@@ -258,6 +267,12 @@ async function handleTool(name, args) {
     case "see_board": {
       requireTable();
       return await game.seeBoard(sb, session.tableId, session.seat, session.oppSeat);
+    }
+
+    case "get_card": {
+      const card = await game.findCardByName(sb, args.card_name);
+      if (!card) throw new Error(`No card named "${args.card_name}".`);
+      return card;
     }
 
     case "draw_card": {
