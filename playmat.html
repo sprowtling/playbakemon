@@ -423,7 +423,7 @@
   </div>
   <div id="selection-hint"></div>
   <div class="mat">
-    <div class="field-col">
+    <div class="field-col" id="player-field-col">
       <div class="field">
         <div class="row-label"><span id="opp-name-label">Opponent</span><span id="opp-zone-counts"></span></div>
         <div class="opp-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:10px; flex-wrap:wrap;">
@@ -459,6 +459,20 @@
         <div class="row-label" id="my-zone-counts"></div>
       </div>
     </div>
+    <!-- Spectator view: just the active slot + bench for both players, read-only, no
+         hand/deck/discard/score. Shown instead of #player-field-col when the room code
+         you entered already has two other players seated. -->
+    <div class="field-col" id="spectator-field-col" style="display:none;">
+      <div class="field">
+        <div class="row-label"><span id="spec-p2-name">Player 2</span></div>
+        <div class="active-row" id="spec-p2-active"></div>
+        <div class="bench-row" id="spec-p2-bench" style="margin:8px 0 20px;"></div>
+        <div class="divider-line"></div>
+        <div class="row-label" style="margin-top:16px;"><span id="spec-p1-name">Player 1</span></div>
+        <div class="active-row" id="spec-p1-active"></div>
+        <div class="bench-row" id="spec-p1-bench" style="margin-top:8px;"></div>
+      </div>
+    </div>
     <div class="chat-col">
       <h3>Table Chat</h3>
       <div class="chat-messages" id="chat-messages"></div>
@@ -468,7 +482,7 @@
       </div>
     </div>
   </div>
-  <div class="hand-strip">
+  <div class="hand-strip" id="hand-strip">
     <h3>Your Hand</h3>
     <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
     <div class="hand-list" id="hand-list"></div>
@@ -524,6 +538,8 @@ let oppNameFetchedForId = null;
 let tableState = null;   // full row from battle_tables
 let selection = null;    // { seat, zone, index } of currently selected card
 let realtimeChannel = null;
+let isSpectator = false;
+let spectatorNames = { player_1: null, player_2: null };
 
 const BAKEMON_TABLE_KEY = "bakemon_active_table";
 
@@ -595,7 +611,7 @@ async function initSetupScreen() {
 document.getElementById("join-btn").addEventListener("click", handleJoinTable);
 
 async function handleJoinTable() {
-  const deckId = document.getElementById("deck-select-setup").value;
+  const deckSel = document.getElementById("deck-select-setup").value;
   const code = document.getElementById("room-code-input").value.trim().toUpperCase();
   const statusEl = document.getElementById("setup-status");
 
@@ -604,11 +620,9 @@ async function handleJoinTable() {
     statusEl.textContent = "Couldn't find that player — check the deck editor first.";
     return;
   }
-  if (!deckId || deckId.startsWith("No decks")) {
-    statusEl.textContent = "Pick a deck — build one in the deck editor if you don't have one.";
-    return;
-  }
-  currentDeckId = deckId;
+  // A deck is only required if we end up actually seating as a new player —
+  // spectating a table that already has two other players doesn't need one.
+  currentDeckId = (deckSel && !deckSel.startsWith("No decks")) ? deckSel : null;
 
   statusEl.textContent = "Loading card data...";
   const { data: cards } = await supabaseClient.from("cards").select("*");
@@ -625,6 +639,7 @@ async function joinTableByCode(code, statusEl) {
   let { data: existingTable } = await supabaseClient.from("battle_tables").select("*").eq("room_code", code).maybeSingle();
 
   if (!existingTable) {
+    if (!currentDeckId) { statusEl.textContent = "Pick a deck — build one in the deck editor if you don't have one."; return; }
     const { data: created, error } = await supabaseClient.from("battle_tables").insert({
       room_code: code,
       player_1_id: currentPlayer.id,
@@ -638,6 +653,7 @@ async function joinTableByCode(code, statusEl) {
     mySeat = "player_1";
     oppSeat = "player_2";
   } else if (!existingTable.player_2_id) {
+    if (!currentDeckId) { statusEl.textContent = "Pick a deck — build one in the deck editor if you don't have one."; return; }
     const { data: updated, error } = await supabaseClient.from("battle_tables")
       .update({ player_2_id: currentPlayer.id })
       .eq("id", existingTable.id).select().single();
@@ -649,7 +665,8 @@ async function joinTableByCode(code, statusEl) {
     mySeat = "player_2";
     oppSeat = "player_1";
   } else {
-    statusEl.textContent = "That table already has two players.";
+    // Both seats belong to other players — watch instead of blocking.
+    await enterSpectatorMode(existingTable, statusEl);
     return;
   }
 
@@ -670,6 +687,39 @@ async function joinTableByCode(code, statusEl) {
   subscribeToChat();
   setupChatInput();
   renderMat();
+}
+
+// Watch-only entry point for a room code whose two seats both belong to
+// someone else. No seat of our own, no deck, no saved-table entry —
+// deliberately not persisted via saveTable() so navigating away and back
+// lands on the normal setup screen instead of auto-rejoining this match
+// (a spectator might come back wanting to start their own game instead).
+async function enterSpectatorMode(table, statusEl) {
+  isSpectator = true;
+  mySeat = null;
+  oppSeat = null;
+  tableId = table.id;
+  tableState = table;
+  await loadSpectatorNames();
+
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("mat-screen").style.display = "block";
+  document.getElementById("player-field-col").style.display = "none";
+  document.getElementById("spectator-field-col").style.display = "block";
+  document.getElementById("hand-strip").style.display = "none";
+  document.getElementById("start-match-banner").style.display = "none";
+  subscribeToTable();
+  await loadChatHistory();
+  subscribeToChat();
+  setupChatInput();
+  renderMat();
+}
+
+async function loadSpectatorNames() {
+  const { data } = await supabaseClient.from("players").select("id, display_name")
+    .in("id", [tableState.player_1_id, tableState.player_2_id].filter(Boolean));
+  const nameFor = (id) => (data || []).find(p => p.id === id)?.display_name || null;
+  spectatorNames = { player_1: nameFor(tableState.player_1_id), player_2: nameFor(tableState.player_2_id) };
 }
 
 async function refreshOppName() {
@@ -823,7 +873,7 @@ function subscribeToTable() {
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
       async (payload) => {
         tableState = payload.new;
-        await refreshOppName();
+        if (!isSpectator) await refreshOppName();
         renderMat();
       })
     .on("postgres_changes", { event: "DELETE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
@@ -847,10 +897,11 @@ function handleMatchEndedByOpponent() {
   }
   clearSavedTable();
   const matScreen = document.getElementById("mat-screen");
+  const endedMessage = isSpectator ? "This match has ended." : `${oppDisplayName || "Your opponent"} ended the match.`;
   matScreen.innerHTML = `
     <div style="max-width:420px; margin:80px auto; background:var(--mat-green); padding:28px; border-radius:12px; text-align:center;">
       <h2 style="color:var(--accent); margin-top:0;">Match ended</h2>
-      <p style="color:var(--text-light);">${oppDisplayName || "Your opponent"} ended the match. Returning to the login screen...</p>
+      <p style="color:var(--text-light);">${endedMessage} Returning to the login screen...</p>
     </div>
   `;
   setTimeout(() => { location.reload(); }, 2500);
@@ -1039,8 +1090,59 @@ function renderReadOnlySidePanel(slot) {
   `;
 }
 
+// Minimal read-only board for spectators: active + bench for both players,
+// respecting the same face-down-until-setup-locked rule the two players
+// see of each other. No hand, deck/discard counts, score, or item slot —
+// just enough to follow the match.
+function renderSpectatorMat() {
+  if (!tableState) return;
+  const setupLocked = !!tableState.state.setup_locked;
+  const p1State = tableState.state.player_1 || { active: null, bench: [null, null, null] };
+  const p2State = tableState.state.player_2 || { active: null, bench: [null, null, null] };
+
+  document.getElementById("spec-p1-name").textContent = spectatorNames.player_1 || "Player 1";
+  document.getElementById("spec-p2-name").textContent = spectatorNames.player_2 || "Player 2";
+  document.getElementById("spec-p1-active").innerHTML = renderReadOnlyActive(p1State.active, setupLocked);
+  document.getElementById("spec-p2-active").innerHTML = renderReadOnlyActive(p2State.active, setupLocked);
+  document.getElementById("spec-p1-bench").innerHTML = renderReadOnlyBench(p1State.bench, setupLocked);
+  document.getElementById("spec-p2-bench").innerHTML = renderReadOnlyBench(p2State.bench, setupLocked);
+}
+
+function renderReadOnlyActive(slot, revealed) {
+  if (!revealed) {
+    return `<div class="card-face active-size ${slot ? 'face-down' : 'empty'}" data-view-only="1"></div>`;
+  }
+  return `
+    <div class="card-face active-size" data-view-only="1">
+      ${slot ? `<div class="status-badges">${(slot.status || []).map(s => `<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
+    </div>
+    ${renderReadOnlySidePanel(slot)}
+  `;
+}
+
+function renderReadOnlyBench(bench, revealed) {
+  return (bench || [null, null, null]).map((slot) => {
+    if (!revealed) {
+      return `<div class="bench-slot"><div class="card-face ${slot ? 'face-down' : 'empty'}" data-view-only="1"></div></div>`;
+    }
+    return `
+    <div class="bench-slot">
+      <div class="card-face ${slot ? '' : 'empty'}" data-view-only="1">
+        ${slot ? `<div class="status-badges">${(slot.status || []).map(s => `<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
+      </div>
+      ${benchHpLine(slot, null, 0, true)}
+      <div class="bench-tray" data-view-only="1">${(slot && slot.energy || []).map(e => {
+        const meta = ENERGY_TYPES.find(t => t.key === e) || { color: "#999" };
+        return `<span class="energy-dot" style="background:${meta.color}; width:8px; height:8px;"></span>`;
+      }).join('')}</div>
+    </div>
+  `;
+  }).join("");
+}
+
 function renderMat() {
   if (!tableState) return;
+  if (isSpectator) { renderSpectatorMat(); return; }
   const myState = tableState.state[mySeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
   const oppState = tableState.state[oppSeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
 
