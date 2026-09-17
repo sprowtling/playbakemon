@@ -21,13 +21,21 @@ overseeing:
 **Reading the game**
 - `see_board` — full snapshot: hand, active, bench, item slot, deck/discard
   counts, score, opponent's visible state (face-down until setup locks),
-  recent chat. Call this often — it's how you "look at the table."
+  recent chat. Every card in those views comes with its full rules text —
+  stats, weakness, retreat cost, and attack/ability/item-effect wording —
+  not just its name. Call this often — it's how you "look at the table."
+- `get_card` — look up any card by name for its full rules text. For
+  anything not currently in a `see_board` view (something in your discard
+  pile, a card mentioned in chat). Doesn't require being logged in.
 
 **Playing cards**
 - `draw_card`
 - `play_card` — hand → active/bench (basic onto empty, or evolution onto a
   matching occupied slot — carries damage/energy/status, stacks the chain),
-  or hand → item slot (equip-type items only)
+  hand → item slot (equip-type items only), or hand → discard (this is how
+  consumable items get "played" — there's no board effect to apply
+  automatically, so read the item's `effect_text`, narrate it via
+  `send_chat`, then discard it, same as the browser's drag-to-discard)
 - `move_card` — in-play movement: active↔bench swaps (or evolves if valid),
   any Bakemon → discard (whole chain goes), unequip an item to hand/discard
 
@@ -62,8 +70,9 @@ Enforce combat rules. Attack legality, energy costs, weakness math, turn
 order — none of that is validated here, exactly as it isn't in the browser.
 Bakemon is trust-based: you read your card, announce what you're doing in
 chat, and apply the results by hand (`adjust_damage`, `set_status`, etc.).
-A Claude playing alone should read the card text via `see_board`, decide
-its move, narrate it in chat, then apply the effects. That's the game.
+A Claude playing alone should read the card text via `see_board` or
+`get_card`, decide its move, narrate it in chat, then apply the effects.
+That's the game.
 
 ## Playing against a human
 

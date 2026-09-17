@@ -133,6 +133,45 @@ function requireSeated(newState, seat) {
   }
 }
 
+// The rules text a player actually needs to decide a move: stats, weakness,
+// and full attack/ability/item-effect wording. The cards table stores up to
+// two abilities (which double as attacks for Bakemon) as
+// ability_1_*/ability_2_* columns; item cards use effect_text instead.
+// Combat is trust-based (same as the tabletop and the browser UI) — nothing
+// here is enforced automatically, it's just what a player would read off
+// the physical card.
+function cardInfo(card) {
+  if (!card) return null;
+  const abilities = [];
+  if (card.ability_1_name) abilities.push({ name: card.ability_1_name, cost: card.ability_1_cost, damage: card.ability_1_damage, text: card.ability_1_text });
+  if (card.ability_2_name) abilities.push({ name: card.ability_2_name, cost: card.ability_2_cost, damage: card.ability_2_damage, text: card.ability_2_text });
+  return {
+    card_id: card.id,
+    name: card.name,
+    card_type: card.card_type,
+    item_kind: card.item_kind || undefined,
+    stage: card.stage || undefined,
+    evolves_from: card.evolves_from || undefined,
+    hp: card.hp || undefined,
+    type_1: card.type_1 || undefined,
+    type_2: card.type_2 || undefined,
+    weakness_1: card.weakness_1 || undefined,
+    weakness_2: card.weakness_2 || undefined,
+    retreat_cost: card.retreat_cost,
+    abilities: abilities.length ? abilities : undefined,
+    effect_text: card.effect_text || undefined
+  };
+}
+
+// Case-insensitive lookup for the get_card tool — same matching style as
+// play_card's hand lookup in server.js.
+async function findCardByName(sb, name) {
+  const cards = await getAllCards(sb);
+  const match = Object.values(cards).find(c => c.name.toLowerCase() === (name || "").trim().toLowerCase());
+  if (!match) return null;
+  return cardInfo(match);
+}
+
 // ---------- Reading the board ----------
 // Returns a clean summary of everything the calling player is entitled to
 // see — respecting the same setup_locked face-down rule the UI honors.
@@ -150,9 +189,10 @@ async function seeBoard(sb, tableId, seat, oppSeat) {
     if (!slot || !slot.card_id) return null;
     const card = cards[slot.card_id];
     return {
-      name: card ? card.name : "Unknown",
+      ...cardInfo(card),
       hp_remaining: card ? Math.max(0, card.hp - (slot.damage || 0)) : null,
       hp_max: card ? card.hp : null,
+      hp: undefined, // superseded by hp_remaining/hp_max above
       energy: slot.energy || [],
       status: slot.status || [],
       evolved_from_chain: (slot.evolved_from || []).map(id => cards[id] ? cards[id].name : "Unknown")
@@ -160,18 +200,18 @@ async function seeBoard(sb, tableId, seat, oppSeat) {
   };
 
   const oppView = setupLocked
-    ? { active: describeSlot(opp.active), bench: (opp.bench || []).map(describeSlot) }
-    : { active: "face down (setup not started)", bench: (opp.bench || []).map(s => s ? "face down" : null) };
+    ? { active: describeSlot(opp.active), bench: (opp.bench || []).map(describeSlot), item_slot: opp.item_slot ? cardInfo(cards[opp.item_slot.card_id]) : null }
+    : { active: "face down (setup not started)", bench: (opp.bench || []).map(s => s ? "face down" : null), item_slot: "face down (setup not started)" };
 
   const { data: chat } = await sb.from("table_chat_messages").select("*").eq("table_id", tableId).order("created_at", { ascending: true }).limit(20);
 
   return {
     room_code: table.room_code,
     setup_locked: setupLocked,
-    my_hand: (my.hand || []).map(id => ({ card_id: id, name: nameOf(id) })),
+    my_hand: (my.hand || []).map(id => cardInfo(cards[id]) || { card_id: id, name: "Unknown card" }),
     my_active: describeSlot(my.active),
     my_bench: (my.bench || []).map(describeSlot),
-    my_item_slot: my.item_slot ? nameOf(my.item_slot.card_id) : null,
+    my_item_slot: my.item_slot ? cardInfo(cards[my.item_slot.card_id]) : null,
     my_deck_count: (my.deck || []).length,
     my_discard: (my.discard || []).map(nameOf),
     my_score: my.score || 0,
@@ -196,13 +236,19 @@ async function drawCard(sb, tableId, seat) {
   return { drew: cards[drawn] ? cards[drawn].name : drawn };
 }
 
-// Plays a card from hand into active, a bench slot (0-2), or the item slot.
-// Mirrors moveSelectedCardTo's hand-sourced cases in playmat.html:
+// Plays a card from hand into active, a bench slot (0-2), the item slot, or
+// straight to discard. Mirrors moveSelectedCardTo's hand-sourced cases in
+// playmat.html:
 //   - a basic Bakemon (no evolves_from) onto an empty active/bench slot
 //   - an evolution card onto an OCCUPIED slot whose current card's name
 //     matches its evolves_from (case-insensitive) — carries damage/energy/
 //     status forward and appends to the evolved_from chain
 //   - an equip-type item card into the item slot (only if empty)
+//   - any hand card straight to discard — this is how consumable items get
+//     "played" (there's no board effect to apply, it's read the card text,
+//     narrate the effect in chat, then discard), same as dragging a card to
+//     the discard pile in the browser. Not restricted to items: the browser
+//     doesn't restrict it either, since some effects cost discarding a card.
 // Anything else (item card to active/bench, evolution onto a mismatched or
 // empty slot, occupied slot with no valid evolution, wrong item_kind into
 // the item slot) is refused with a clear reason, same as the real UI.
@@ -219,6 +265,14 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
   const card = cards[cardId];
   if (!card) return { ok: false, reason: "Unknown card." };
 
+  if (destZone === "discard") {
+    my.hand.splice(handIndex, 1);
+    my.discard = my.discard || [];
+    my.discard.push(cardId);
+    await pushState(sb, tableId, newState);
+    return { ok: true, played: card.name, destZone: "discard" };
+  }
+
   if (destZone === "item_slot") {
     if (!(card.card_type === "item" && card.item_kind === "equip")) {
       return { ok: false, reason: `${card.name} can't be equipped — only equip-type item cards go in that slot.` };
@@ -233,7 +287,7 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
   }
 
   if (destZone !== "active" && destZone !== "bench") {
-    return { ok: false, reason: "destination must be 'active', 'bench', or 'item_slot'." };
+    return { ok: false, reason: "destination must be 'active', 'bench', 'item_slot', or 'discard'." };
   }
 
   if (card.card_type === "item") {
@@ -569,7 +623,7 @@ async function endTurn(sb, tableId, oppSeat, myPlayer) {
 }
 
 module.exports = {
-  client, getAllCards, findPlayer, joinTable, pushState, seeBoard,
+  client, getAllCards, findCardByName, findPlayer, joinTable, pushState, seeBoard,
   drawCard, playCardFromHand, addEnergy, sendChat,
   moveInPlayCard, removeEnergy, adjustDamage, setStatus, STATUS_TYPES,
   shuffleHandIntoDeck, reshuffleDiscardIntoDeck, setScore,
