@@ -292,11 +292,32 @@ const MAPS = {
     legend: 'indoor',
     edge: '#',
     tiles: [
+      '###################',
+      '#_________________#',
+      'w_______#_________#',
+      '#_______#_________#',
+      '#______z#_bb_____d#',
+      '####x######w###w###',
+    ],
+    places: {
+      x: { name: 'Outside', sprite: 'exit_mat', to: { map: 'island_sw', col: 29, row: 8, facing: 'down' } },
+      b: { name: 'Mom's Bed', line: "Your parents' bed. Mom makes it every morning. },
+      d: { name: 'Dad's Desk', line: "When dad is home, he likes to relax here." },
+      w: { name: 'Window', line: "You can see the shop's roof from here. And the sea past it." },
+      z: { name: 'Stairs', to: { map: 'home_upstairs', col: 7, row: 5, facing: 'left' } }, 
+    },
+  },
+
+  home_upstairs: {
+    title: 'Home',
+    legend: 'indoor',
+    edge: '#',
+    tiles: [
       '#########',
       '#b_____d#',
       'w_______#',
       '#___r___#',
-      '#_______#',
+      '#______z#',
       '####x####',
     ],
     places: {
@@ -304,8 +325,9 @@ const MAPS = {
       b: { name: 'Your bed', action: 'sleep' },
       d: { name: 'Your desk', action: 'desk' },
       w: { name: 'Window', line: "You can see the shop's roof from here. And the sea past it." },
+      z: { name: 'Stairs', to: { map: 'home', col: 7, row: 5, facing: 'left' } },   
     },
-  },
+  },   
 
   // PLACEHOLDER shop. Sells tools, buys what you dig up and catch.
   finds: {
