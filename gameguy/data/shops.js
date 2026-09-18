@@ -37,9 +37,7 @@ const PACKS = {
     name: 'Bakemon Booster',
     color: '#2f8f83',           // the wrapper colour on the pack-opening screen
     slots: [
-      { count: 3, rarity: 'common' },
-      { count: 1, rarity: 'uncommon' },
-      { count: 1, odds: { rare: 0.25, uncommon: 0.75 } },
+      { count: 3, odds: { rare: 0.25, uncommon: 0.75 } },
     ],
     exclude: [],
   },
