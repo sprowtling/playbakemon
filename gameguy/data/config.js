@@ -55,7 +55,7 @@ const MONEY_NAME_ONE = 'coin';    // ...and what exactly one of them is called
 
 // ---- A new game starts like this ----
 const START = {
-  map: 'home_upstairs', col: 2, row: 2, facing: 'down',
+  map: 'home', col: 2, row: 2, facing: 'down',
   money: 1,
   // "Three cards tucked under the pillow where they're safe."
   cards: ['001', '030', '032'],
