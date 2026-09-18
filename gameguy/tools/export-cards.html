@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Export Bakemon cards</title>
+<style>
+  body { font: 16px/1.5 "Trebuchet MS", sans-serif; background: #17343b; color: #f2ead3; max-width: 760px; margin: 40px auto; padding: 0 20px; }
+  button { font: inherit; padding: 8px 18px; background: #e8d5a3; color: #0f2227; border: 0; border-radius: 6px; cursor: pointer; }
+  textarea { width: 100%; height: 320px; margin-top: 16px; background: #0f2227; color: #8fd3c1; border: 1px solid #2f5a63; border-radius: 6px; padding: 10px; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  a { color: #8fd3c1; }
+  #status { margin-left: 12px; }
+</style>
+</head>
+<body>
+<h1>Export the card list</h1>
+<p>The island game doesn't talk to the database while you play. It reads a snapshot,
+<code>data/cards.js</code>. When you add or rebalance cards on the playmat, open this page
+(it needs internet), press the button, and replace <code>data/cards.js</code> with the result.</p>
+<p>It only reads the <code>cards</code> table, using the same public key the playmat site uses.</p>
+
+<button id="go">Fetch cards</button><span id="status"></span>
+<p id="dl"></p>
+<textarea id="out" readonly placeholder="The new cards.js will appear here."></textarea>
+
+<script>
+const SUPABASE_URL = 'https://ykfuhvkjknrhocmahelx.supabase.co';
+const PUBLIC_KEY   = 'sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl';
+
+// Turns database rows into the text of data/cards.js.
+// One card per line so it's easy to scan and easy to diff.
+function cardsToJs(rows) {
+  const q = v => JSON.stringify(v);
+  const lines = rows.map(r => {
+    const c = { id: r.card_number, name: r.name, kind: r.card_type };
+    if (r.card_type === 'item') {
+      c.itemKind = r.item_kind;
+      c.effect = r.effect_text || '';
+    } else {
+      c.stage = r.stage;
+      c.from  = r.evolves_from || null;
+      c.hp    = r.hp;
+      c.types = [r.type_1, r.type_2].filter(Boolean);
+      c.weak  = [r.weakness_1, r.weakness_2].filter(Boolean);
+      c.retreat = r.retreat_cost || 0;
+      c.abilities = [1, 2]
+        .filter(n => r['ability_' + n + '_name'])
+        .map(n => ({
+          name:   r['ability_' + n + '_name'],
+          cost:   r['ability_' + n + '_cost'] || '',
+          text:   r['ability_' + n + '_text'] || '',
+          damage: r['ability_' + n + '_damage'],
+        }));
+    }
+    c.image  = r.image_filename || null;
+    c.flavor = r.flavor_text || '';
+    return '  ' + q(c) + ',';
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  return [
+    '/* ============================================================',
+    '   CARDS — a snapshot of the real Bakemon set.',
+    '   ============================================================',
+    '   GENERATED FILE. Exported ' + today + ' (' + rows.length + ' cards) by',
+    '   tools/export-cards.html. Do not edit by hand: your changes',
+    '   would vanish at the next export. Edit the card on the playmat',
+    '   site and export again.',
+    '',
+    '   Things the island adds ON TOP of a card (its rarity, which',
+    '   packs it appears in) live in data/shops.js so they survive',
+    '   a re-export.',
+    '   ============================================================ */',
+    '',
+    'const CARDS = [',
+    ...lines,
+    '];',
+    '',
+  ].join('\n');
+}
+
+document.getElementById('go').onclick = async () => {
+  const status = document.getElementById('status');
+  status.textContent = 'Fetching...';
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/cards?select=*&order=card_number', {
+      headers: { apikey: PUBLIC_KEY, Authorization: 'Bearer ' + PUBLIC_KEY },
+    });
+    if (!res.ok) throw new Error('The database answered with error ' + res.status);
+    const rows = await res.json();
+    const text = cardsToJs(rows);
+    document.getElementById('out').value = text;
+    const url = URL.createObjectURL(new Blob([text], { type: 'text/javascript' }));
+    document.getElementById('dl').innerHTML = '<a download="cards.js" href="' + url + '">Download cards.js</a> and put it in the data folder.';
+    status.textContent = rows.length + ' cards.';
+  } catch (err) {
+    status.textContent = 'Could not fetch: ' + err.message;
+  }
+};
+</script>
+</body>
+</html>

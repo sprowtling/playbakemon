@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bakemon Island</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap">
+<style>
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: #0a161b;
+    color: #9db8b5;
+    font-family: "Patrick Hand", "Trebuchet MS", sans-serif;
+  }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+  canvas {
+    /* The canvas is 960x704 inside; this shrinks it to fit small windows
+       without ever stretching it out of shape. */
+    max-width: 96vw;
+    max-height: 88vh;
+    border: 2px solid #24424a;
+    border-radius: 6px;
+  }
+  .hint { font-size: 17px; margin: 12px 0 0; }
+  #problems {
+    max-width: 920px; margin: 14px; padding: 12px 18px;
+    background: #4a1820; color: #ffd9d4; border: 2px solid #c8504a; border-radius: 6px;
+    font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  }
+  #problems ul { margin: 6px 0 0; padding-left: 20px; }
+</style>
+</head>
+<body>
+
+<div id="problems" hidden></div>
+<canvas id="screen"></canvas>
+<p class="hint">Arrows or WASD to walk. E to talk and choose. C for your collection. Esc for the menu.</p>
+
+<!-- DATA: the parts you'll edit all the time. Order doesn't matter among these. -->
+<script src="data/config.js"></script>
+<script src="data/tiles.js"></script>
+<script src="data/maps.js"></script>
+<script src="data/cards.js"></script>
+<script src="data/shops.js"></script>
+<script src="data/npcs.js"></script>
+<script src="data/jobs.js"></script>
+<script src="data/story.js"></script>
+
+<!-- ENGINE: the parts that read the data. Order DOES matter here. -->
+<script src="js/state.js"></script>
+<script src="js/world.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>
