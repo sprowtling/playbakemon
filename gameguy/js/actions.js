@@ -74,6 +74,7 @@ function offerOptions(target) {
   for (const jobId of [].concat(def.job || [])) options.push(jobOption(jobId, def.name, again));
   if (def.shop)  options.push({ label: 'Buy cards', run: () => openShop(def.shop, def.name) });
   if (def.trade) options.push({ label: 'Trade', run: () => openTrade(target) });
+  if (def.battle) options.push(battleOption(def, again));
 
   if (!options.length) { if (def.action) runAction(def.action, def); return; }
   options.push({ label: 'Never mind' });
@@ -127,6 +128,35 @@ function finishDelivery(jobId, receiver) {
   delete state.items[job.item];
   payFor(jobId);
   say(receiver, job.received, () => { toast('+' + moneyText(job.pay)); fireEvent('job_done'); });
+}
+
+/* ---------------- card matches ---------------- */
+
+function battleOption(def, again) {
+  const id = def.battle, opp = OPPONENTS[id];
+  if (!check(opp.playIf))
+    return { label: 'Play cards', dim: true, hint: "They don't want to play you. Yet.", run: () => say(opp.name, opp.notYetLine || '"Come back when you\'ve got a real deck."', again) };
+  const problem = deckProblem(deckList());
+  if (problem)
+    return { label: 'Play cards', dim: true, hint: 'Your deck isn\'t ready.', run: () => say('', [def.notReadyLine || "You don't have a deck you could play with.", problem]) };
+  return { label: 'Play cards', hint: 'First to ' + (opp.points || BATTLE_RULES.pointsToWin) + ' knock-outs.  Takes about ' + (opp.minutes || 30) + ' minutes.',
+           run: () => say(opp.name, opp.intro || '"Let\'s play."', () => fadeThrough(() => startBattle(id, afterBattle), { dur: 0.3 })) };
+}
+
+function afterBattle(result, opp, id) {
+  if (!state.battles) state.battles = {};                    // (older saves don't have this yet)
+  const record = state.battles[id] || (state.battles[id] = { wins: 0, losses: 0 });
+  const tooLate = advanceMinutes(opp.minutes || 30);
+  refreshPeople();
+  if (result === 'broken') { saveGame(); return toast('The match was abandoned.'); }
+  if (result === 'win') {
+    record.wins += 1; setFlag('beat_' + id);
+    if (!state.done['reward:' + id]) { state.done['reward:' + id] = true; receive(opp.reward); }
+  } else if (result === 'loss') record.losses += 1;
+  saveGame();
+  const line = result === 'win' ? opp.ifYouWin : result === 'loss' ? opp.ifYouLose : 'Nobody wins. You both stare at the table for a while.';
+  say(result === 'draw' ? '' : opp.name, line || '"Good game."', () =>
+    fireEvent(result === 'win' ? 'battle_won' : 'battle_lost', () => { if (tooLate) collapse(); }));
 }
 
 /* ---------------- shop ---------------- */
@@ -198,6 +228,12 @@ function openTrade(target) {
 
 function runAction(action, def) {
   if (action === 'collection') return openCollection();
+  if (action === 'deck') return openDeckEditor();
+  if (action === 'desk') return choose(def.name, [
+    { label: 'Look through the shoebox', run: () => openCollection() },
+    { label: 'Build your deck', hint: deckList().length + ' cards in it.  ' + (deckProblem(deckList()) || 'Ready to play.'), run: () => openDeckEditor() },
+    { label: 'Never mind' },
+  ]);
   if (action === 'save') return toast(saveGame() ? 'Saved.' : "Couldn't save in this browser.");
 
   if (action === 'sleep') {
@@ -208,9 +244,9 @@ function runAction(action, def) {
     ]);
   }
 
-  if (action === 'battle') {
-    // STUB: battles. For now the table points at the real playmat.
-    return say(def.name, "You could play cards with other patrons here... if you had enough cards.", () => choose('', [
+  if (action === 'playmat' || action === 'battle') {
+    // The real, multiplayer playmat on the web. (Island matches use `battle:` instead.)
+    return say(def.name, "There's a bigger game out there, past the island.", () => choose('', [
       { label: 'Open the playmat in a new tab', run: () => window.open(PLAYMAT_URL, '_blank') },
       { label: 'Not now' },
     ]));

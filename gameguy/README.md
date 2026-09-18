@@ -15,12 +15,18 @@ data/               THE PART YOU EDIT
   jobs.js             ways to earn money
   shops.js            shops, packs, rarity
   story.js            flags, conditions, events. The conditions cheat-sheet lives at the top.
+  battle-rules.js     knobs for the card game: deck size, bench size, points, my ASSUMED rulings
+  moves.js            what each card's text DOES, as data. The vocabulary is explained at the top.
+  opponents.js        who you can play against: their deck, how sloppy they are, what they say
   cards.js            GENERATED from the playmat database. Don't hand-edit.
 js/                 THE ENGINE, which reads the data
   state.js            what the game remembers; time; conditions; saving
   world.js            maps, collision, who is where, drawing the world, the validator
   ui.js               dialogue, menus, HUD, fades, cards, collection and pack screens
   actions.js          what happens when you press E
+  battle.js           the rules of the card game. No drawing, no keys: pure rules.
+  battle-ai.js        how everyone who isn't you plays
+  battle-ui.js        the table on screen, the deck editor, and the glue to the island
   main.js             keyboard, the update loop, title and pause menus
 art/
   tileset.png         the spritesheet. 32x32 cells. Paint over anything.
@@ -82,16 +88,83 @@ button, replace `data/cards.js`.
 **A bigger island.** Add rows or columns to a quadrant and the neighbour sharing that side,
 or add a fifth map and attach it with `edges`. (Details at the top of `maps.js`.)
 
+
+## The card game
+
+Talk to Megan, the Dockside Kid, the sailor, or sit at a shop table, and choose **Play cards**.
+You need a legal deck first: at least 10 cards, at least one basic, at most 3 of any card.
+Build it at your desk or from the Esc menu. Press 3 (debug) a few times for free packs.
+
+The engine follows the rules page on the playmat site. Where that page is silent, I made a
+ruling and put it in `data/battle-rules.js` marked ASSUMED: one retreat per turn, the first
+player may attack on turn one, evolving clears statuses, and you lose if your active is
+knocked out with an empty bench. Bench size (3) and the ten energy types come from the
+playmat's own code. A cost of "normal" means "any energy", since there is no normal energy.
+
+**How it was tested.** Because the rules engine draws nothing, two AIs can play each other
+at full speed. Every change was followed by thousands of such matches with random decks,
+checking at each turn that no card had appeared or vanished and no HP was impossible, plus a
+"chaos" run where both sides take random legal actions so that every wired effect gets used.
+That's how the Bill loop was found (an empty deck reshuffled Bill, drew it, played it,
+forever). The worked example on the rules page (Whave takes 50 from Spark Gust) is one of the
+fixed checks. None of that proves each card does what YOU meant; it proves nothing crashes and
+the books balance. Reading `data/moves.js` against your intent is the real review.
+
+**Adding an opponent.** Copy an entry in `data/opponents.js`, then put `battle: 'their_id'`
+on an NPC or a place.
+
+**Wiring a card's effect.** Find or add its entry in `data/moves.js` and describe the effect
+with the ops listed at the top of that file. If no existing op fits, that's an engine job:
+one new `if` in `runOps()` in `js/battle.js`.
+
+**Matches aren't saved.** SHORTCUT: closing the tab mid-match abandons it, with no penalty.
+
+### Coverage: 112 of 125 card effects are wired
+
+Cards with no effect text just do their damage and aren't counted here. In the deck editor
+and at the table, a card with an unwired or simplified effect says so under its picture.
+
+Not wired yet (13). Attacks among these do their printed damage and skip the effect;
+the two items can't be played:
+- Jeremo♀, Twinship: free swap with Jeremo♂ at any time
+- Miremalkin, Lurk: store the damage just received, deal double next turn
+- Kotora, Powdered Snow: no move in the set can freeze yet, so there is nothing to boost
+- Yukitora, Hailstorm: a lasting weather effect that cancels elemental effects
+- Yukitora, Cursed Wind: depends on Hailstorm. Does its 50 damage only.
+- Thundazolt, Heat Lightning: fire and electric energy interchangeable everywhere
+- Mugini, Black Tongue: delayed hit on a declared target. Does its 80 damage immediately instead.
+- Petrazoa, Cling: skip attacking and energy to avoid all damage for a turn
+- Metalzoa, Trample: grows by 20 with each consecutive use. Does its 50 only.
+- Kafkazoa, Plate Armor: builds defence for each turn it declines to attack
+- Gambarue, Rascal: steal the target's equipped item on a coin flip. Does its 10 damage only.
+- Humidifier (item): every attack gains +1 water energy
+- Notepad (item): copy and later use an opponent's move
+
+Simplified (14):
+- Sparkeet, Chain Lightning: assumed once per turn
+- Shadopillar, Shuffle: not during setup
+- Draquaduct, Quake: damage goes to the bench instead of the active
+- Draquaduct, Hydrosurge: "discard Draquaduct at any time" is not offered
+- Chipik, Preen: assumed once per turn
+- Murkitty, Shed Skin: assumed once per turn
+- Glumwyrm, Taunt: does not wear off after 50 damage
+- Envelawn, Curl: always 10; does not build up with repeated use
+- Necrozoa, Hungry Ghost: takes 10 damage whenever energy is attached
+- Octovox, Secret Frequency: the opponent's drawn card is not shown
+- Mace to the Face (item): every attack against the wearer needs a coin flip, not just the next one
+- Sleeping Bag (item): heals whenever asleep, whoever caused it
+- Floppy Disk (item): moves ALL the energy, not "as much as you like"
+- Moira (item): the five discards are chosen at random
+
 ## What's real, what's a stub, what's a shortcut
 
 Working and tested: walking, four connected quadrants, three interiors, doors with opening
 hours, the clock and sky, sleeping, collapsing at 10pm, money, shift and delivery jobs, the
 shop with weekly restock and overnight sales, pack opening with real card art, the collection
 screen, fixed trades, NPC schedules, the visiting sailor and his boat, flags, events,
-save / continue, the validator.
+save / continue, the validator, card matches against an AI, the deck editor.
 
 **Stubs** (search the code for `STUB`):
-- Battles. The shop tables just link to the playmat.
 - The `minigame` job type. It behaves as a shift.
 - The sailor's trades don't change between visits.
 - The Net Shed, the old signpost in the woods, the lighthouse door: places with nothing behind them yet.

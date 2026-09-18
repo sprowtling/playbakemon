@@ -15,6 +15,7 @@
 const KEYS = {
   up: ['arrowup', 'w'], down: ['arrowdown', 's'], left: ['arrowleft', 'a'], right: ['arrowright', 'd'],
   action: ['e', 'enter', ' '], cancel: ['escape', 'backspace'], collection: ['c'],
+  remove: ['x', '-', 'delete'], auto: ['f'],
   dbg1: ['1'], dbg2: ['2'], dbg3: ['3'], dbg4: ['4'], dbg0: ['0'],
 };
 const heldKeys = {}, freshKeys = new Set();
@@ -46,6 +47,8 @@ function update(dt) {
   else if (ui.menu)     updateMenu();
   else if (ui.screen && ui.screen.kind === 'collection') updateCollection();
   else if (ui.screen && ui.screen.kind === 'pack')       updatePack(dt);
+  else if (ui.screen && ui.screen.kind === 'deck')       updateDeckEditor();
+  else if (ui.screen && ui.screen.kind === 'battle')     updateBattle(dt);
   else if (state && !ui.screen)                          updateWorld(dt);
   freshKeys.clear();
 }
@@ -125,6 +128,8 @@ function draw(time) {
     if (!kind) { if (!ui.dialogue && !ui.menu && !ui.fade) drawPrompt(); drawHud(lastFrameDt); }
     if (kind === 'collection') drawCollection();
     if (kind === 'pack')       drawPack(time);
+    if (kind === 'deck')       drawDeckEditor();
+    if (kind === 'battle')     drawBattle();
   }
   if (ui.dialogue) drawDialogue();
   if (ui.menu)     drawMenu();
@@ -163,6 +168,7 @@ function openPauseMenu() {
   choose('Paused', [
     { label: 'Back to the island' },
     { label: 'Collection', run: () => openCollection() },
+    { label: 'Deck', run: () => openDeckEditor() },
     { label: 'Save', run: () => toast(saveGame() ? 'Saved.' : "Couldn't save in this browser.") },
     { label: 'Save and go to the title', run: () => { saveGame(); fadeThrough(showTitle, { dur: 0.3 }); } },
   ]);

@@ -39,6 +39,8 @@
            'pack_opened'     after closing the pack screen
            'trade_done'      after any trade
            'job_done'        after being paid for any job
+           'battle_won'      after winning a card match   (the flag beat_<opponent id> is set too)
+           'battle_lost'     after losing one
 
        once   true → never plays again (this is the usual case)
        name   who is speaking. Leave '' for narration.
@@ -78,6 +80,10 @@ const EVENTS = [
   { id: 'first_trade', on: 'trade_done', once: true, name: '',
     lines: ["A trade. A real one. You check the card twice on the way home to make sure it's still real."],
     set: ['made_first_trade'] },
+
+  { id: 'first_win', on: 'battle_won', once: true, name: '',
+    lines: ["You won. With YOUR deck. You're going to be thinking about that last turn all night."],
+    set: ['won_first_match'] },
 
   // STUB: a longer thread to hang things from. What happens when the list on
   // the desk is nearly finished? Who else is collecting? What's in the lighthouse?

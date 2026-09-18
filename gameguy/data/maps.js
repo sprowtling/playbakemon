@@ -38,7 +38,8 @@
      openIf      conditions for the door to open     closedLine: what you see otherwise
      talkTo      'npc_id'   pressing E here talks to that NPC (for counters)
      job / shop / trade     see data/jobs.js, data/shops.js, data/npcs.js
-     action      'sleep' | 'collection' | 'battle' | 'save'
+     battle      'opponent_id'  a card match (data/opponents.js)
+     action      'sleep' | 'desk' | 'collection' | 'deck' | 'playmat' | 'save'
      sprite, under          what the tile looks like (a sprite NAME from tiles.js,
                             and a legend LETTER to draw beneath it)
      walkOn      true  → triggers by stepping on it instead of pressing E,
@@ -275,7 +276,9 @@ const MAPS = {
       // so the counter tile in front of them passes the conversation on.
       k: { name: 'Counter', sprite: 'counter', under: '_', talkTo: 'shopkeep' },
       c: { name: 'Display', line: "Card sleeves, dice, a dusty binder. Nothing you can afford." },
-      t: { name: 'Table', action: 'battle' },
+      // `notReadyLine` is what you get when your deck isn't legal yet (too few cards).
+      t: { name: 'Table', battle: 'shop_regular',
+           notReadyLine: "You could play cards with other patrons here... if you had enough cards." },
       w: { name: 'Window', line: "It's a nice day outside." },
     },
   },
@@ -295,7 +298,7 @@ const MAPS = {
     places: {
       x: { name: 'Outside', sprite: 'exit_mat', to: { map: 'island_sw', col: 29, row: 8, facing: 'down' } },
       b: { name: 'Your bed', action: 'sleep' },
-      d: { name: 'Your desk', action: 'collection' },
+      d: { name: 'Your desk', action: 'desk' },
       w: { name: 'Window', line: "You can see the shop's roof from here. And the sea past it." },
     },
   },

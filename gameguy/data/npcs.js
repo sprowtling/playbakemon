@@ -29,6 +29,7 @@
                 Put specific entries at the top, the everyday one last.
      job        a job id, or a list of them          (data/jobs.js)
      shop       a shop id                            (data/shops.js)
+     battle     an opponent id                       (data/opponents.js)
      trade      { offers: [ { give, want } ] }
                   give   the card id they hand over
                   want   a card id, OR { type: 'water' }, OR { rarity: 'rare' }
@@ -95,6 +96,7 @@ const NPCS = {
         { give: '040', want: '025' },
       ],
     },
+    battle: 'megan',
   },
 
   // PLACEHOLDER: the first of "the handful of other kids". Rename, rewrite, move.
@@ -110,6 +112,7 @@ const NPCS = {
         { give: '017', want: { type: 'water' } },
       ],
     },
+    battle: 'kid1',
   },
 
   // Only on the island when his boat is. The boat itself is a `prop`
@@ -133,6 +136,7 @@ const NPCS = {
       ],
     },
     job: 'unload_boat',
+    battle: 'sailor',
   },
 
 };

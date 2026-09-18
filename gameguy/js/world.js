@@ -299,6 +299,7 @@ function validateData() {
       if (!CARD_BY_ID[o.give]) say(`${where} offers to trade away card "${o.give}", which doesn't exist.`);
       if (typeof o.want === 'string' && !CARD_BY_ID[o.want]) say(`${where} wants card "${o.want}", which doesn't exist.`);
     }
+    if (d.battle && !OPPONENTS[d.battle]) say(`${where} plays as opponent "${d.battle}", who isn't in data/opponents.js.`);
     if (d.sprite && !SPRITES[d.sprite]) say(`${where} uses sprite "${d.sprite}", which isn't named in SPRITES (data/tiles.js).`);
   };
 
@@ -356,6 +357,28 @@ function validateData() {
     if (job.type === 'delivery' && !NPCS[job.deliverTo]) say(`Job "${id}" delivers to NPC "${job.deliverTo}", who doesn't exist.`);
   }
   for (const [id, shop] of Object.entries(SHOPS)) for (const p of shop.products) if (!PACKS[p.pack]) say(`Shop "${id}" sells pack "${p.pack}", which isn't in PACKS.`);
+  // --- the card game ---
+  for (const [id, opp] of Object.entries(OPPONENTS)) {
+    for (const c of opp.deck) if (!CARD_BY_ID[c]) say(`Opponent "${id}" has card "${c}" in their deck, which doesn't exist.`);
+    if (opp.deck.every(c => CARD_BY_ID[c])) { const why = deckProblem(opp.deck); if (why) say(`Opponent "${id}" can't play: ${why}`); }
+    checkConds(`Opponent "${id}"`, opp.playIf);
+    if (opp.reward && opp.reward.card && !CARD_BY_ID[opp.reward.card]) say(`Opponent "${id}" rewards card "${opp.reward.card}", which doesn't exist.`);
+  }
+  for (const [cardId, moves] of Object.entries(MOVES)) {
+    const card = CARD_BY_ID[cardId];
+    if (!card) { say(`data/moves.js has effects for card "${cardId}", which doesn't exist.`); continue; }
+    for (const name of Object.keys(moves)) if (!(card.abilities || []).some(a => a.name === name))
+      say(`data/moves.js: ${card.name} has no move called "${name}". (Was it renamed on the playmat? The names must match exactly.)`);
+  }
+  for (const id of Object.keys(ITEMS)) if (!CARD_BY_ID[id] || CARD_BY_ID[id].kind !== 'item') say(`data/moves.js lists item "${id}", which isn't an item card.`);
+  // Not a mistake, so not in the red box: cards whose text the island can't act out yet.
+  const unwired = [];
+  for (const c of CARDS) {
+    if (c.kind === 'item') { if (!ITEMS[c.id] || ITEMS[c.id].todo) unwired.push(c.name + ' (item)'); continue; }
+    for (const m of cardMoves(c)) if (m.fx.todo || (m.text && !m.ops.length && !m.fx.tag)) unwired.push(c.name + ': ' + m.name);
+  }
+  if (unwired.length) console.info('Card effects not wired into island matches yet (' + unwired.length + '):\n  ' + unwired.join('\n  '));
+
   const eventIds = new Set();
   for (const ev of EVENTS) {
     checkConds(`Event "${ev.id}"`, ev.if);

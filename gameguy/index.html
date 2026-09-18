@@ -36,7 +36,7 @@
 
 <div id="problems" hidden></div>
 <canvas id="screen"></canvas>
-<p class="hint">Arrows or WASD to walk. E to talk and choose. C for your collection. Esc for the menu.</p>
+<p class="hint">Arrows or WASD to walk. E to talk and choose. C for your collection. Esc for the menu or to go back.</p>
 
 <!-- DATA: the parts you'll edit all the time. Order doesn't matter among these. -->
 <script src="data/config.js"></script>
@@ -47,11 +47,17 @@
 <script src="data/npcs.js"></script>
 <script src="data/jobs.js"></script>
 <script src="data/story.js"></script>
+<script src="data/battle-rules.js"></script>
+<script src="data/moves.js"></script>
+<script src="data/opponents.js"></script>
 
 <!-- ENGINE: the parts that read the data. Order DOES matter here. -->
 <script src="js/state.js"></script>
 <script src="js/world.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/battle-ai.js"></script>
+<script src="js/battle-ui.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/main.js"></script>
 
