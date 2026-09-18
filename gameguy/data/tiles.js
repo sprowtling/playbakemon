@@ -40,7 +40,17 @@ const SPRITES = {
 
   bed: [0,4], desk: [1,4], table: [2,4], display: [3,4], oven: [4,4],
   // cells [5,4] to [7,4] and the whole of row 5 are empty. They're yours.
+
+  // A third value names a DIFFERENT sheet. These live in art/items.png
+  // (labelled in art/items-guide.png). Cells [4,1] to [7,1] there are empty.
+  shovel:     [0,0,'items'], rod:      [1,0,'items'], worm:   [2,0,'items'], oyster: [3,0,'items'],
+  shell:      [4,0,'items'], fish_small: [5,0,'items'], fish_big: [6,0,'items'], bottle: [7,0,'items'],
+  boot:       [0,1,'items'], pearl:    [1,1,'items'], old_coin: [2,1,'items'], dug_hole: [3,1,'items'],
 };
+
+// The picture files. To add a sheet: put the PNG in art/, name it here, and use
+// that name as the third value of a sprite.
+const SHEETS = { tiles: 'art/tileset.png', items: 'art/items.png' };
 
 /* What a legend entry can say:
 

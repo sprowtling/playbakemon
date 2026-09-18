@@ -18,6 +18,7 @@ data/               THE PART YOU EDIT
   battle-rules.js     knobs for the card game: deck size, bench size, points, my ASSUMED rulings
   moves.js            what each card's text DOES, as data. The vocabulary is explained at the top.
   opponents.js        who you can play against: their deck, how sloppy they are, what they say
+  goods.js            things for the backpack (tools, finds, bait) and what tools DO (dig, fish)
   cards.js            GENERATED from the playmat database. Don't hand-edit.
 js/                 THE ENGINE, which reads the data
   state.js            what the game remembers; time; conditions; saving
@@ -31,12 +32,20 @@ js/                 THE ENGINE, which reads the data
 art/
   tileset.png         the spritesheet. 32x32 cells. Paint over anything.
   tileset-guide.png   the same sheet, enlarged and labelled. For reference only.
+  items.png           a second sheet, for backpack items. Same 32x32 cells.
+  items-guide.png     ...and its labelled guide.
 tools/
   export-cards.html   re-exports cards.js from the playmat database
 ```
 
 Every data file starts with a comment explaining its vocabulary. Read those first; this
 README only points at them.
+
+## Keys
+
+Arrows / WASD walk. **E** talk, choose, confirm. **F** use a tool (a small "F  Dig" label appears
+when one would work where you're standing). **C** collection. **I** backpack. **Esc** menu, or back.
+In the deck editor: **E** add a copy, **X** take one out, **F** reset to "everything I own".
 
 ## The red box
 
@@ -75,6 +84,22 @@ The red box tells you if either end lands in a wall.
 
 **A new person.** Copy an entry in `npcs.js`. Change the id, name, colours, `home`.
 Everything else is optional.
+
+**Trades that change over time.** Give the person a `pool` of offers, say how many to `show`
+at once, and how often to `refresh` ('day' or 'week'). Make the pool longer for more variety.
+The full explanation is at the top of `data/npcs.js`; Megan, the Dockside Kid and the sailor
+are all set up this way already.
+
+**Something new to carry.** Add it to `GOODS` in `data/goods.js`. Give it a `sell` price and
+Island Finds will buy it. To sell it IN a shop, add `{ item: 'its_id', price: 3 }` to that
+shop's `products` in `data/shops.js`.
+
+**Something new to find.** Add a line to a `finds` table in `data/goods.js`. A bigger `weight`
+means it turns up more often.
+
+**A new tool.** Add the tool to `GOODS` with `tool: true`, then add an entry to `ACTIVITIES`
+saying which map letters it works on. A net that works on bushes (`on: ['u'], where: 'facing'`)
+and finds bugs would need no engine changes at all.
 
 **A new job.** Copy an entry in `jobs.js`, then add its id to `job:` on an NPC or a place.
 
@@ -162,11 +187,12 @@ Working and tested: walking, four connected quadrants, three interiors, doors wi
 hours, the clock and sky, sleeping, collapsing at 10pm, money, shift and delivery jobs, the
 shop with weekly restock and overnight sales, pack opening with real card art, the collection
 screen, fixed trades, NPC schedules, the visiting sailor and his boat, flags, events,
-save / continue, the validator, card matches against an AI, the deck editor.
+save / continue, the validator, card matches against an AI, the deck editor, rotating trades,
+the backpack, Island Finds (buying tools, selling finds), digging and fishing.
 
 **Stubs** (search the code for `STUB`):
 - The `minigame` job type. It behaves as a shift.
-- The sailor's trades don't change between visits.
+- Digging and fishing are dice rolls. Fishing wants to be a small timing game one day.
 - The Net Shed, the old signpost in the woods, the lighthouse door: places with nothing behind them yet.
 - The `starter` pack exists but no shop sells it.
 - No sound. No touch controls.
@@ -174,6 +200,7 @@ save / continue, the validator, card matches against an AI, the deck editor.
 **Shortcuts** (search for `SHORTCUT`; each says when it will start to hurt):
 - People are drawn by code from four colours, not from the spritesheet.
 - People don't walk. They're simply elsewhere next time you enter a map.
+- Fishing loot goes by MAP, not by which water: the north coast of The Woods gives pond fish.
 - In "any water type" trades the game picks which of your cards goes; you don't choose.
 - Rarity is guessed from evolution stage, because the database has no rarity column.
 - The collection grid uses drawn stand-ins; real art loads only for the large view.

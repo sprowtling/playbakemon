@@ -365,6 +365,51 @@ function drawCollection() {
   setFont(18); ctx.fillStyle = COLOR.dim; ctx.fillText('arrows to look around      Esc to close', 28, canvas.height - 16);
 }
 
+/* ---------------- the backpack ---------------- */
+
+function openBag(onClose) { ui.screen = { kind: 'bag', sel: 0, onClose }; }
+
+function bagContents() {
+  const ids = Object.keys(state.inventory || {}).filter(id => GOODS[id] && have(id));
+  return ids.sort((a, b) => (!!GOODS[b].tool - !!GOODS[a].tool) || GOODS[a].name.localeCompare(GOODS[b].name));    // tools first
+}
+
+function updateBag() {
+  const s = ui.screen, n = bagContents().length, cols = 6;
+  if (pressed('left'))  s.sel = Math.max(0, s.sel - 1);
+  if (pressed('right')) s.sel = Math.min(n - 1, s.sel + 1);
+  if (pressed('up') && s.sel - cols >= 0) s.sel -= cols;
+  if (pressed('down') && s.sel + cols < n) s.sel += cols;
+  if (pressed('cancel') || pressed('bag')) { ui.screen = null; if (s.onClose) s.onClose(); }
+}
+
+function drawBag() {
+  const s = ui.screen, ids = bagContents(), cols = 6, cell = 96, gap = 12, x0 = 28, y0 = 96;
+  ctx.fillStyle = '#12303a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  setFont(38); ctx.fillStyle = COLOR.sand; ctx.fillText('Backpack', 28, 54);
+  setFont(24); ctx.fillStyle = COLOR.dim;  ctx.fillText(moneyText(state.money), 200, 52);
+
+  if (!ids.length) { setFont(24); ctx.fillStyle = COLOR.dim; ctx.fillText('Empty, apart from some sand. Island Finds, in town, sells a shovel.', 28, 130); }
+  ctx.imageSmoothingEnabled = false;
+  ids.forEach((id, i) => {
+    const x = x0 + (i % cols) * (cell + gap), y = y0 + Math.floor(i / cols) * (cell + gap);
+    roundRect(x, y, cell, cell, 10); ctx.fillStyle = 'rgba(15,34,39,0.55)'; ctx.fill();
+    if (!drawSprite(GOODS[id].sprite, x + 16, y + 12, 64)) { setFont(16); ctx.fillStyle = COLOR.text; ctx.fillText(GOODS[id].name, x + 8, y + 50); }
+    if (!GOODS[id].tool) { setFont(20); ctx.fillStyle = COLOR.sand; ctx.textAlign = 'right'; ctx.fillText('x' + have(id), x + cell - 8, y + cell - 8); ctx.textAlign = 'left'; }
+    if (i === s.sel) { roundRect(x - 3, y - 3, cell + 6, cell + 6, 12); ctx.strokeStyle = COLOR.glass; ctx.lineWidth = 3; ctx.stroke(); }
+  });
+
+  const id = ids[Math.min(s.sel, ids.length - 1)];
+  if (id) {
+    const g = GOODS[id], dx = 700;
+    setFont(30); ctx.fillStyle = COLOR.text; ctx.fillText(g.name, dx, 126);
+    setFont(20); ctx.fillStyle = COLOR.dim;
+    ctx.fillText(g.tool ? 'A tool.' : g.sell > 0 ? 'Island Finds pays ' + moneyText(g.sell) + '.' : "Nobody's buying these.", dx, 156);
+    ctx.fillStyle = COLOR.text; wrapText(g.desc || '', 230).forEach((line, i) => ctx.fillText(line, dx, 196 + i * 26));
+  }
+  setFont(18); ctx.fillStyle = COLOR.dim; ctx.fillText('arrows to look around      Esc to close', 28, canvas.height - 16);
+}
+
 /* ---------------- opening a pack ---------------- */
 
 function openPackScreen(packId, cardIds, wasNew, onClose) {

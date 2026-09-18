@@ -15,10 +15,14 @@ const VIEW_W = VIEW_COLS * TILE, VIEW_H = VIEW_ROWS * TILE;    // the window ont
 canvas.width  = VIEW_W * ZOOM;
 canvas.height = VIEW_H * ZOOM;
 
-const tileset = new Image();
-let tilesetReady = false;
-tileset.onload = () => { tilesetReady = true; };
-tileset.src = 'art/tileset.png';
+// One Image per sheet named in SHEETS (data/tiles.js).
+const sheets = {};
+for (const [name, file] of Object.entries(SHEETS)) {
+  const img = new Image();
+  sheets[name] = { img, ready: false };
+  img.onload = () => { sheets[name].ready = true; };
+  img.src = file;
+}
 
 let current = null, currentName = '';
 let COLS = 0, ROWS = 0, WORLD_W = 0, WORLD_H = 0;
@@ -150,11 +154,28 @@ function tileHash(col, row) {
   return (h ^ (h >> 16)) & 0x7fffffff;
 }
 
-function drawSprite(name, x, y) {
+// `size` is optional: menus use it to draw an item icon bigger than one tile.
+function drawSprite(name, x, y, size) {
   const cell = SPRITES[name];
-  if (!tilesetReady || !cell) return false;
-  ctx.drawImage(tileset, cell[0] * TILE, cell[1] * TILE, TILE, TILE, x, y, TILE, TILE);
+  const sheet = cell && sheets[cell[2] || 'tiles'];
+  if (!sheet || !sheet.ready) return false;
+  ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, x, y, size || TILE, size || TILE);
   return true;
+}
+
+// Which activity (data/goods.js) could be done right here, right now? Or null.
+function availableActivity() {
+  const t = playerTile();
+  const [dc, dr] = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] }[player.facing];
+  for (const [id, act] of Object.entries(ACTIVITIES)) {
+    if (!have(act.tool)) continue;
+    const col = act.where === 'facing' ? t.col + dc : t.col, row = act.where === 'facing' ? t.row + dr : t.row;
+    if (!inBounds(col, row) || !act.on.includes(current.tiles[row][col])) continue;
+    if (current.places && current.places[current.tiles[row][col]]) continue;            // a place that happens to use that letter
+    if (act.oncePerSpot && (state.dug || { spots: {} }).spots[currentName + ':' + col + ',' + row]) continue;
+    return { id, act, col, row };
+  }
+  return null;
 }
 
 function drawLetter(map, ch, col, row, time, depth) {
@@ -232,6 +253,11 @@ function drawWorld(time) {
     }
   }
   for (const p of propsHere) drawSprite(p.sprite, p.col * TILE, p.row * TILE);
+  // today's holes in the sand
+  for (const [spot, mark] of Object.entries((state.dug || {}).spots || {})) {
+    const [map, where] = spot.split(':'), [c, r] = where.split(',').map(Number);
+    if (map === currentName) drawSprite(mark, c * TILE, r * TILE);
+  }
 
   // People are drawn top-to-bottom so whoever is lower on screen is in front.
   const people = npcsHere.map(n => ({ y: n.row * TILE, draw: () => drawPerson(n.col * TILE, n.row * TILE, n.def.look, n.facing, 0) }));
@@ -295,7 +321,8 @@ function validateData() {
     for (const sp of d.schedule || []) checkConds(where + ' (schedule)', sp.if);
     for (const j of [].concat(d.job || [])) if (!JOBS[j]) say(`${where} offers job "${j}", which isn't in data/jobs.js.`);
     if (d.shop && !SHOPS[d.shop]) say(`${where} runs shop "${d.shop}", which isn't in data/shops.js.`);
-    for (const o of (d.trade && d.trade.offers) || []) {
+    if (d.trade && d.trade.pool && !['day', 'week'].includes(d.trade.refresh)) say(`${where} has a trade pool but its refresh is "${d.trade.refresh}". Use 'day' or 'week'.`);
+    for (const o of ((d.trade && d.trade.offers) || []).concat((d.trade && d.trade.pool) || [])) {
       if (!CARD_BY_ID[o.give]) say(`${where} offers to trade away card "${o.give}", which doesn't exist.`);
       if (typeof o.want === 'string' && !CARD_BY_ID[o.want]) say(`${where} wants card "${o.want}", which doesn't exist.`);
     }
@@ -356,7 +383,26 @@ function validateData() {
     checkConds(`Job "${id}"`, job.availableIf);
     if (job.type === 'delivery' && !NPCS[job.deliverTo]) say(`Job "${id}" delivers to NPC "${job.deliverTo}", who doesn't exist.`);
   }
-  for (const [id, shop] of Object.entries(SHOPS)) for (const p of shop.products) if (!PACKS[p.pack]) say(`Shop "${id}" sells pack "${p.pack}", which isn't in PACKS.`);
+  for (const [id, shop] of Object.entries(SHOPS)) for (const p of shop.products) {
+    if (p.pack && !PACKS[p.pack]) say(`Shop "${id}" sells pack "${p.pack}", which isn't in PACKS.`);
+    if (p.item && !GOODS[p.item]) say(`Shop "${id}" sells "${p.item}", which isn't in GOODS (data/goods.js).`);
+    if (!p.pack && !p.item) say(`Shop "${id}" has a product that is neither a pack nor an item.`);
+  }
+  for (const [name, cell] of Object.entries(SPRITES)) if (cell[2] && !SHEETS[cell[2]]) say(`Sprite "${name}" is on sheet "${cell[2]}", which isn't in SHEETS (data/tiles.js).`);
+  for (const [id, g] of Object.entries(GOODS)) if (g.sprite && !SPRITES[g.sprite]) say(`Goods "${id}" uses sprite "${g.sprite}", which isn't named in SPRITES.`);
+  for (const [id, act] of Object.entries(ACTIVITIES)) {
+    if (!GOODS[act.tool]) say(`Activity "${id}" needs tool "${act.tool}", which isn't in GOODS.`);
+    if (act.bait && !GOODS[act.bait]) say(`Activity "${id}" uses bait "${act.bait}", which isn't in GOODS.`);
+    if (act.marks && !SPRITES[act.marks]) say(`Activity "${id}" marks the ground with sprite "${act.marks}", which isn't named in SPRITES.`);
+    if (!['standing', 'facing'].includes(act.where)) say(`Activity "${id}" has where: "${act.where}". Use 'standing' or 'facing'.`);
+    for (const [mapName, table] of [['', act.finds]].concat(Object.entries(act.findsIn || {}))) {
+      if (mapName && !MAPS[mapName]) say(`Activity "${id}" has a loot table for map "${mapName}", which doesn't exist.`);
+      for (const f of table || []) {
+        if (f.item && !GOODS[f.item]) say(`Activity "${id}" can find "${f.item}", which isn't in GOODS.`);
+        if (!(f.weight > 0)) say(`Activity "${id}" has a find with no weight (or a weight of zero), so it can never come up.`);
+      }
+    }
+  }
   // --- the card game ---
   for (const [id, opp] of Object.entries(OPPONENTS)) {
     for (const c of opp.deck) if (!CARD_BY_ID[c]) say(`Opponent "${id}" has card "${c}" in their deck, which doesn't exist.`);

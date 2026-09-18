@@ -37,7 +37,9 @@ const PACKS = {
     name: 'Bakemon Booster',
     color: '#2f8f83',           // the wrapper colour on the pack-opening screen
     slots: [
-      { count: 3, odds: { rare: 0.25, uncommon: 0.75 } },
+      { count: 3, rarity: 'common' },
+      { count: 1, rarity: 'uncommon' },
+      { count: 1, odds: { rare: 0.25, uncommon: 0.75 } },
     ],
     exclude: [],
   },
@@ -58,14 +60,33 @@ const PACKS = {
    otherKidsBuy       every night, this many sell to kids who aren't you.
                       This is what makes Thursday matter: wait too long
                       and they're gone. Set it to 0 to switch that off.
+
+   A product is EITHER  { pack: 'booster', ... }  (cards, data above)
+                 OR     { item: 'shovel', ... }   (goods, data/goods.js)
+   Leave out startStock / restockTo and it never runs out.
+
+   buys: true         this shop will buy anything in data/goods.js that has
+                      a `sell` price above 0.
    ------------------------------------------------------------- */
 const SHOPS = {
   tidepool: {
     name: 'Tidepool Games',
     restockDay: 'Thu',
     products: [
-      { pack: 'booster', price: 10, startStock: 1, restockTo: 4, otherKidsBuy: 1 },
+      { pack: 'booster', price: 5, startStock: 1, restockTo: 6, otherKidsBuy: 1 },
     ],
     soldOutLine: "\"All gone. Boat's in Thursday. Same as always.\"",
+  },
+
+  // PLACEHOLDER shop: name, prices, stock.
+  island_finds: {
+    name: 'Island Finds',
+    products: [
+      { item: 'shovel', price: 4 },
+      { item: 'rod',    price: 9 },
+      { item: 'worm',   price: 1 },          // for the impatient. Digging them up is free.
+    ],
+    buys: true,
+    soldOutLine: "\"Fresh out. Try me next week.\"",
   },
 };

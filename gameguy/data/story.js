@@ -24,6 +24,7 @@
        'has:004'             you own card 004
        'dupe:004'            you own more than one
        'carrying:loaf'       you're holding that delivery item
+       'item:shovel'         you have at least one of those in your backpack (data/goods.js)
        'jobdone:sweep_shop'  that job was done today
        'stock:tidepool'      that shop has anything left to sell
 
@@ -46,7 +47,7 @@
        name   who is speaking. Leave '' for narration.
        lines  what's said
        set    flags to switch on afterwards
-       give   { money: 1 } or { card: '004' }
+       give   { money: 1 } or { card: '004' } or { item: 'shovel' }
 
    Only one event plays per trigger: the first one in the list that
    qualifies. Order the list from most specific to most general.

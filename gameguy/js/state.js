@@ -13,6 +13,8 @@ let state = null;
 const CARD_BY_ID = {};
 for (const c of CARDS) CARD_BY_ID[c.id] = c;
 
+const productKey = p => p.pack || p.item;
+
 function newState() {
   const s = {
     version: SAVE_VERSION,
@@ -25,13 +27,16 @@ function newState() {
     done: {},                        // one-time things that have happened (events, 'once' lines, trades)
     items: {},                       // delivery items being carried
     jobsToday: {},                   // job id → times done today
-    shops: {},                       // shop id → { pack id → stock }
+    shops: {},                       // shop id → { product id → stock }
+    inventory: {},                   // goods id → how many (data/goods.js)
+    dug: { day: 1, spots: {} },      // tiles already dug up today
+    deckEdited: false,               // until you edit your deck by hand, it's "everything you own"
     player: { map: START.map, col: START.col, row: START.row, facing: START.facing },
   };
   for (const id of START.cards) { s.collection[id] = (s.collection[id] || 0) + 1; s.seen[id] = true; }
   for (const [shopId, shop] of Object.entries(SHOPS)) {
     s.shops[shopId] = {};
-    for (const p of shop.products) s.shops[shopId][p.pack] = p.startStock;
+    for (const p of shop.products) if (p.startStock !== undefined) s.shops[shopId][productKey(p)] = p.startStock;
   }
   return s;
 }
@@ -73,6 +78,7 @@ function startNewDay() {
   state.day += 1;
   state.minutes = DAY_START_HOUR * 60;
   state.jobsToday = {};
+  state.dug = { day: state.day, spots: {} };       // the tide fills yesterday's holes
 
   // Undelivered things don't keep.
   for (const job of Object.values(JOBS)) {
@@ -86,12 +92,42 @@ function startNewDay() {
   for (const [shopId, shop] of Object.entries(SHOPS)) {
     const shelf = state.shops[shopId] || (state.shops[shopId] = {});
     for (const p of shop.products) {
-      if (shelf[p.pack] === undefined) shelf[p.pack] = p.startStock;   // product added after the save was made
-      shelf[p.pack] = Math.max(0, shelf[p.pack] - (p.otherKidsBuy || 0));
-      if (dayShort() === shop.restockDay) shelf[p.pack] = Math.max(shelf[p.pack], p.restockTo);
+      if (p.startStock === undefined) continue;                        // never runs out: nothing to track
+      const key = productKey(p);
+      if (shelf[key] === undefined) shelf[key] = p.startStock;         // product added after the save was made
+      shelf[key] = Math.max(0, shelf[key] - (p.otherKidsBuy || 0));
+      if (dayShort() === shop.restockDay) shelf[key] = Math.max(shelf[key], p.restockTo);
     }
   }
   return notes;
+}
+
+/* ---------------- backpack ---------------- */
+// (`|| {}` everywhere because saves made before the backpack existed don't have one.)
+
+const have = id => (state.inventory || {})[id] || 0;
+function addGood(id, n)    { if (!state.inventory) state.inventory = {}; state.inventory[id] = have(id) + (n || 1); }
+function removeGood(id, n) { state.inventory[id] = Math.max(0, have(id) - (n || 1)); if (!state.inventory[id]) delete state.inventory[id]; }
+
+/* ---------------- repeatable randomness ----------------
+   Rotating trades need a pick that LOOKS random but comes out the same
+   every time it's asked on the same day: otherwise reloading the page
+   would reshuffle what Megan is offering. So instead of Math.random()
+   we turn a piece of text ("megan:week3") into a number and use that
+   as the starting point for a little number generator. Same text in,
+   same "random" numbers out. */
+
+function seededRandom(text) {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+// n things from a list, chosen by the seed. Returns their positions in the list.
+function seededPick(length, n, seed) {
+  const rand = seededRandom(seed), order = [...Array(length).keys()];
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return order.slice(0, n).sort((a, b) => a - b);
 }
 
 /* ---------------- collection ---------------- */
@@ -153,7 +189,7 @@ const setFlag = name => { state.flags[name] = true; };
 // The words a condition may start with. The validator uses this to catch
 // typos at startup; add to BOTH lists if you invent a new kind of condition.
 const CONDITION_NUMBERS = ['hour', 'money', 'daynum', 'week', 'cards', 'total'];
-const CONDITION_KINDS   = ['flag', 'day', 'time', 'has', 'dupe', 'carrying', 'jobdone', 'stock'];
+const CONDITION_KINDS   = ['flag', 'day', 'time', 'has', 'dupe', 'carrying', 'jobdone', 'stock', 'item'];
 
 function conditionLooksValid(cond) {
   const c = String(cond).replace(/^!+/, '');
@@ -183,6 +219,7 @@ function checkOne(cond) {
     case 'has':      return owned(arg) > 0;
     case 'dupe':     return owned(arg) > 1;
     case 'carrying': return !!state.items[arg];
+    case 'item':     return have(arg) > 0;
     case 'jobdone':  return (state.jobsToday[arg] || 0) > 0;
     case 'stock':    return Object.values(state.shops[arg] || {}).some(n => n > 0);
   }

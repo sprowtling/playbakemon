@@ -30,10 +30,23 @@
      job        a job id, or a list of them          (data/jobs.js)
      shop       a shop id                            (data/shops.js)
      battle     an opponent id                       (data/opponents.js)
-     trade      { offers: [ { give, want } ] }
+     trade      { offers: [...], pool: [...], show: 2, refresh: 'week' }
+                An offer is { give, want }:
                   give   the card id they hand over
                   want   a card id, OR { type: 'water' }, OR { rarity: 'rare' }
-                  once   false → can be repeated (default: each offer once)
+                `offers` are ALWAYS available, each one once ever
+                  (add  once: false  to an offer to make it repeatable).
+                `pool` is a bigger list they ROTATE through. Only `show` of them
+                  are on offer at a time, and which ones changes every `refresh`:
+                    'day'    a fresh pick every morning (right for the sailor: he's
+                             only here some days, so every visit looks different)
+                    'week'   a fresh pick every Monday
+                  Each pool offer can be taken once per appearance. If the same
+                  offer comes round again weeks later, it's available again.
+                  The pick is random but FIXED for that day or week: leaving and
+                  coming back, or reloading the page, shows the same offers.
+                Use either list, or both. To give someone more variety, just
+                make their pool longer.
 
    CONDITIONS are explained in data/story.js.
    ============================================================ */
@@ -92,9 +105,16 @@ const NPCS = {
     ],
     trade: {
       offers: [
-        { give: '004', want: { type: 'normal' } },
-        { give: '040', want: '025' },
+        { give: '004', want: { type: 'normal' } },      // always there, once: your first-ever trade
       ],
+      pool: [
+        { give: '040', want: '025' },
+        { give: '061', want: { type: 'grass' } },
+        { give: '030', want: { type: 'fire' } },
+        { give: '005', want: { rarity: 'uncommon' } },
+        { give: '032', want: { type: 'water' } },
+      ],
+      show: 2, refresh: 'week',
     },
     battle: 'megan',
   },
@@ -108,11 +128,29 @@ const NPCS = {
       { lines: ["\"I only collect fire types. Everything else is boring.\""] },
     ],
     trade: {
-      offers: [
+      pool: [
         { give: '017', want: { type: 'water' } },
+        { give: '025', want: { type: 'grass' } },
+        { give: '007', want: { type: 'electric' } },
+        { give: '043', want: { rarity: 'uncommon' } },
       ],
+      show: 1, refresh: 'week',
     },
     battle: 'kid1',
+  },
+
+  // PLACEHOLDER: whoever runs Island Finds.
+  finds_keeper: {
+    name: 'Shopkeeper',
+    look: { skin: '#d8a880', hair: '#c8c0b0', shirt: '#7a5a8a', legs: '#4a4a3a' },
+    home: { map: 'finds', col: 4, row: 1, facing: 'down' },
+    talk: [
+      { if: '!flag:met_finds', once: true, set: ['met_finds'],
+        lines: ["\"Anything the tide leaves, I'll buy. Anything you need to go get it, I'll sell.\""] },
+      { if: 'item:pearl', lines: ["Her eyes go straight to your pocket. \"Is that what I think it is?\""] },
+      { lines: ["\"Low tide's the time for digging. Not that I'm telling you anything.\""] },
+    ],
+    shop: 'island_finds',
   },
 
   // Only on the island when his boat is. The boat itself is a `prop`
@@ -128,12 +166,19 @@ const NPCS = {
                 "\"Different ports, different printings, kid. Want to see?\""] },
       { lines: ["\"Tide's at four. I'm gone by then.\""] },
     ],
-    // STUB: the sailor's offers should change each visit. For now they're fixed.
+    // He's only on the island Tuesdays and Saturdays, so refreshing every 'day'
+    // means every visit brings a different pair of offers.
     trade: {
-      offers: [
+      pool: [
         { give: '061', want: { rarity: 'uncommon' } },
         { give: '037', want: { rarity: 'rare' } },
+        { give: '046', want: { type: 'dark' } },
+        { give: '035', want: { rarity: 'uncommon' } },
+        { give: '016', want: { type: 'psychic' } },
+        { give: '063', want: { rarity: 'rare' } },
+        { give: '021', want: { type: 'steel' } },
       ],
+      show: 2, refresh: 'day',
     },
     job: 'unload_boat',
     battle: 'sailor',

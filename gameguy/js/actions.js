@@ -62,6 +62,7 @@ function receive(gift) {
   if (!gift) return;
   if (gift.money) { state.money += gift.money; toast('+' + moneyText(gift.money)); }
   if (gift.card && CARD_BY_ID[gift.card]) { addCard(gift.card); toast('You got ' + CARD_BY_ID[gift.card].name + '!'); }
+  if (gift.item && GOODS[gift.item]) { addGood(gift.item); toast('You got: ' + GOODS[gift.item].name); }
 }
 
 /* ---------------- the options menu ---------------- */
@@ -138,7 +139,7 @@ function battleOption(def, again) {
     return { label: 'Play cards', dim: true, hint: "They don't want to play you. Yet.", run: () => say(opp.name, opp.notYetLine || '"Come back when you\'ve got a real deck."', again) };
   const problem = deckProblem(deckList());
   if (problem)
-    return { label: 'Play cards', dim: true, hint: 'Your deck isn\'t ready.', run: () => say('', [def.notReadyLine || "You don't have a deck you could play with.", problem]) };
+    return { label: 'Play cards', dim: true, hint: 'Your deck isn\'t ready.', run: () => say('', [def.notReadyLine || "You don't have a deck you could play with.", problem + ' (You build your deck at the desk in your room, or from the Esc menu.)']) };
   return { label: 'Play cards', hint: 'First to ' + (opp.points || BATTLE_RULES.pointsToWin) + ' knock-outs.  Takes about ' + (opp.minutes || 30) + ' minutes.',
            run: () => say(opp.name, opp.intro || '"Let\'s play."', () => fadeThrough(() => startBattle(id, afterBattle), { dur: 0.3 })) };
 }
@@ -167,29 +168,57 @@ function openShop(shopId, keeper) {
   const again = () => openShop(shopId, keeper);
 
   const options = shop.products.map(p => {
-    const pack = PACKS[p.pack];
-    if (shelf[p.pack] === undefined) shelf[p.pack] = p.startStock;
-    const label = pack.name + '     ' + moneyText(p.price);
-    if (shelf[p.pack] <= 0)
+    const key = productKey(p), good = p.item && GOODS[p.item];
+    const name = p.pack ? PACKS[p.pack].name : good.name;
+    const label = name + '     ' + moneyText(p.price);
+    const limited = p.startStock !== undefined;                 // no startStock = never runs out
+    if (limited && shelf[key] === undefined) shelf[key] = p.startStock;
+    const left = limited ? shelf[key] + ' left.  ' : '';
+
+    if (good && good.tool && have(p.item))
+      return { label, dim: true, hint: 'You already have one.', run: again };
+    if (limited && shelf[key] <= 0)
       return { label, dim: true, hint: 'Sold out.', run: () => say(keeper, shop.soldOutLine || '"Sold out."', again) };
     if (state.money < p.price)
-      return { label, dim: true, hint: shelf[p.pack] + ' left.  You have ' + state.money + '.',
+      return { label, dim: true, hint: left + 'You have ' + state.money + '.',
                run: () => say('', "You count it again. Still " + (p.price - state.money) + " short.", again) };
-    return { label, hint: shelf[p.pack] + ' left on the shelf.', run: () => buyPack(shopId, p) };
+    return { label, hint: left + (good ? good.desc : ''), run: () => {
+      state.money -= p.price;
+      if (limited) shelf[key] -= 1;
+      if (p.pack) return buyPack(p.pack);
+      addGood(p.item); saveGame(); toast('Bought: ' + good.name); again();
+    } };
   });
+  if (shop.buys) options.push({ label: 'Sell things', run: () => openSelling(shopId, keeper) });
   options.push({ label: 'Just looking' });
   choose(shop.name, options);
 }
 
-function buyPack(shopId, product) {
-  state.money -= product.price;
-  state.shops[shopId][product.pack] -= 1;
-  const ids = rollPack(product.pack);
+function openSelling(shopId, keeper) {
+  const again = () => openSelling(shopId, keeper);
+  const sellable = Object.keys(state.inventory || {}).filter(id => GOODS[id] && GOODS[id].sell > 0 && have(id));
+  if (!sellable.length) return say(keeper, '"Nothing I can use in there. Come back with your pockets full."', () => openShop(shopId, keeper));
+  const options = sellable.map(id => ({
+    label: GOODS[id].name + '  x' + have(id) + '     ' + moneyText(GOODS[id].sell) + ' each',
+    hint: 'Sells one.',
+    run: () => { removeGood(id); state.money += GOODS[id].sell; saveGame(); toast('+' + moneyText(GOODS[id].sell)); again(); },
+  }));
+  const total = sellable.reduce((n, id) => n + have(id) * GOODS[id].sell, 0);
+  options.push({ label: 'Sell all of it     ' + moneyText(total), run: () => {
+    for (const id of sellable) removeGood(id, have(id));
+    state.money += total; saveGame(); toast('+' + moneyText(total)); openShop(shopId, keeper);
+  } });
+  options.push({ label: 'Back', run: () => openShop(shopId, keeper) });
+  choose('Sell what?', options, () => openShop(shopId, keeper));
+}
+
+function buyPack(packId) {
+  const ids = rollPack(packId);
   // The cards go into the collection NOW, before the reveal. If the page is
   // refreshed mid-opening, nothing is lost. The reveal is only a show.
   const wasNew = ids.map(id => { const isNew = owned(id) === 0; addCard(id); return isNew; });
   saveGame();
-  openPackScreen(product.pack, ids, wasNew, () => fireEvent('pack_opened'));
+  openPackScreen(packId, ids, wasNew, () => fireEvent('pack_opened'));
 }
 
 /* ---------------- trading ---------------- */
@@ -197,13 +226,24 @@ function buyPack(shopId, product) {
 // cards to hand over (the one you have most copies of). You don't get to
 // choose. Fine while collections are small; it'll want a picker later.
 
+// Which offers is this person making TODAY? Their fixed `offers`, plus `show`
+// of their rotating `pool`. Each comes with a `key` used to remember it's been done.
+function currentOffers(id, trade) {
+  const out = (trade.offers || []).map((offer, i) => ({ offer, key: 'trade:' + id + ':' + i }));
+  if (trade.pool && trade.pool.length) {
+    const period = trade.refresh === 'day' ? 'day' + state.day : 'week' + weekNow();
+    for (const i of seededPick(trade.pool.length, trade.show || 1, id + ':' + period))
+      out.push({ offer: trade.pool[i], key: 'trade:' + id + ':pool' + i + ':' + period });     // the period is in the key, so
+  }                                                                                            // next time round it's fresh again
+  return out;
+}
+
 function openTrade(target) {
   const def = target.def, id = target.npc ? target.npc.id : def.name;
   const again = () => openTrade(target);
 
-  const options = def.trade.offers.map((offer, i) => {
+  const options = currentOffers(id, def.trade).map(({ offer, key }) => {
     const theirs = CARD_BY_ID[offer.give];
-    const key = 'trade:' + id + ':' + i;
     state.seen[offer.give] = true;                       // they showed it to you. It counts as seen.
     if (offer.once !== false && state.done[key]) return { label: theirs.name + '   (already traded)', dim: true, run: again };
 
@@ -268,6 +308,35 @@ function goToSleep(collapsed) {
 
 function collapse() {
   say('', "Your eyes won't stay open. It's far too late to be out.", () => goToSleep(true));
+}
+
+/* ---------------- using tools (F) ---------------- */
+
+function weightedPick(table) {
+  let roll = Math.random() * table.reduce((n, f) => n + f.weight, 0);
+  for (const f of table) if ((roll -= f.weight) < 0) return f;
+  return table[table.length - 1];
+}
+
+function doActivity(found) {
+  const act = found.act;
+  if (act.bait && !have(act.bait)) return say('', act.noBait || "You're out of " + GOODS[act.bait].name.toLowerCase() + '.');
+
+  let tooLate = false, result = null;
+  fadeThrough(() => {
+    if (act.bait) removeGood(act.bait);
+    if (act.oncePerSpot) { if (!state.dug) state.dug = { day: state.day, spots: {} }; state.dug.spots[currentName + ':' + found.col + ',' + found.row] = act.marks || 'dug_hole'; }
+    tooLate = advanceMinutes(act.minutes || 10);
+    // STUB: a dice roll. A timing minigame would go here and hand back a `result` the same shape.
+    result = weightedPick((act.findsIn && act.findsIn[currentName]) || act.finds);
+  }, { dur: 0.25, text: act.text, sub: clockText() + '  →  ' + clockAfter(act.minutes || 10),
+       then: () => say('', result.line || '...', () => {
+         if (result.item)  { addGood(result.item); toast('+ ' + GOODS[result.item].name); }
+         if (result.money) { const n = result.money[0] + Math.floor(Math.random() * (result.money[1] - result.money[0] + 1)); state.money += n; toast('+' + moneyText(n)); }
+         if (result.card)  { const pool = CARDS.filter(c => rarityOf(c) === result.card); const c = pool[Math.floor(Math.random() * pool.length)]; if (c) { addCard(c.id); toast('You got ' + c.name + '!'); } }
+         saveGame();
+         if (tooLate) collapse();
+       }) });
 }
 
 /* ---------------- moving between maps ---------------- */

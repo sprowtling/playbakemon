@@ -17,7 +17,9 @@ let bs = null;     // "battle screen": everything the table view needs while a m
 /* ---------------- your deck ---------------- */
 
 function deckList() {
-  if (!state.deck) state.deck = autoDeck();
+  // Until you've edited the deck yourself it simply tracks the shoebox, so a kid
+  // who has never opened the deck editor can still sit down and play.
+  if (!state.deck || !state.deckEdited) state.deck = autoDeck();
   const list = [];
   for (const [id, n] of Object.entries(state.deck)) {
     const count = Math.min(n, owned(id), BATTLE_RULES.copiesMax);       // traded a card away? the deck shrinks with it
@@ -51,9 +53,9 @@ function updateDeckEditor() {
   if (row >= s.topRow + GRID.rows) s.topRow = row - GRID.rows + 1;
 
   const id = s.cards[s.sel].id, inDeck = state.deck[id] || 0, size = deckList().length;
-  if (pressed('action') && inDeck < Math.min(owned(id), BATTLE_RULES.copiesMax) && size < BATTLE_RULES.deckMax) state.deck[id] = inDeck + 1;
-  if (pressed('remove') && inDeck > 0) { if (inDeck === 1) delete state.deck[id]; else state.deck[id] = inDeck - 1; }
-  if (pressed('auto')) state.deck = autoDeck();
+  if (pressed('action') && inDeck < Math.min(owned(id), BATTLE_RULES.copiesMax) && size < BATTLE_RULES.deckMax) { state.deck[id] = inDeck + 1; state.deckEdited = true; }
+  if (pressed('remove') && inDeck > 0) { if (inDeck === 1) delete state.deck[id]; else state.deck[id] = inDeck - 1; state.deckEdited = true; }
+  if (pressed('auto')) { state.deck = autoDeck(); state.deckEdited = false; }      // back to "everything I own", and it keeps itself up to date again
   if (pressed('cancel')) { saveGame(); ui.screen = null; if (s.onClose) s.onClose(); }
 }
 
@@ -80,7 +82,8 @@ function drawDeckEditor() {
   drawCard(card, dx, GRID.y, dw, dh, true);
   drawMoveNotes(card, dx, GRID.y + dh + 30, dw);
   setFont(18); ctx.fillStyle = COLOR.dim;
-  ctx.fillText('E add a copy      X take one out      F fill it for me      Esc done', 28, canvas.height - 16);
+  ctx.fillText('E add a copy      X take one out      F everything I own      Esc done', 28, canvas.height - 16);
+  if (!state.deckEdited) { ctx.fillStyle = COLOR.dim; ctx.textAlign = 'right'; ctx.fillText('Tracking your whole shoebox until you change it.', canvas.width - 28, 52); ctx.textAlign = 'left'; }
 }
 
 // Under a big card: is each of its effects actually working in the island game?

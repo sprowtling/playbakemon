@@ -16,6 +16,7 @@ const KEYS = {
   up: ['arrowup', 'w'], down: ['arrowdown', 's'], left: ['arrowleft', 'a'], right: ['arrowright', 'd'],
   action: ['e', 'enter', ' '], cancel: ['escape', 'backspace'], collection: ['c'],
   remove: ['x', '-', 'delete'], auto: ['f'],
+  use: ['f'], bag: ['i', 'b'],
   dbg1: ['1'], dbg2: ['2'], dbg3: ['3'], dbg4: ['4'], dbg0: ['0'],
 };
 const heldKeys = {}, freshKeys = new Set();
@@ -48,6 +49,7 @@ function update(dt) {
   else if (ui.screen && ui.screen.kind === 'collection') updateCollection();
   else if (ui.screen && ui.screen.kind === 'pack')       updatePack(dt);
   else if (ui.screen && ui.screen.kind === 'deck')       updateDeckEditor();
+  else if (ui.screen && ui.screen.kind === 'bag')        updateBag();
   else if (ui.screen && ui.screen.kind === 'battle')     updateBattle(dt);
   else if (state && !ui.screen)                          updateWorld(dt);
   freshKeys.clear();
@@ -89,7 +91,9 @@ function updateWorld(dt) {
 
   // --- keys ---
   if (pressed('action')) { const target = facingTarget(); if (target) return interact(target); }
+  if (pressed('use')) { const found = availableActivity(); if (found) return doActivity(found); }
   if (pressed('collection')) return openCollection();
+  if (pressed('bag')) return openBag();
   if (pressed('cancel')) return openPauseMenu();
 
   if (DEBUG) {
@@ -103,11 +107,14 @@ function updateWorld(dt) {
 
 /* ---------------- draw ---------------- */
 
+// The little label over your head: "E  Megan" for things to talk to,
+// "F  Dig" when a tool you own would work right here.
 function drawPrompt() {
   const target = facingTarget();
-  if (!target || !target.name) return;
+  const activity = (!target || !target.name) ? availableActivity() : null;
+  if ((!target || !target.name) && !activity) return;
   setFont(20);
-  const text = 'E   ' + target.name;
+  const text = activity ? 'F   ' + activity.act.name : 'E   ' + target.name;
   const w = ctx.measureText(text).width + 24;
   const x = Math.round((player.x + TILE / 2 - camera.x) * ZOOM - w / 2);
   const y = Math.round((player.y - camera.y) * ZOOM - 30);
@@ -129,6 +136,7 @@ function draw(time) {
     if (kind === 'collection') drawCollection();
     if (kind === 'pack')       drawPack(time);
     if (kind === 'deck')       drawDeckEditor();
+    if (kind === 'bag')        drawBag();
     if (kind === 'battle')     drawBattle();
   }
   if (ui.dialogue) drawDialogue();
@@ -169,6 +177,7 @@ function openPauseMenu() {
     { label: 'Back to the island' },
     { label: 'Collection', run: () => openCollection() },
     { label: 'Deck', run: () => openDeckEditor() },
+    { label: 'Backpack', run: () => openBag() },
     { label: 'Save', run: () => toast(saveGame() ? 'Saved.' : "Couldn't save in this browser.") },
     { label: 'Save and go to the title', run: () => { saveGame(); fadeThrough(showTitle, { dur: 0.3 }); } },
   ]);
