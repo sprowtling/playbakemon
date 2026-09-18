@@ -50,8 +50,8 @@ const SKY_TINT = [
 const INDOOR_TINT_STRENGTH = 0.35;   // indoors only gets this fraction of the tint
 
 // ---- Money ----
-const MONEY_NAME     = 'jenni';   // PLACEHOLDER — rename to whatever the island uses
-const MONEY_NAME_ONE = 'J';    // ...and what exactly one of them is called
+const MONEY_NAME     = 'coins';   // PLACEHOLDER — rename to whatever the island uses
+const MONEY_NAME_ONE = 'coin';    // ...and what exactly one of them is called
 
 // ---- A new game starts like this ----
 const START = {
