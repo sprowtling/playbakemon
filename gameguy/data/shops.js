@@ -64,7 +64,7 @@ const SHOPS = {
     name: 'Tidepool Games',
     restockDay: 'Thu',
     products: [
-      { pack: 'booster', price: 5, startStock: 1, restockTo: 6, otherKidsBuy: 1 },
+      { pack: 'booster', price: 10, startStock: 1, restockTo: 4, otherKidsBuy: 1 },
     ],
     soldOutLine: "\"All gone. Boat's in Thursday. Same as always.\"",
   },
