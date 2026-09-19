@@ -220,8 +220,8 @@ function drawPerson(px, py, look, facing, walkTimer) {
   ctx.fillRect(x + 10, y + 16 + bob, 2, 11);
 
   ctx.fillStyle = look.skin;
-  if (facing !== 'right') ctx.fillRect(x + 8,  y + 17 + bob, 3, 7);
-  if (facing !== 'left')  ctx.fillRect(x + 21, y + 17 + bob, 3, 7);
+  if (facing !== 'left') ctx.fillRect(x + 8,  y + 17 + bob, 3, 7);
+  if (facing !== 'right')  ctx.fillRect(x + 21, y + 17 + bob, 3, 7);
   ctx.fillRect(x + 10, y + 6 + bob, 12, 11);
 
   ctx.fillStyle = look.hair;
