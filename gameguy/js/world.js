@@ -15,6 +15,15 @@ const VIEW_W = VIEW_COLS * TILE, VIEW_H = VIEW_ROWS * TILE;    // the window ont
 canvas.width  = VIEW_W * ZOOM;
 canvas.height = VIEW_H * ZOOM;
 
+// One Image per character sheet named in CHARACTERS (data/characters.js).
+const charSheets = {};
+for (const [name, def] of Object.entries(CHARACTERS)) {
+  const img = new Image();
+  charSheets[name] = { img, ready: false, layout: Object.assign({}, CHARACTER_LAYOUT, def.layout || {}) };
+  img.onload = () => { charSheets[name].ready = true; };
+  img.src = 'art/characters/' + def.file;
+}
+
 // One Image per sheet named in SHEETS (data/tiles.js).
 const sheets = {};
 for (const [name, file] of Object.entries(SHEETS)) {
@@ -200,8 +209,34 @@ function drawLetter(map, ch, col, row, time, depth) {
   ctx.fillText(ch, x + 12, y + 20);
 }
 
-// One little person, from four colours. The player and every NPC use this.
-function drawPerson(px, py, look, facing, walkTimer) {
+// Everybody on the island is drawn here: you and every NPC.
+// With a `sprite` (data/characters.js) they're a picture from a sheet.
+// Without one they're the old blocky person, built from four colours.
+function drawPerson(px, py, look, facing, walkTimer, sprite) {
+  if (sprite && drawCharacter(px, py, sprite, facing, walkTimer)) return;
+  drawBlockyPerson(px, py, look, facing, walkTimer);
+}
+
+// Picks the right cell of the sheet from which way they face and whether
+// they're walking, then draws it (mirrored, for facing left).
+function drawCharacter(px, py, name, facing, walkTimer) {
+  const sheet = charSheets[name];
+  if (!sheet || !sheet.ready) return false;                 // still loading, or a name with no sheet
+  const L = sheet.layout;
+  const col = walkTimer > 0 ? Math.floor(walkTimer * L.fps) % L.cols : L.standFrame;
+  const row = L.rowFor[facing];
+  const x = Math.round(px), y = Math.round(py) + L.offsetY;
+
+  ctx.save();
+  if (L.flip[facing]) { ctx.translate(x + TILE, y); ctx.scale(-1, 1); }
+  else ctx.translate(x, y);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(sheet.img, col * TILE, row * TILE, TILE, TILE, 0, 0, TILE, TILE);
+  ctx.restore();
+  return true;
+}
+
+function drawBlockyPerson(px, py, look, facing, walkTimer) {
   const x = Math.round(px), y = Math.round(py);
   const walking = walkTimer > 0;
   const bob  = walking && Math.floor(walkTimer * 8) % 2 ? 1 : 0;
@@ -260,8 +295,8 @@ function drawWorld(time) {
   }
 
   // People are drawn top-to-bottom so whoever is lower on screen is in front.
-  const people = npcsHere.map(n => ({ y: n.row * TILE, draw: () => drawPerson(n.col * TILE, n.row * TILE, n.def.look, n.facing, 0) }));
-  people.push({ y: player.y, draw: () => drawPerson(player.x, player.y, PLAYER_LOOK, player.facing, player.walkTimer) });
+  const people = npcsHere.map(n => ({ y: n.row * TILE, draw: () => drawPerson(n.col * TILE, n.row * TILE, n.def.look, n.facing, 0, n.def.sprite) }));
+  people.push({ y: player.y, draw: () => drawPerson(player.x, player.y, PLAYER_LOOK, player.facing, player.walkTimer, PLAYER_SPRITE) });
   people.sort((a, b) => a.y - b.y).forEach(p => p.draw());
 
   if (DEBUG && showBoxes) {
@@ -327,7 +362,6 @@ function validateData() {
       if (typeof o.want === 'string' && !CARD_BY_ID[o.want]) say(`${where} wants card "${o.want}", which doesn't exist.`);
     }
     if (d.battle && !OPPONENTS[d.battle]) say(`${where} plays as opponent "${d.battle}", who isn't in data/opponents.js.`);
-    if (d.sprite && !SPRITES[d.sprite]) say(`${where} uses sprite "${d.sprite}", which isn't named in SPRITES (data/tiles.js).`);
   };
 
   for (const [name, map] of Object.entries(MAPS)) {
@@ -342,6 +376,7 @@ function validateData() {
       const where = `Map "${name}", place "${ch}" (${place.name || 'unnamed'})`;
       if (!map.tiles.some(line => line.includes(ch))) say(`${where} is defined but the letter never appears in the map.`);
       if (!place.sprite && !legend[ch]) say(`${where} has no look: give it a sprite, or add "${ch}" to the ${map.legend} legend.`);
+      if (place.sprite && !SPRITES[place.sprite]) say(`${where} uses sprite "${place.sprite}", which isn't named in SPRITES (data/tiles.js).`);
       if (place.under && !legend[place.under]) say(`${where} is drawn over "${place.under}", which isn't in the ${map.legend} legend.`);
       if (place.talkTo && !NPCS[place.talkTo]) say(`${where} passes you to NPC "${place.talkTo}", who isn't in data/npcs.js.`);
       if (place.to) {
@@ -369,12 +404,19 @@ function validateData() {
     if (def.under && !LEGENDS[legendName][def.under]) say(`Legend "${legendName}", letter "${ch}" is drawn over "${def.under}", which isn't in that legend.`);
   }
 
+  for (const [name, def] of Object.entries(CHARACTERS)) {
+    const L = Object.assign({}, CHARACTER_LAYOUT, def.layout || {});
+    for (const facing of ['up', 'down', 'left', 'right']) if (L.rowFor[facing] === undefined) say(`Character "${name}" has no row for facing ${facing} in its layout (data/characters.js).`);
+  }
+  if (PLAYER_SPRITE && !CHARACTERS[PLAYER_SPRITE]) say(`PLAYER_SPRITE is "${PLAYER_SPRITE}", which isn't in CHARACTERS (data/characters.js).`);
+
   for (const [id, npc] of Object.entries(NPCS)) {
     for (const spot of [npc.home].concat(npc.schedule || [])) {
       const map = MAPS[spot.map];
       if (!map) say(`NPC "${id}" is placed in map "${spot.map}", which doesn't exist.`);
       else if (!walkable(map, spot.col, spot.row)) say(`NPC "${id}" stands at column ${spot.col}, row ${spot.row} of "${spot.map}", which is solid or off the map.`);
     }
+    if (npc.sprite && !CHARACTERS[npc.sprite]) say(`NPC "${id}" uses sprite "${npc.sprite}", which isn't in CHARACTERS (data/characters.js).`);
     checkInteraction(`NPC "${id}"`, npc);
   }
 

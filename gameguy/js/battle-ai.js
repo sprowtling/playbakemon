@@ -96,7 +96,9 @@ function makeAI(style) {
       const opts = req.options;
       const mine = m => zone(P).includes(m);
       switch (req.purpose) {
-        case 'setupActive': return opts.slice().sort((a, b) => CARD_BY_ID[b.cardId].hp - CARD_BY_ID[a.cardId].hp)[0].value;
+        // Both setup options are already filtered to basics by the engine (see runBattle),
+        // but the AI shouldn't rely on that silently — pick defensively among what's basic.
+        case 'setupActive': { const basics = opts.filter(o => CARD_BY_ID[o.cardId].kind === 'bakemon' && CARD_BY_ID[o.cardId].stage === 'basic'); return (basics.length ? basics : opts).sort((a, b) => CARD_BY_ID[b.cardId].hp - CARD_BY_ID[a.cardId].hp)[0].value; }
         case 'setupBench':  return opts[0].value;                                     // bench everyone
         case 'promote':     return opts.slice().sort((a, b) => ((potential(b) > 0) * 500 + b.energy.length * 30 + b.hp) - ((potential(a) > 0) * 500 + a.energy.length * 30 + a.hp))[0];
         case 'heal': case 'cure': case 'protect':

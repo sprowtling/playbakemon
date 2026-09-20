@@ -139,25 +139,43 @@ const totalOwned  = () => Object.values(state.collection).reduce((a, n) => a + n
 function addCard(id)    { state.collection[id] = owned(id) + 1; state.seen[id] = true; }
 function removeCard(id) { if (owned(id) > 0) state.collection[id] -= 1; }
 
+// The card's own rarity, straight from the database export. Falls back to
+// RARITY_FALLBACK (data/shops.js) only for a card that doesn't have one yet
+// (still being designed) — so an unfinished card never breaks a pack or trade.
 function rarityOf(card) {
-  return RARITY_OVERRIDES[card.id]
-      || (card.kind === 'item' ? RARITY_BY_ITEM_KIND[card.itemKind] : RARITY_BY_STAGE[card.stage])
-      || 'common';
+  return card.rarity || RARITY_FALLBACK;
 }
 
 // Does this card satisfy what a trader wants?  want = 'id' | {type} | {rarity}
+// A description can combine filters: { rarity: 'uncommon', kind: 'bakemon' }
+// means "any uncommon Bakemon, not an item". At least one filter is required.
 function cardMatches(card, want) {
   if (typeof want === 'string') return card.id === want;
-  if (want.type)   return (card.types || []).includes(want.type);
-  if (want.rarity) return rarityOf(card) === want.rarity;
-  return false;
+  if (want.kind   && card.kind !== want.kind) return false;
+  if (want.type   && !(card.types || []).includes(want.type)) return false;
+  if (want.rarity && rarityOf(card) !== want.rarity) return false;
+  return !!(want.kind || want.type || want.rarity);
+}
+
+// `give` on a trade offer can be a card id, OR a description like `want` is
+// ({ type: 'fire' }, { rarity: 'rare' }) — in which case a matching card is
+// picked at random. `seed` keeps that pick stable (see seededPick above):
+// the same offer, on the same day, always resolves to the same card.
+function resolveGive(give, seed) {
+  if (typeof give === 'string') return give;
+  const pool = CARDS.filter(c => cardMatches(c, give));
+  if (!pool.length) return null;
+  const [i] = seededPick(pool.length, 1, seed);
+  return pool[i].id;
 }
 
 function describeWant(want) {
   if (typeof want === 'string') return CARD_BY_ID[want] ? CARD_BY_ID[want].name : '???';
-  if (want.type)   return 'any ' + want.type + ' type';
-  if (want.rarity) return 'any ' + want.rarity + ' card';
-  return '???';
+  const bits = [];
+  if (want.rarity) bits.push(want.rarity);
+  if (want.type)   bits.push(want.type + '-type');
+  bits.push(want.kind === 'bakemon' ? 'Bakemon' : want.kind === 'item' ? 'item' : 'card');
+  return 'any ' + bits.join(' ');
 }
 
 function rollPack(packId) {

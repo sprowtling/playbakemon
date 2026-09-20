@@ -320,7 +320,12 @@ async function perform(G, P, action) {
       const damageTaken = mon.maxHp - mon.hp;
       mon.card = card; mon.stack.push(card.id);
       mon.maxHp = card.hp; mon.hp = Math.max(10, card.hp - damageTaken);       // damage carries over
-      mon.playedTurn = G.turnNumber; mon.auras = []; mon.sleepHeal = 0;
+      // NOTE: playedTurn is NOT touched here. It marks when this Bakemon (the physical
+      // card stack) first entered play, not when it last evolved — canEvolveOnto() uses
+      // it to block evolving again the same turn. Resetting it on every evolution let a
+      // Bakemon evolve twice in one turn (e.g. Sparkeet->Amptiel then, in the same turn,
+      // straight into whatever Amptiel evolves into), which is illegal.
+      mon.auras = []; mon.sleepHeal = 0;
       if (G.rules.evolveClearsStatus) { mon.status = {}; mon.poisonDoubling = 0; }
       await enterPlay(G, P, mon);
       break;
