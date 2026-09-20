@@ -164,11 +164,22 @@ function tileHash(col, row) {
 }
 
 // `size` is optional: menus use it to draw an item icon bigger than one tile.
-function drawSprite(name, x, y, size) {
+// `rotate` is optional: 90, 180 or 270, clockwise, around the tile's center —
+// so one piece of art (say a sign facing one way) can stand in for all four.
+function drawSprite(name, x, y, size, rotate) {
   const cell = SPRITES[name];
   const sheet = cell && sheets[cell[2] || 'tiles'];
   if (!sheet || !sheet.ready) return false;
-  ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, x, y, size || TILE, size || TILE);
+  const s = size || TILE;
+  if (rotate) {
+    ctx.save();
+    ctx.translate(x + s / 2, y + s / 2);
+    ctx.rotate(rotate * Math.PI / 180);
+    ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, -s / 2, -s / 2, s, s);
+    ctx.restore();
+  } else {
+    ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, x, y, s, s);
+  }
   return true;
 }
 
@@ -199,7 +210,7 @@ function drawLetter(map, ch, col, row, time, depth) {
   else if (look && Array.isArray(look.sprite)) name = look.sprite[tileHash(col, row) % look.sprite.length];
   else if (look)                             name = look.sprite;
 
-  if (name && drawSprite(name, x, y)) return;
+  if (name && drawSprite(name, x, y, null, look.rotate)) return;
 
   // No picture (yet). Show SOMETHING: a coloured square with the letter on it.
   ctx.fillStyle = (look && look.color) || '#d23ad2';
@@ -287,7 +298,7 @@ function drawWorld(time) {
       if (inBounds(c, r)) drawLetter(current, current.tiles[r][c], c, r, time);
     }
   }
-  for (const p of propsHere) drawSprite(p.sprite, p.col * TILE, p.row * TILE);
+  for (const p of propsHere) drawSprite(p.sprite, p.col * TILE, p.row * TILE, null, p.rotate);
   // today's holes in the sand
   for (const [spot, mark] of Object.entries((state.dug || {}).spots || {})) {
     const [map, where] = spot.split(':'), [c, r] = where.split(',').map(Number);
@@ -381,6 +392,7 @@ function validateData() {
       if (!map.tiles.some(line => line.includes(ch))) say(`${where} is defined but the letter never appears in the map.`);
       if (!place.sprite && !legend[ch]) say(`${where} has no look: give it a sprite, or add "${ch}" to the ${map.legend} legend.`);
       if (place.sprite && !SPRITES[place.sprite]) say(`${where} uses sprite "${place.sprite}", which isn't named in SPRITES (data/tiles.js).`);
+      if (place.rotate !== undefined && ![90, 180, 270].includes(place.rotate)) say(`${where} has rotate: ${place.rotate}. Use 90, 180 or 270.`);
       if (place.under && !legend[place.under]) say(`${where} is drawn over "${place.under}", which isn't in the ${map.legend} legend.`);
       if (place.talkTo && !NPCS[place.talkTo]) say(`${where} passes you to NPC "${place.talkTo}", who isn't in data/npcs.js.`);
       if (place.to) {
@@ -399,6 +411,7 @@ function validateData() {
     }
     for (const p of map.props || []) {
       if (!SPRITES[p.sprite]) say(`Map "${name}" has a prop with sprite "${p.sprite}", which isn't named in SPRITES.`);
+      if (p.rotate !== undefined && ![90, 180, 270].includes(p.rotate)) say(`Map "${name}" has a prop with rotate: ${p.rotate}. Use 90, 180 or 270.`);
       checkConds(`Map "${name}", prop "${p.sprite}"`, p.showIf);
     }
   }
@@ -406,6 +419,7 @@ function validateData() {
   for (const legendName of Object.keys(LEGENDS)) for (const [ch, def] of Object.entries(LEGENDS[legendName])) {
     for (const s of [].concat(def.sprite || [], def.frames || [])) if (!SPRITES[s]) say(`Legend "${legendName}", letter "${ch}": sprite "${s}" isn't named in SPRITES.`);
     if (def.under && !LEGENDS[legendName][def.under]) say(`Legend "${legendName}", letter "${ch}" is drawn over "${def.under}", which isn't in that legend.`);
+    if (def.rotate !== undefined && ![90, 180, 270].includes(def.rotate)) say(`Legend "${legendName}", letter "${ch}" has rotate: ${def.rotate}. Use 90, 180 or 270.`);
   }
 
   for (const [name, def] of Object.entries(CHARACTERS)) {

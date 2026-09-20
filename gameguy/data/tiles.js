@@ -81,6 +81,10 @@ const SHEETS = { tiles: 'art/tileset.png', items: 'art/items.png' };
      under:  '.'                    draw this OTHER letter first, underneath.
                                     This is how a tree stands on grass: the
                                     tree picture has a see-through background.
+     rotate: 90                     turn the picture clockwise: 90, 180 or 270.
+                                    One drawing can then face every direction
+                                    (a sign, a fence run) instead of needing
+                                    separate art per orientation.
      solid:  true                   you can't walk through it
      color:  '#4c9a44'              used ONLY if the picture is missing, so a
                                     half-finished tile still shows up as a
