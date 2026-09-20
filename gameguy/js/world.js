@@ -358,7 +358,11 @@ function validateData() {
     if (d.shop && !SHOPS[d.shop]) say(`${where} runs shop "${d.shop}", which isn't in data/shops.js.`);
     if (d.trade && d.trade.pool && !['day', 'week'].includes(d.trade.refresh)) say(`${where} has a trade pool but its refresh is "${d.trade.refresh}". Use 'day' or 'week'.`);
     for (const o of ((d.trade && d.trade.offers) || []).concat((d.trade && d.trade.pool) || [])) {
-      if (!CARD_BY_ID[o.give]) say(`${where} offers to trade away card "${o.give}", which doesn't exist.`);
+      if (typeof o.give === 'string') {
+        if (!CARD_BY_ID[o.give]) say(`${where} offers to trade away card "${o.give}", which doesn't exist.`);
+      } else if (!CARDS.some(c => cardMatches(c, o.give))) {
+        say(`${where} offers to trade away ${describeWant(o.give)}, but no card matches that.`);
+      }
       if (typeof o.want === 'string' && !CARD_BY_ID[o.want]) say(`${where} wants card "${o.want}", which doesn't exist.`);
     }
     if (d.battle && !OPPONENTS[d.battle]) say(`${where} plays as opponent "${d.battle}", who isn't in data/opponents.js.`);
