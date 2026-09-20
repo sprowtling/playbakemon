@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Map Builder & Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        .font-mono-code {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+
+        /* Grid display rules */
+        .grid-cell {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fira Code', monospace;
+            font-weight: 700;
+            transition: outline 0.05s ease;
+        }
+
+        .show-grid .grid-cell {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .grid-cell:hover {
+            outline: 2px solid #3b82f6;
+            z-index: 10;
+        }
+
+        .active-tool-btn {
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+            border-color: #60a5fa !important;
+        }
+
+        .tile-active {
+            ring: 3px solid #3b82f6;
+            transform: scale(1.03);
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col h-screen overflow-hidden">
+
+    <!-- Top Header -->
+    <header class="bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 text-white p-2 rounded-lg flex items-center justify-center font-bold font-mono-code text-xl shadow-lg shadow-blue-500/20">
+                [#]
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight tracking-wide text-white">ASCII Map Builder</h1>
+                <p class="text-xs text-gray-400">Tactical & RPG Grid Map Designer</p>
+            </div>
+        </div>
+
+        <!-- Quick Top Actions -->
+        <div class="flex items-center space-x-2">
+            <!-- Undo / Redo buttons -->
+            <button id="btn-undo" class="p-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-gray-800 text-gray-200 rounded-lg text-sm font-medium transition border border-gray-700" title="Undo (Ctrl+Z)" disabled>
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+            <button id="btn-redo" class="p-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-gray-800 text-gray-200 rounded-lg text-sm font-medium transition border border-gray-700" title="Redo (Ctrl+Y)" disabled>
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+
+            <span class="text-gray-800 border-r border-gray-800 h-5 my-auto"></span>
+
+            <button id="btn-export" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-md shadow-blue-600/20">
+                <i class="fa-solid fa-file-export"></i>
+                <span>Export Map</span>
+            </button>
+            <button id="btn-import-ascii" class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition flex items-center space-x-2 shadow-md shadow-emerald-700/20">
+                <i class="fa-solid fa-paste"></i>
+                <span>Import ASCII</span>
+            </button>
+            <button id="btn-import" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm font-medium transition flex items-center space-x-2 border border-gray-700">
+                <i class="fa-solid fa-file-import"></i>
+                <span>JSON</span>
+            </button>
+            <button id="btn-help" class="p-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition border border-gray-700" title="Instructions & Shortcuts">
+                <i class="fa-solid fa-circle-question text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- Sidebar Panel (Palette & Tools) -->
+        <aside class="w-80 bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 z-10">
+            
+            <!-- Drawing Tools Bar -->
+            <div class="p-3 border-b border-gray-800">
+                <label class="text-xs font-semibold uppercase text-gray-400 tracking-wider block mb-2">Tools</label>
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button data-tool="brush" title="Brush / Paint (B)" class="tool-btn active-tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
+                        <i class="fa-solid fa-paint-brush text-base"></i>
+                        <span>Paint</span>
+                    </button>
+                    <button data-tool="fill" title="Fill Bucket (F)" class="tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
+                        <i class="fa-solid fa-fill-drip text-base"></i>
+                        <span>Fill</span>
+                    </button>
+                    <button data-tool="eyedropper" title="Eyedropper (E)" class="tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
+                        <i class="fa-solid fa-eye-dropper text-base"></i>
+                        <span>Picker</span>
+                    </button>
+                    <button data-tool="eraser" title="Eraser (X)" class="tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
+                        <i class="fa-solid fa-eraser text-base"></i>
+                        <span>Erase</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Palette Management Section -->
+            <div class="flex-1 flex flex-col overflow-hidden p-3 min-h-0">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-semibold uppercase text-gray-400 tracking-wider">Tile Palette</label>
+                    <button id="btn-add-tile" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium bg-blue-950/60 hover:bg-blue-900/80 px-2 py-1 rounded border border-blue-800/50 transition">
+                        <i class="fa-solid fa-plus"></i> New Tile
+                    </button>
+                </div>
+
+                <!-- Palette Container List -->
+                <div id="palette-list" class="flex-1 overflow-y-auto space-y-2 pr-1">
+                    <!-- Palette items inserted dynamically -->
+                </div>
+            </div>
+
+            <!-- Map Grid Dimensions Controls -->
+            <div class="p-3 border-t border-gray-800 bg-gray-900/50">
+                <label class="text-xs font-semibold uppercase text-gray-400 tracking-wider block mb-2">Grid Dimensions</label>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-gray-400 block mb-1">Width (Cols)</span>
+                        <input id="input-grid-width" type="number" min="5" max="100" value="30" class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-center text-white font-mono focus:border-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <span class="text-gray-400 block mb-1">Height (Rows)</span>
+                        <input id="input-grid-height" type="number" min="5" max="100" value="20" class="w-full bg-gray-950 border border-gray-700 rounded p-1.5 text-center text-white font-mono focus:border-blue-500 outline-none">
+                    </div>
+                </div>
+                <button id="btn-resize-grid" class="mt-2 w-full py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded text-xs font-medium transition">
+                    Apply Canvas Size
+                </button>
+            </div>
+
+        </aside>
+
+        <!-- Center Canvas Viewport -->
+        <main class="flex-1 bg-gray-950 flex flex-col overflow-hidden relative">
+            
+            <!-- Floating Canvas Toolbar -->
+            <div class="bg-gray-900/90 backdrop-blur-md border-b border-gray-800 px-4 py-2 flex items-center justify-between text-xs z-10">
+                <div class="flex items-center space-x-4">
+                    <span id="coordinates-display" class="font-mono text-gray-400">X: 0, Y: 0</span>
+                    <span class="text-gray-700">|</span>
+                    <span id="active-tile-display" class="flex items-center gap-2">
+                        <span class="text-gray-400">Active:</span>
+                        <span id="active-tile-badge" class="px-2 py-0.5 rounded font-mono font-bold text-xs border border-gray-700 inline-flex items-center justify-center min-w-[24px]">.</span>
+                        <span id="active-tile-name" class="text-gray-300">Grass</span>
+                    </span>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <!-- Zoom Controls -->
+                    <div class="flex items-center bg-gray-800 rounded border border-gray-700 overflow-hidden">
+                        <button id="btn-zoom-out" class="px-2 py-1 hover:bg-gray-700 text-gray-300"><i class="fa-solid fa-minus"></i></button>
+                        <span id="zoom-level" class="px-2 font-mono text-gray-300">100%</span>
+                        <button id="btn-zoom-in" class="px-2 py-1 hover:bg-gray-700 text-gray-300"><i class="fa-solid fa-plus"></i></button>
+                        <button id="btn-zoom-reset" class="px-2 py-1 border-l border-gray-700 hover:bg-gray-700 text-gray-400" title="Fit to Screen"><i class="fa-solid fa-expand"></i></button>
+                    </div>
+
+                    <!-- Toggles -->
+                    <button id="btn-toggle-grid" class="px-2.5 py-1 bg-blue-900/40 text-blue-300 border border-blue-700/50 rounded hover:bg-blue-800/50 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-border-all"></i>
+                        <span>Gridlines</span>
+                    </button>
+
+                    <button id="btn-clear-canvas" class="px-2.5 py-1 bg-red-950/40 text-red-300 border border-red-800/50 rounded hover:bg-red-900/50 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>Clear Grid</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="canvas-container" class="flex-1 overflow-auto p-8 flex items-center justify-center bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:16px_16px]">
+                <div id="grid-canvas" class="show-grid shadow-2xl shadow-black/80 rounded border border-gray-800 bg-gray-900 transition-transform origin-center">
+                    <!-- Grid cells rendered by JS -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tile Edit / Create Modal -->
+    <div id="modal-tile-editor" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <h3 id="modal-tile-title" class="text-lg font-bold text-white mb-4">Edit Tile Preset</h3>
+            
+            <form id="form-tile-editor" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Tile Name / Description</label>
+                    <input id="input-tile-name" type="text" placeholder="e.g. Grass, Water, Wall" required class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2 text-white outline-none focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">ASCII Character / Symbol</label>
+                    <input id="input-tile-symbol" type="text" maxlength="1" required class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2 text-center text-white font-mono text-xl outline-none focus:border-blue-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Background Color</label>
+                        <div class="flex items-center gap-2">
+                            <input id="input-tile-bg" type="color" value="#1e3a8a" class="w-10 h-10 rounded cursor-pointer border-0 bg-transparent">
+                            <input id="input-tile-bg-hex" type="text" value="#1e3a8a" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2 text-xs font-mono text-white">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Text / Symbol Color</label>
+                        <div class="flex items-center gap-2">
+                            <input id="input-tile-fg" type="color" value="#ffffff" class="w-10 h-10 rounded cursor-pointer border-0 bg-transparent">
+                            <input id="input-tile-fg-hex" type="text" value="#ffffff" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-2 text-xs font-mono text-white">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tile Preview Box -->
+                <div class="pt-2">
+                    <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Preview</label>
+                    <div id="tile-modal-preview" class="w-16 h-16 mx-auto rounded-lg flex items-center justify-center text-2xl font-mono font-bold shadow-md border border-gray-700">
+                        .
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-800">
+                    <button type="button" id="btn-close-tile-modal" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm font-medium">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium">Save Tile</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="modal-export" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-file-export text-blue-400"></i> Export Map Output
+                </h3>
+                <button id="btn-close-export-modal" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <!-- Export Formats Tabs -->
+            <div class="flex border-b border-gray-800 mb-3 text-xs font-medium">
+                <button data-tab="raw" class="export-tab py-2 px-4 border-b-2 border-blue-500 text-blue-400">Plain ASCII</button>
+                <button data-tab="json" class="export-tab py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white">Full JSON State</button>
+                <button data-tab="array" class="export-tab py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white">2D Matrix Array</button>
+            </div>
+
+            <p id="export-info-text" class="text-xs text-gray-400 mb-2">Copy plaintext ASCII characters for tabletop notes or code.</p>
+
+            <div class="flex-1 bg-gray-950 rounded-lg p-3 border border-gray-800 overflow-auto">
+                <pre id="export-output" class="font-mono-code text-xs text-gray-200 whitespace-pre leading-normal select-all"></pre>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-4 border-t border-gray-800 mt-4">
+                <button id="btn-copy-export" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <i class="fa-solid fa-copy"></i> Copy to Clipboard
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Raw ASCII Import Modal -->
+    <div id="modal-ascii-import" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-2xl p-6 shadow-2xl flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-paste text-emerald-400"></i> Import Plain ASCII Text
+                </h3>
+                <button id="btn-close-ascii-modal" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+
+            <div class="space-y-4 flex-1 overflow-y-auto pr-1">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-400 mb-1">Paste Raw ASCII Map</label>
+                    <textarea id="ascii-paste-input" rows="8" placeholder="Paste your ASCII map text here...&#10;e.g.&#10;#####&#10;#...#&#10;#####" class="w-full bg-gray-950 border border-gray-700 rounded-lg p-3 text-white font-mono-code text-xs outline-none focus:border-emerald-500 whitespace-pre leading-normal resize-none"></textarea>
+                </div>
+
+                <!-- Detected Characters Mapping Table -->
+                <div id="ascii-char-mapping-container" class="hidden border-t border-gray-800 pt-3">
+                    <label class="block text-xs font-semibold uppercase text-gray-400 mb-2">Character to Palette Mapping</label>
+                    <p class="text-xs text-gray-400 mb-3">Map detected characters to your existing palette tiles, or auto-create colors for new characters.</p>
+                    <div id="ascii-mapping-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                        <!-- Dynamic mapping rows -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-gray-800 mt-4">
+                <button id="btn-parse-ascii" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm font-medium transition">
+                    Detect Characters
+                </button>
+                <div class="flex items-center space-x-2">
+                    <button id="btn-cancel-ascii-import" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm font-medium">Cancel</button>
+                    <button id="btn-apply-ascii-import" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition flex items-center gap-2">
+                        <i class="fa-solid fa-file-import"></i> Load Map onto Canvas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="modal-help" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-blue-400"></i> How to Use ASCII Map Builder
+            </h3>
+            
+            <div class="space-y-3 text-xs text-gray-300 leading-relaxed">
+                <p><strong class="text-white">1. Create Tile Palette:</strong> Customize your tiles in the left sidebar. Each tile combines a background color with an overlay ASCII symbol.</p>
+                <p><strong class="text-white">2. Paint Canvas:</strong> Click or drag across the grid with the <strong>Paint Tool</strong>. Use the <strong>Fill Bucket</strong> to flood fill regions.</p>
+                <p><strong class="text-white">3. Export Map:</strong> Click <strong>Export Map</strong> to copy standard ASCII characters for your game files or JSON to save work for later.</p>
+                
+                <hr class="border-gray-800 my-2">
+                
+                <h4 class="font-bold text-white uppercase tracking-wider text-[10px]">Keyboard Shortcuts</h4>
+                <ul class="grid grid-cols-2 gap-1.5 font-mono text-[11px]">
+                    <li><span class="text-blue-400 font-bold">Ctrl+Z</span> - Undo Action</li>
+                    <li><span class="text-blue-400 font-bold">Ctrl+Y</span> - Redo Action</li>
+                    <li><span class="text-blue-400 font-bold">B</span> - Brush / Paint</li>
+                    <li><span class="text-blue-400 font-bold">F</span> - Fill Bucket</li>
+                    <li><span class="text-blue-400 font-bold">E</span> - Eyedropper</li>
+                    <li><span class="text-blue-400 font-bold">X</span> - Eraser Tool</li>
+                    <li><span class="text-blue-400 font-bold">G</span> - Toggle Gridlines</li>
+                    <li><span class="text-blue-400 font-bold">1-9</span> - Select Tile #</li>
+                </ul>
+            </div>
+
+            <div class="mt-5 flex justify-end">
+                <button id="btn-close-help" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium">Got it!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden File Input for JSON Load -->
+    <input type="file" id="file-input-import" accept=".json" class="hidden">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-blue-600 text-white px-4 py-2.5 rounded-lg shadow-xl text-sm font-medium transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50 flex items-center gap-2">
+        <i class="fa-solid fa-check-circle"></i>
+        <span id="toast-message">Message</span>
+    </div>
+
+    <script>
+        // Default Tile Preset Configuration
+        const DEFAULT_PALETTE = [
+            { id: 'tile_empty', name: 'Empty / Floor', symbol: ' ', bg: '#111827', fg: '#374151' },
+            { id: 'tile_grass', name: 'Grass', symbol: '.', bg: '#166534', fg: '#86efac' },
+            { id: 'tile_water', name: 'Water', symbol: '~', bg: '#1e40af', fg: '#93c5fd' },
+            { id: 'tile_wall', name: 'Stone Wall', symbol: '#', bg: '#374151', fg: '#d1d5db' },
+            { id: 'tile_tree', name: 'Dense Trees', symbol: 'T', bg: '#14532d', fg: '#4ade80' },
+            { id: 'tile_mountain', name: 'Mountain Peak', symbol: '^', bg: '#451a03', fg: '#fde047' },
+            { id: 'tile_door', name: 'Doorway', symbol: '+', bg: '#78350f', fg: '#fef08a' },
+            { id: 'tile_player', name: 'Player Start', symbol: '@', bg: '#991b1b', fg: '#fca5a5' }
+        ];
+
+        // Application State
+        let state = {
+            width: 30,
+            height: 20,
+            palette: [...DEFAULT_PALETTE],
+            activeTileId: 'tile_grass',
+            activeTool: 'brush', // brush, fill, eyedropper, eraser
+            grid: [], // 2D matrix storing tile IDs
+            zoom: 1,
+            showGrid: true,
+            isMouseDown: false,
+            editingTileId: null
+        };
+
+        // History Stacks for Undo / Redo
+        const historyStack = [];
+        const redoStack = [];
+        const MAX_HISTORY = 50;
+
+        // DOM References
+        const elements = {
+            canvas: document.getElementById('grid-canvas'),
+            canvasContainer: document.getElementById('canvas-container'),
+            paletteList: document.getElementById('palette-list'),
+            coordDisplay: document.getElementById('coordinates-display'),
+            activeBadge: document.getElementById('active-tile-badge'),
+            activeName: document.getElementById('active-tile-name'),
+            inputWidth: document.getElementById('input-grid-width'),
+            inputHeight: document.getElementById('input-grid-height'),
+            zoomLevel: document.getElementById('zoom-level'),
+            exportModal: document.getElementById('modal-export'),
+            exportOutput: document.getElementById('export-output'),
+            asciiModal: document.getElementById('modal-ascii-import'),
+            asciiInput: document.getElementById('ascii-paste-input'),
+            asciiCharContainer: document.getElementById('ascii-char-mapping-container'),
+            asciiMappingList: document.getElementById('ascii-mapping-list'),
+            tileEditorModal: document.getElementById('modal-tile-editor'),
+            formTileEditor: document.getElementById('form-tile-editor'),
+            helpModal: document.getElementById('modal-help'),
+            toast: document.getElementById('toast'),
+            toastMsg: document.getElementById('toast-message'),
+            fileImport: document.getElementById('file-input-import'),
+            btnUndo: document.getElementById('btn-undo'),
+            btnRedo: document.getElementById('btn-redo')
+        };
+
+        // Initialize Application
+        window.addEventListener('DOMContentLoaded', () => {
+            initGrid(state.width, state.height, false);
+            renderPalette();
+            bindEvents();
+            updateActiveTileDisplay();
+            pushHistoryState(); // Initial baseline state
+        });
+
+        // Push current state onto Undo History stack
+        function pushHistoryState() {
+            const snapshot = {
+                width: state.width,
+                height: state.height,
+                grid: JSON.parse(JSON.stringify(state.grid))
+            };
+
+            historyStack.push(snapshot);
+            if (historyStack.length > MAX_HISTORY) historyStack.shift();
+
+            redoStack.length = 0;
+            updateHistoryUI();
+        }
+
+        function undo() {
+            if (historyStack.length <= 1) return;
+
+            const current = historyStack.pop();
+            redoStack.push(current);
+
+            const previous = historyStack[historyStack.length - 1];
+            restoreStateSnapshot(previous);
+            showToast('Undo performed');
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+
+            const next = redoStack.pop();
+            historyStack.push(next);
+            restoreStateSnapshot(next);
+            showToast('Redo performed');
+        }
+
+        function restoreStateSnapshot(snapshot) {
+            state.width = snapshot.width;
+            state.height = snapshot.height;
+            state.grid = JSON.parse(JSON.stringify(snapshot.grid));
+
+            if (elements.inputWidth) elements.inputWidth.value = state.width;
+            if (elements.inputHeight) elements.inputHeight.value = state.height;
+
+            renderGridCanvas();
+            updateHistoryUI();
+        }
+
+        function updateHistoryUI() {
+            if (elements.btnUndo) elements.btnUndo.disabled = historyStack.length <= 1;
+            if (elements.btnRedo) elements.btnRedo.disabled = redoStack.length === 0;
+        }
+
+        // Initialize Canvas Grid Array & DOM
+        function initGrid(cols, rows, pushHistory = true) {
+            state.width = cols;
+            state.height = rows;
+            state.grid = Array(rows).fill(null).map(() => Array(cols).fill('tile_empty'));
+            renderGridCanvas();
+            if (pushHistory) pushHistoryState();
+        }
+
+        // Render Canvas DOM
+        function renderGridCanvas() {
+            if (!elements.canvas) return;
+            elements.canvas.innerHTML = '';
+            elements.canvas.style.display = 'grid';
+            elements.canvas.style.gridTemplateColumns = `repeat(${state.width}, minmax(24px, 1fr))`;
+            
+            for (let r = 0; r < state.height; r++) {
+                for (let c = 0; c < state.width; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell text-sm select-none cursor-pointer';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    
+                    updateCellDOM(cell, state.grid[r][c]);
+
+                    // Mouse interactions for painting
+                    cell.addEventListener('mouseenter', () => {
+                        if (elements.coordDisplay) elements.coordDisplay.textContent = `X: ${c}, Y: ${r}`;
+                        if (state.isMouseDown && state.activeTool === 'brush') {
+                            paintCell(r, c);
+                        } else if (state.isMouseDown && state.activeTool === 'eraser') {
+                            eraseCell(r, c);
+                        }
+                    });
+
+                    cell.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        state.isMouseDown = true;
+                        handleCellClick(r, c);
+                    });
+
+                    elements.canvas.appendChild(cell);
+                }
+            }
+        }
+
+        // Update single DOM cell properties based on Tile state
+        function updateCellDOM(cellElement, tileId) {
+            const tile = getTileById(tileId) || getTileById('tile_empty');
+            cellElement.textContent = tile.symbol;
+            cellElement.style.backgroundColor = tile.bg;
+            cellElement.style.color = tile.fg;
+        }
+
+        // Retrieve Tile from state
+        function getTileById(id) {
+            return state.palette.find(t => t.id === id) || state.palette[0];
+        }
+
+        // Find or create palette tile by character symbol
+        function getOrCreateTileForSymbol(char) {
+            let tile = state.palette.find(t => t.symbol === char);
+            if (!tile) {
+                const newId = 'tile_auto_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+                const randomColors = [
+                    { bg: '#065f46', fg: '#a7f3d0' },
+                    { bg: '#831843', fg: '#fbcfe8' },
+                    { bg: '#701a75', fg: '#f5d0fe' },
+                    { bg: '#1e3a8a', fg: '#bfdbfe' },
+                    { bg: '#713f12', fg: '#fef08a' }
+                ];
+                const colorScheme = randomColors[Math.floor(Math.random() * randomColors.length)];
+
+                tile = {
+                    id: newId,
+                    name: `Tile '${char}'`,
+                    symbol: char,
+                    bg: colorScheme.bg,
+                    fg: colorScheme.fg
+                };
+                state.palette.push(tile);
+                renderPalette();
+            }
+            return tile;
+        }
+
+        // Handle User Click on Canvas
+        function handleCellClick(r, c) {
+            let strokeChanged = false;
+
+            if (state.activeTool === 'brush') {
+                strokeChanged = paintCell(r, c);
+            } else if (state.activeTool === 'fill') {
+                strokeChanged = floodFill(r, c, state.grid[r][c], state.activeTileId);
+            } else if (state.activeTool === 'eyedropper') {
+                pickTileFromCanvas(r, c);
+            } else if (state.activeTool === 'eraser') {
+                strokeChanged = eraseCell(r, c);
+            }
+
+            if (strokeChanged) {
+                pushHistoryState();
+            }
+        }
+
+        // Paint cell
+        function paintCell(r, c) {
+            if (state.grid[r][c] === state.activeTileId) return false;
+            state.grid[r][c] = state.activeTileId;
+            const cell = elements.canvas.children[r * state.width + c];
+            if (cell) updateCellDOM(cell, state.activeTileId);
+            return true;
+        }
+
+        // Erase cell (Reset to empty tile)
+        function eraseCell(r, c) {
+            if (state.grid[r][c] === 'tile_empty') return false;
+            state.grid[r][c] = 'tile_empty';
+            const cell = elements.canvas.children[r * state.width + c];
+            if (cell) updateCellDOM(cell, 'tile_empty');
+            return true;
+        }
+
+        // Eyedropper Tile Pick
+        function pickTileFromCanvas(r, c) {
+            const pickedTileId = state.grid[r][c];
+            setActiveTile(pickedTileId);
+            setTool('brush');
+            showToast(`Picked tile: ${getTileById(pickedTileId).name}`);
+        }
+
+        // Flood Fill Algorithm
+        function floodFill(startR, startC, targetTileId, replacementTileId) {
+            if (targetTileId === replacementTileId) return false;
+
+            const queue = [[startR, startC]];
+            const visited = new Set();
+            let changed = false;
+
+            while (queue.length > 0) {
+                const [r, c] = queue.shift();
+                const key = `${r},${c}`;
+
+                if (r < 0 || r >= state.height || c < 0 || c >= state.width) continue;
+                if (visited.has(key)) continue;
+                visited.add(key);
+
+                if (state.grid[r][c] === targetTileId) {
+                    state.grid[r][c] = replacementTileId;
+                    changed = true;
+                    const cell = elements.canvas.children[r * state.width + c];
+                    if (cell) updateCellDOM(cell, replacementTileId);
+
+                    queue.push([r + 1, c]);
+                    queue.push([r - 1, c]);
+                    queue.push([r, c + 1]);
+                    queue.push([r, c - 1]);
+                }
+            }
+            return changed;
+        }
+
+        // Raw ASCII Importer Logic
+        let detectedAsciiChars = [];
+
+        function parseAndShowAsciiMappings() {
+            if (!elements.asciiInput) return;
+            const rawText = elements.asciiInput.value;
+            if (!rawText.trim()) {
+                showToast('Please paste ASCII text first.');
+                return;
+            }
+
+            const lines = rawText.split('\n');
+            const chars = new Set();
+            lines.forEach(line => {
+                for (let char of line) {
+                    chars.add(char);
+                }
+            });
+
+            detectedAsciiChars = Array.from(chars);
+            if (elements.asciiMappingList) elements.asciiMappingList.innerHTML = '';
+
+            detectedAsciiChars.forEach((char) => {
+                const existingTile = state.palette.find(t => t.symbol === char);
+                const charLabel = char === ' ' ? 'Space ( )' : char;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex items-center justify-between bg-gray-950 p-2 rounded-lg border border-gray-800 text-xs';
+
+                wrapper.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="w-7 h-7 flex items-center justify-center font-mono font-bold bg-gray-800 text-white border border-gray-700 rounded">${char === ' ' ? '␣' : char}</span>
+                        <span class="text-gray-300 font-mono">${charLabel}</span>
+                    </div>
+                    <select data-char="${encodeURIComponent(char)}" class="ascii-tile-select bg-gray-900 border border-gray-700 rounded p-1 text-xs text-white outline-none focus:border-emerald-500 max-w-[140px]">
+                        <option value="__AUTO__">+ Create Auto Tile</option>
+                        ${state.palette.map(t => `<option value="${t.id}" ${existingTile && existingTile.id === t.id ? 'selected' : ''}>${t.name} (${t.symbol === ' ' ? 'Space' : t.symbol})</option>`).join('')}
+                    </select>
+                `;
+
+                if (elements.asciiMappingList) elements.asciiMappingList.appendChild(wrapper);
+            });
+
+            if (elements.asciiCharContainer) elements.asciiCharContainer.classList.remove('hidden');
+        }
+
+        function applyAsciiImport() {
+            if (!elements.asciiInput) return;
+            const rawText = elements.asciiInput.value;
+            if (!rawText.trim()) {
+                showToast('Nothing to import.');
+                return;
+            }
+
+            const lines = rawText.split('\n').map(l => l.replace(/\r/g, ''));
+            const importedHeight = lines.length;
+            const importedWidth = Math.max(...lines.map(l => l.length));
+
+            if (importedWidth === 0 || importedHeight === 0) return;
+
+            // Process mapped selects
+            const mapping = {};
+            document.querySelectorAll('.ascii-tile-select').forEach(sel => {
+                const char = decodeURIComponent(sel.dataset.char);
+                const val = sel.value;
+                if (val === '__AUTO__') {
+                    mapping[char] = getOrCreateTileForSymbol(char).id;
+                } else {
+                    mapping[char] = val;
+                }
+            });
+
+            // Set grid dimensions to match imported map
+            state.width = importedWidth;
+            state.height = importedHeight;
+            if (elements.inputWidth) elements.inputWidth.value = state.width;
+            if (elements.inputHeight) elements.inputHeight.value = state.height;
+
+            // Construct new grid array
+            state.grid = Array(importedHeight).fill(null).map((_, r) => {
+                return Array(importedWidth).fill(null).map((_, c) => {
+                    const char = (lines[r] && lines[r][c] !== undefined) ? lines[r][c] : ' ';
+                    return mapping[char] || getOrCreateTileForSymbol(char).id;
+                });
+            });
+
+            renderGridCanvas();
+            pushHistoryState();
+
+            if (elements.asciiModal) {
+                elements.asciiModal.classList.add('hidden');
+                elements.asciiModal.classList.remove('flex');
+            }
+            showToast(`Imported ${importedWidth}x${importedHeight} ASCII map!`);
+        }
+
+        // Render Tile Palette List
+        function renderPalette() {
+            if (!elements.paletteList) return;
+            elements.paletteList.innerHTML = '';
+
+            state.palette.forEach((tile, index) => {
+                const item = document.createElement('div');
+                const isActive = tile.id === state.activeTileId;
+                
+                item.className = `p-2 rounded-lg border transition flex items-center justify-between cursor-pointer group ${
+                    isActive ? 'bg-gray-800 border-blue-500 tile-active' : 'bg-gray-950/60 border-gray-800 hover:bg-gray-800/60'
+                }`;
+
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <span class="text-xs text-gray-500 font-mono w-3">${index + 1}</span>
+                        <div class="w-8 h-8 rounded flex items-center justify-center font-mono font-bold text-base shrink-0 border border-black/20 shadow-inner" style="background-color: ${tile.bg}; color: ${tile.fg}">
+                            ${tile.symbol}
+                        </div>
+                        <div class="truncate">
+                            <h4 class="text-xs font-semibold text-gray-200 truncate">${tile.name}</h4>
+                            <p class="text-[10px] text-gray-500 font-mono">Char: '${tile.symbol}'</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-1 opacity-80 group-hover:opacity-100">
+                        <button data-action="edit" data-id="${tile.id}" class="p-1 hover:text-blue-400 text-gray-400 text-xs" title="Edit Tile">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        ${tile.id !== 'tile_empty' ? `
+                            <button data-action="delete" data-id="${tile.id}" class="p-1 hover:text-red-400 text-gray-400 text-xs" title="Delete Tile">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                item.addEventListener('click', (e) => {
+                    if (e.target.closest('button')) return;
+                    setActiveTile(tile.id);
+                });
+
+                const editBtn = item.querySelector('[data-action="edit"]');
+                if (editBtn) {
+                    editBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        openTileEditor(tile.id);
+                    });
+                }
+
+                const deleteBtn = item.querySelector('[data-action="delete"]');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteTile(tile.id);
+                    });
+                }
+
+                elements.paletteList.appendChild(item);
+            });
+        }
+
+        // Set Active Tile
+        function setActiveTile(id) {
+            state.activeTileId = id;
+            renderPalette();
+            updateActiveTileDisplay();
+        }
+
+        // Update Active Tile Header Badge
+        function updateActiveTileDisplay() {
+            const tile = getTileById(state.activeTileId);
+            if (elements.activeBadge) {
+                elements.activeBadge.textContent = tile.symbol;
+                elements.activeBadge.style.backgroundColor = tile.bg;
+                elements.activeBadge.style.color = tile.fg;
+            }
+            if (elements.activeName) elements.activeName.textContent = tile.name;
+        }
+
+        // Set Active Drawing Tool
+        function setTool(toolName) {
+            state.activeTool = toolName;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                if (btn.dataset.tool === toolName) {
+                    btn.classList.add('active-tool-btn');
+                } else {
+                    btn.classList.remove('active-tool-btn');
+                }
+            });
+        }
+
+        // Open Tile Creation/Editing Modal
+        function openTileEditor(tileId = null) {
+            state.editingTileId = tileId;
+
+            if (tileId) {
+                const tile = getTileById(tileId);
+                const titleElem = document.getElementById('modal-tile-title');
+                if (titleElem) titleElem.textContent = 'Edit Tile Preset';
+                document.getElementById('input-tile-name').value = tile.name;
+                document.getElementById('input-tile-symbol').value = tile.symbol;
+                document.getElementById('input-tile-bg').value = tile.bg;
+                document.getElementById('input-tile-bg-hex').value = tile.bg;
+                document.getElementById('input-tile-fg').value = tile.fg;
+                document.getElementById('input-tile-fg-hex').value = tile.fg;
+            } else {
+                const titleElem = document.getElementById('modal-tile-title');
+                if (titleElem) titleElem.textContent = 'Create New Tile';
+                document.getElementById('input-tile-name').value = '';
+                document.getElementById('input-tile-symbol').value = '*';
+                document.getElementById('input-tile-bg').value = '#047857';
+                document.getElementById('input-tile-bg-hex').value = '#047857';
+                document.getElementById('input-tile-fg').value = '#ffffff';
+                document.getElementById('input-tile-fg-hex').value = '#ffffff';
+            }
+
+            updateModalPreview();
+            if (elements.tileEditorModal) {
+                elements.tileEditorModal.classList.remove('hidden');
+                elements.tileEditorModal.classList.add('flex');
+            }
+        }
+
+        function updateModalPreview() {
+            const preview = document.getElementById('tile-modal-preview');
+            if (!preview) return;
+            const symbol = document.getElementById('input-tile-symbol').value || ' ';
+            const bg = document.getElementById('input-tile-bg').value;
+            const fg = document.getElementById('input-tile-fg').value;
+
+            preview.textContent = symbol;
+            preview.style.backgroundColor = bg;
+            preview.style.color = fg;
+        }
+
+        // Save Tile from Modal Form
+        if (elements.formTileEditor) {
+            elements.formTileEditor.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const name = document.getElementById('input-tile-name').value.trim();
+                const symbol = document.getElementById('input-tile-symbol').value || ' ';
+                const bg = document.getElementById('input-tile-bg').value;
+                const fg = document.getElementById('input-tile-fg').value;
+
+                if (state.editingTileId) {
+                    const tile = getTileById(state.editingTileId);
+                    tile.name = name;
+                    tile.symbol = symbol;
+                    tile.bg = bg;
+                    tile.fg = fg;
+                } else {
+                    const newId = 'tile_' + Date.now();
+                    state.palette.push({
+                        id: newId,
+                        name: name,
+                        symbol: symbol,
+                        bg: bg,
+                        fg: fg
+                    });
+                    state.activeTileId = newId;
+                }
+
+                renderPalette();
+                renderGridCanvas();
+                updateActiveTileDisplay();
+                if (elements.tileEditorModal) {
+                    elements.tileEditorModal.classList.add('hidden');
+                    elements.tileEditorModal.classList.remove('flex');
+                }
+                showToast('Tile saved successfully!');
+            });
+        }
+
+        // Delete Tile Preset
+        function deleteTile(tileId) {
+            if (state.palette.length <= 1) {
+                showToast('Cannot delete the only remaining tile.');
+                return;
+            }
+
+            state.palette = state.palette.filter(t => t.id !== tileId);
+            
+            for (let r = 0; r < state.height; r++) {
+                for (let c = 0; c < state.width; c++) {
+                    if (state.grid[r][c] === tileId) {
+                        state.grid[r][c] = 'tile_empty';
+                    }
+                }
+            }
+
+            if (state.activeTileId === tileId) {
+                state.activeTileId = state.palette[0].id;
+            }
+
+            renderPalette();
+            renderGridCanvas();
+            updateActiveTileDisplay();
+            pushHistoryState();
+            showToast('Tile removed');
+        }
+
+        // Export Logic
+        function generateExport(format) {
+            if (format === 'raw') {
+                return state.grid.map(row => {
+                    return row.map(tileId => {
+                        const tile = getTileById(tileId);
+                        return tile.symbol;
+                    }).join('');
+                }).join('\n');
+            } else if (format === 'json') {
+                return JSON.stringify({
+                    version: "1.0",
+                    width: state.width,
+                    height: state.height,
+                    palette: state.palette,
+                    grid: state.grid
+                }, null, 2);
+            } else if (format === 'array') {
+                const asciiGrid = state.grid.map(row => row.map(tileId => getTileById(tileId).symbol));
+                return JSON.stringify(asciiGrid, null, 2);
+            }
+        }
+
+        function openExportModal() {
+            const output = generateExport('raw');
+            if (elements.exportOutput) elements.exportOutput.textContent = output;
+            if (elements.exportModal) {
+                elements.exportModal.classList.remove('hidden');
+                elements.exportModal.classList.add('flex');
+            }
+        }
+
+        // Import Map State from JSON
+        function importJSON(jsonText) {
+            try {
+                const data = JSON.parse(jsonText);
+                if (!data.width || !data.height || !data.palette || !data.grid) {
+                    throw new Error('Invalid ASCII Map file structure.');
+                }
+
+                state.width = data.width;
+                state.height = data.height;
+                state.palette = data.palette;
+                state.grid = data.grid;
+                state.activeTileId = state.palette[0].id;
+
+                if (elements.inputWidth) elements.inputWidth.value = state.width;
+                if (elements.inputHeight) elements.inputHeight.value = state.height;
+
+                renderPalette();
+                renderGridCanvas();
+                updateActiveTileDisplay();
+                pushHistoryState();
+                showToast('Map imported successfully!');
+            } catch (err) {
+                showToast('Import Failed: Invalid JSON file');
+                console.error(err);
+            }
+        }
+
+        // Bind UI Events
+        function bindEvents() {
+            window.addEventListener('mouseup', () => {
+                state.isMouseDown = false;
+            });
+
+            if (elements.btnUndo) elements.btnUndo.addEventListener('click', undo);
+            if (elements.btnRedo) elements.btnRedo.addEventListener('click', redo);
+
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    setTool(btn.dataset.tool);
+                });
+            });
+
+            const addTileBtn = document.getElementById('btn-add-tile');
+            if (addTileBtn) addTileBtn.addEventListener('click', () => openTileEditor());
+
+            const bgInput = document.getElementById('input-tile-bg');
+            const bgHex = document.getElementById('input-tile-bg-hex');
+            const fgInput = document.getElementById('input-tile-fg');
+            const fgHex = document.getElementById('input-tile-fg-hex');
+            const symbolInput = document.getElementById('input-tile-symbol');
+
+            if (bgInput && bgHex) {
+                bgInput.addEventListener('input', () => { bgHex.value = bgInput.value; updateModalPreview(); });
+                bgHex.addEventListener('input', () => { bgInput.value = bgHex.value; updateModalPreview(); });
+            }
+            if (fgInput && fgHex) {
+                fgInput.addEventListener('input', () => { fgHex.value = fgInput.value; updateModalPreview(); });
+                fgHex.addEventListener('input', () => { fgInput.value = fgHex.value; updateModalPreview(); });
+            }
+            if (symbolInput) symbolInput.addEventListener('input', updateModalPreview);
+
+            const closeTileBtn = document.getElementById('btn-close-tile-modal');
+            if (closeTileBtn && elements.tileEditorModal) {
+                closeTileBtn.addEventListener('click', () => {
+                    elements.tileEditorModal.classList.add('hidden');
+                    elements.tileEditorModal.classList.remove('flex');
+                });
+            }
+
+            const resizeGridBtn = document.getElementById('btn-resize-grid');
+            if (resizeGridBtn) {
+                resizeGridBtn.addEventListener('click', () => {
+                    const w = parseInt(elements.inputWidth ? elements.inputWidth.value : 30) || 30;
+                    const h = parseInt(elements.inputHeight ? elements.inputHeight.value : 20) || 20;
+
+                    if (w < 5 || h < 5 || w > 100 || h > 100) {
+                        showToast('Grid dimensions must be between 5 and 100.');
+                        return;
+                    }
+
+                    const newGrid = Array(h).fill(null).map((_, r) => {
+                        return Array(w).fill(null).map((_, c) => {
+                            return (state.grid[r] && state.grid[r][c]) ? state.grid[r][c] : 'tile_empty';
+                        });
+                    });
+
+                    state.width = w;
+                    state.height = h;
+                    state.grid = newGrid;
+                    renderGridCanvas();
+                    pushHistoryState();
+                    showToast(`Canvas resized to ${w} x ${h}`);
+                });
+            }
+
+            const zoomInBtn = document.getElementById('btn-zoom-in');
+            const zoomOutBtn = document.getElementById('btn-zoom-out');
+            const zoomResetBtn = document.getElementById('btn-zoom-reset');
+
+            if (zoomInBtn) zoomInBtn.addEventListener('click', () => { state.zoom = Math.min(2.5, state.zoom + 0.15); applyZoom(); });
+            if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { state.zoom = Math.max(0.5, state.zoom - 0.15); applyZoom(); });
+            if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => { state.zoom = 1.0; applyZoom(); });
+
+            const toggleGridBtn = document.getElementById('btn-toggle-grid');
+            if (toggleGridBtn) {
+                toggleGridBtn.addEventListener('click', (e) => {
+                    state.showGrid = !state.showGrid;
+                    if (state.showGrid) {
+                        if (elements.canvas) elements.canvas.classList.add('show-grid');
+                        e.currentTarget.classList.add('bg-blue-900/40', 'text-blue-300');
+                    } else {
+                        if (elements.canvas) elements.canvas.classList.remove('show-grid');
+                        e.currentTarget.classList.remove('bg-blue-900/40', 'text-blue-300');
+                    }
+                });
+            }
+
+            const clearCanvasBtn = document.getElementById('btn-clear-canvas');
+            if (clearCanvasBtn) {
+                clearCanvasBtn.addEventListener('click', () => {
+                    initGrid(state.width, state.height, true);
+                    showToast('Canvas cleared');
+                });
+            }
+
+            const importAsciiBtn = document.getElementById('btn-import-ascii');
+            if (importAsciiBtn && elements.asciiModal) {
+                importAsciiBtn.addEventListener('click', () => {
+                    if (elements.asciiCharContainer) elements.asciiCharContainer.classList.add('hidden');
+                    elements.asciiModal.classList.remove('hidden');
+                    elements.asciiModal.classList.add('flex');
+                });
+            }
+
+            const closeAsciiBtn = document.getElementById('btn-close-ascii-modal');
+            if (closeAsciiBtn && elements.asciiModal) {
+                closeAsciiBtn.addEventListener('click', () => {
+                    elements.asciiModal.classList.add('hidden');
+                    elements.asciiModal.classList.remove('flex');
+                });
+            }
+
+            const cancelAsciiBtn = document.getElementById('btn-cancel-ascii-import');
+            if (cancelAsciiBtn && elements.asciiModal) {
+                cancelAsciiBtn.addEventListener('click', () => {
+                    elements.asciiModal.classList.add('hidden');
+                    elements.asciiModal.classList.remove('flex');
+                });
+            }
+
+            const parseAsciiBtn = document.getElementById('btn-parse-ascii');
+            if (parseAsciiBtn) parseAsciiBtn.addEventListener('click', parseAndShowAsciiMappings);
+
+            const applyAsciiBtn = document.getElementById('btn-apply-ascii-import');
+            if (applyAsciiBtn) applyAsciiBtn.addEventListener('click', applyAsciiImport);
+
+            const exportBtn = document.getElementById('btn-export');
+            if (exportBtn) exportBtn.addEventListener('click', openExportModal);
+
+            const closeExportBtn = document.getElementById('btn-close-export-modal');
+            if (closeExportBtn && elements.exportModal) {
+                closeExportBtn.addEventListener('click', () => {
+                    elements.exportModal.classList.add('hidden');
+                    elements.exportModal.classList.remove('flex');
+                });
+            }
+
+            document.querySelectorAll('.export-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    document.querySelectorAll('.export-tab').forEach(t => {
+                        t.classList.remove('border-blue-500', 'text-blue-400');
+                        t.classList.add('border-transparent', 'text-gray-400');
+                    });
+                    e.target.classList.add('border-blue-500', 'text-blue-400');
+                    e.target.classList.remove('border-transparent', 'text-gray-400');
+
+                    const format = e.target.dataset.tab;
+                    if (elements.exportOutput) elements.exportOutput.textContent = generateExport(format);
+
+                    const info = document.getElementById('export-info-text');
+                    if (info) {
+                        if (format === 'raw') info.textContent = 'Copy plaintext ASCII characters for tabletop notes or code.';
+                        else if (format === 'json') info.textContent = 'JSON file format containing complete palette and map array.';
+                        else if (format === 'array') info.textContent = '2D Matrix Array ready to paste into JS/Python game code.';
+                    }
+                });
+            });
+
+            const copyExportBtn = document.getElementById('btn-copy-export');
+            if (copyExportBtn) {
+                copyExportBtn.addEventListener('click', () => {
+                    const text = elements.exportOutput ? elements.exportOutput.textContent : '';
+                    
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+
+                    showToast('Copied to clipboard!');
+                });
+            }
+
+            const importJsonBtn = document.getElementById('btn-import');
+            if (importJsonBtn && elements.fileImport) {
+                importJsonBtn.addEventListener('click', () => {
+                    elements.fileImport.click();
+                });
+            }
+
+            if (elements.fileImport) {
+                elements.fileImport.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        importJSON(event.target.result);
+                        elements.fileImport.value = '';
+                    };
+                    reader.readAsText(file);
+                });
+            }
+
+            const helpBtn = document.getElementById('btn-help');
+            if (helpBtn && elements.helpModal) {
+                helpBtn.addEventListener('click', () => {
+                    elements.helpModal.classList.remove('hidden');
+                    elements.helpModal.classList.add('flex');
+                });
+            }
+
+            const closeHelpBtn = document.getElementById('btn-close-help');
+            if (closeHelpBtn && elements.helpModal) {
+                closeHelpBtn.addEventListener('click', () => {
+                    elements.helpModal.classList.add('hidden');
+                    elements.helpModal.classList.remove('flex');
+                });
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+                const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+                if (isCtrlOrCmd && e.key.toLowerCase() === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) redo();
+                    else undo();
+                    return;
+                }
+
+                if (isCtrlOrCmd && e.key.toLowerCase() === 'y') {
+                    e.preventDefault();
+                    redo();
+                    return;
+                }
+
+                const key = e.key.toLowerCase();
+                if (key === 'b') setTool('brush');
+                if (key === 'f') setTool('fill');
+                if (key === 'e') setTool('eyedropper');
+                if (key === 'x') setTool('eraser');
+                if (key === 'g') {
+                    const gridBtn = document.getElementById('btn-toggle-grid');
+                    if (gridBtn) gridBtn.click();
+                }
+
+                if (!isNaN(key) && key >= 1 && key <= 9) {
+                    const idx = parseInt(key) - 1;
+                    if (state.palette[idx]) {
+                        setActiveTile(state.palette[idx].id);
+                    }
+                }
+            });
+        }
+
+        // Apply Zoom Transform
+        function applyZoom() {
+            if (elements.canvas) elements.canvas.style.transform = `scale(${state.zoom})`;
+            if (elements.zoomLevel) elements.zoomLevel.textContent = `${Math.round(state.zoom * 100)}%`;
+        }
+
+        // Show Toast Notification
+        function showToast(message) {
+            if (!elements.toast || !elements.toastMsg) return;
+            elements.toastMsg.textContent = message;
+            elements.toast.classList.remove('translate-y-20', 'opacity-0');
+            elements.toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                if (elements.toast) {
+                    elements.toast.classList.remove('translate-y-0', 'opacity-100');
+                    elements.toast.classList.add('translate-y-20', 'opacity-0');
+                }
+            }, 2500);
+        }
+    </script>
+</body>
+</html>

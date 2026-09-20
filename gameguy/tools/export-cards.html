@@ -26,12 +26,16 @@
 const SUPABASE_URL = 'https://ykfuhvkjknrhocmahelx.supabase.co';
 const PUBLIC_KEY   = 'sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl';
 
+// The database stores rarity as 1-5; the game works with the words.
+const RARITY_WORDS = { 1: 'common', 2: 'uncommon', 3: 'rare', 4: 'double rare', 5: 'ultra rare' };
+
 // Turns database rows into the text of data/cards.js.
 // One card per line so it's easy to scan and easy to diff.
 function cardsToJs(rows) {
   const q = v => JSON.stringify(v);
   const lines = rows.map(r => {
     const c = { id: r.card_number, name: r.name, kind: r.card_type };
+    if (r.rarity) c.rarity = RARITY_WORDS[r.rarity] || r.rarity;   // omitted for a card with no rarity yet
     if (r.card_type === 'item') {
       c.itemKind = r.item_kind;
       c.effect = r.effect_text || '';
@@ -65,9 +69,12 @@ function cardsToJs(rows) {
     '   would vanish at the next export. Edit the card on the playmat',
     '   site and export again.',
     '',
-    '   Things the island adds ON TOP of a card (its rarity, which',
-    '   packs it appears in) live in data/shops.js so they survive',
-    '   a re-export.',
+    '   Rarity comes from the database (the `rarity` column). A card with',
+    '   no rarity set yet — still being designed — simply has no `rarity`',
+    '   field here; the island treats it as common until you fill one in.',
+    '',
+    '   Things the island adds ON TOP of a card (which packs it appears',
+    '   in) live in data/shops.js so they survive a re-export.',
     '   ============================================================ */',
     '',
     'const CARDS = [',
