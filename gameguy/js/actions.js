@@ -243,17 +243,18 @@ function openTrade(target) {
   const again = () => openTrade(target);
 
   const options = currentOffers(id, def.trade).map(({ offer, key }) => {
-    const theirs = CARD_BY_ID[offer.give];
-    state.seen[offer.give] = true;                       // they showed it to you. It counts as seen.
+    const giveId = resolveGive(offer.give, key);
+    const theirs = CARD_BY_ID[giveId];
+    state.seen[giveId] = true;                            // they showed it to you. It counts as seen.
     if (offer.once !== false && state.done[key]) return { label: theirs.name + '   (already traded)', dim: true, run: again };
 
-    const mine = CARDS.filter(c => owned(c.id) > 0 && c.id !== offer.give && cardMatches(c, offer.want))
+    const mine = CARDS.filter(c => owned(c.id) > 0 && c.id !== giveId && cardMatches(c, offer.want))
                       .sort((a, b) => owned(b.id) - owned(a.id))[0];
     const label = theirs.name + '   for   ' + (mine ? 'your ' + mine.name : describeWant(offer.want));
     if (!mine) return { label, dim: true, hint: "You don't have that.", run: again };
 
     const doTrade = () => {
-      removeCard(mine.id); addCard(theirs.id); state.done[key] = true; saveGame();
+      removeCard(mine.id); addCard(giveId); state.done[key] = true; saveGame();
       say(def.name, def.trade.doneLine || '"Deal."', () => { toast('You got ' + theirs.name + '!'); fireEvent('trade_done'); });
     };
     const last = owned(mine.id) === 1;
