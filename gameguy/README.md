@@ -19,6 +19,7 @@ data/               THE PART YOU EDIT
   moves.js            what each card's text DOES, as data. The vocabulary is explained at the top.
   opponents.js        who you can play against: their deck, how sloppy they are, what they say
   goods.js            things for the backpack (tools, finds, bait) and what tools DO (dig, fish)
+  characters.js       which sprite sheet each person is drawn from
   cards.js            GENERATED from the playmat database. Don't hand-edit.
 js/                 THE ENGINE, which reads the data
   state.js            what the game remembers; time; conditions; saving
@@ -30,12 +31,18 @@ js/                 THE ENGINE, which reads the data
   battle-ui.js        the table on screen, the deck editor, and the glue to the island
   main.js             keyboard, the update loop, title and pause menus
 art/
-  tileset.png         the spritesheet. 32x32 cells. Paint over anything.
-  tileset-guide.png   the same sheet, enlarged and labelled. For reference only.
+  tileset.png         THE spritesheet. 256x256: 8 cells across, 8 down, 32x32 each.
+                      This is the file you edit.
+  tileset-guide.png   the same sheet blown up 3x with labels stamped on. REFERENCE ONLY —
+                      editing this does nothing. Its checked background is painted on,
+                      not transparency.
   items.png           a second sheet, for backpack items. Same 32x32 cells.
   items-guide.png     ...and its labelled guide.
+characters/           one sprite sheet per person. 32x32 cells, 4 walk frames x 3 directions.
 tools/
   export-cards.html   re-exports cards.js from the playmat database
+  regenerate-tileset.html   redraws tileset.png and its guide from code. Only useful if
+                      you'd rather tweak a placeholder's code than paint over it.
 ```
 
 Every data file starts with a comment explaining its vocabulary. Read those first; this
@@ -71,19 +78,35 @@ window) let you skip time and grant money so you don't have to wait to see resul
 6. **`data/shops.js`**: set `otherKidsBuy` to 0, or `restockDay` to `'Mon'`. Change the odds of a
    rare. Press 3 in game for free packs and watch what comes out.
 7. **`art/tileset.png`**: open it in your image editor and scribble on the tree. Save, refresh.
-8. Press **0** in game to see what's solid and where your feet actually are.
+8. **`data/characters.js`**: swap two of the file names and see who becomes whom.
+9. Press **0** in game to see what's solid and where your feet actually are.
 
 ## Recipes
 
-**A new tile.** Paint it in an empty cell of `tileset.png` → name the cell in `SPRITES` →
-give it a letter in a legend → type the letter into a map. (Details at the top of `tiles.js`.)
+**A new tile.** Paint it into an empty cell of `art/tileset.png` (cells [5,7], [6,7] and
+[7,7] are free) → name the cell in `SPRITES` → give it a letter in a legend → type the
+letter into a map. (Details at the top of `tiles.js`.)
+
+Editing the sheet: open `art/tileset.png` in any pixel editor — Piskel and Photopea are
+free and run in a browser; Aseprite is the usual paid one. Set the grid to 32x32, turn off
+anti-aliasing, and export as PNG **with transparency**. A tile with `under:` in its legend
+is drawn on top of another tile, so its empty space must be see-through; a tile without
+`under:` covers its whole cell. When you run out of cells, make the PNG taller — 256x288
+adds a row — and keep the width at 256.
+
+**Stairs.** The stair tiles are only a picture; nothing in the game knows about floors.
+To make them go somewhere, make them a `place` with a `to`, exactly like a door, and put
+the upstairs room in `MAPS` as its own map. There's a worked example at the top of
+`data/tiles.js`, and a live one: the `D` tile in Home leads to the Tile Demo room.
 
 **A new room.** Copy the `bakery` map in `maps.js`, rename it, redraw it. Give it an `x` place
 whose `to` points back outside. Put a door letter on the island with a `to` pointing in.
 The red box tells you if either end lands in a wall.
 
-**A new person.** Copy an entry in `npcs.js`. Change the id, name, colours, `home`.
-Everything else is optional.
+**A new person.** Copy an entry in `npcs.js`. Change the id, name, `sprite`, `home`.
+Everything else is optional. To change who looks like whom, swap the file names around in
+`data/characters.js` — nothing else refers to them. Anyone with no `sprite` falls back to
+the old blocky person built from their four `look` colours, so half-converted is fine.
 
 **Trades that change over time.** Give the person a `pool` of offers, say how many to `show`
 at once, and how often to `refresh` ('day' or 'week'). Make the pool longer for more variety.
@@ -196,9 +219,11 @@ the backpack, Island Finds (buying tools, selling finds), digging and fishing.
 - The Net Shed, the old signpost in the woods, the lighthouse door: places with nothing behind them yet.
 - The `starter` pack exists but no shop sells it.
 - No sound. No touch controls.
+- The Tile Demo room off Home exists only to show the placeholder tiles. Delete the `demo`
+  map and the `D` place in Home when you don't need it.
 
 **Shortcuts** (search for `SHORTCUT`; each says when it will start to hurt):
-- People are drawn by code from four colours, not from the spritesheet.
+- No idle or standing-still animation: characters only move while walking.
 - People don't walk. They're simply elsewhere next time you enter a map.
 - Fishing loot goes by MAP, not by which water: the north coast of The Woods gives pond fish.
 - In "any water type" trades the game picks which of your cards goes; you don't choose.
