@@ -3,26 +3,16 @@
    ============================================================ */
 
 /* ---- Rarity -------------------------------------------------
-   The real card list has no rarity column, so the island decides.
-   The rule of thumb: the further along an evolution line, the
-   rarer. Anything listed in RARITY_OVERRIDES ignores the rule.
+   A card's rarity comes straight from the database (the `rarity`
+   column, 1-5), by way of data/cards.js. rarityOf() in js/state.js
+   is what reads it — this file no longer decides rarity itself.
 
-   SHORTCUT: this is a guess at what feels right, not a design
-   decision you made. If rarity becomes a real column on the
-   playmat site, delete all of this and read it from the card.
+   Any card still missing a rarity in the database — a card you're
+   mid-way through designing — falls back to RARITY_FALLBACK below,
+   so packs and trades never choke on an incomplete card. Once you
+   fill in its rarity on the playmat and re-export, it uses that.
    ------------------------------------------------------------- */
-const RARITY_BY_STAGE = {
-  'basic':     'common',
-  'stage one': 'uncommon',
-  'stage two': 'rare',
-};
-const RARITY_BY_ITEM_KIND = {
-  'consumable': 'common',
-  'equip':      'uncommon',
-};
-const RARITY_OVERRIDES = {
-  // '050': 'uncommon',   // example: make Mugini harder to find
-};
+const RARITY_FALLBACK = 'common';
 
 /* ---- Packs --------------------------------------------------
    A pack is a list of SLOTS. Each slot says how many cards to
@@ -37,9 +27,7 @@ const PACKS = {
     name: 'Bakemon Booster',
     color: '#2f8f83',           // the wrapper colour on the pack-opening screen
     slots: [
-      { count: 3, rarity: 'common' },
-      { count: 1, rarity: 'uncommon' },
-      { count: 1, odds: { rare: 0.25, uncommon: 0.75 } },
+      { count: 3, odds: { 'ultra rare': 0.02, 'double rare': 0.08 , rare: 0.1, uncommon: 0.3, common: 0.5 } },
     ],
     exclude: [],
   },

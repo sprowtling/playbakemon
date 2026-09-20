@@ -19,10 +19,13 @@ const UI_FONT = '"Patrick Hand", "Trebuchet MS", "Segoe UI", sans-serif';
 // the game quietly uses the next font in the list.
 
 // ---- Movement ----
-const SPEED = 80;       // walking speed, in world pixels per second
+const SPEED = 84;       // walking speed, in world pixels per second
 
 // ---- The kid ----
-// Same four colours every NPC has (see data/npcs.js).
+// Which sprite sheet you're drawn from (data/characters.js).
+// Set it to null and you go back to being a blocky person built from the colours below.
+const PLAYER_SPRITE = 'kid';
+// The four colours, used for anyone without a sprite.
 const PLAYER_LOOK = { skin: '#B68E6B', hair: '#3a2b21', shirt: '#4d7fbb', legs: '#4a6a8a' };
 
 // ---- Time ----
@@ -50,15 +53,15 @@ const SKY_TINT = [
 const INDOOR_TINT_STRENGTH = 0.35;   // indoors only gets this fraction of the tint
 
 // ---- Money ----
-const MONEY_NAME     = 'coins';   // PLACEHOLDER — rename to whatever the island uses
-const MONEY_NAME_ONE = 'coin';    // ...and what exactly one of them is called
+const MONEY_NAME     = 'jenni';   // PLACEHOLDER — rename to whatever the island uses
+const MONEY_NAME_ONE = 'J';    // ...and what exactly one of them is called
 
 // ---- A new game starts like this ----
 const START = {
-  map: 'home', col: 2, row: 2, facing: 'down',
+  map: 'home_upstairs', col: 2, row: 2, facing: 'down',
   money: 1,
   // "Three cards tucked under the pillow where they're safe."
-  cards: ['001', '030', '032'],
+  cards: ['004', '017', '035'],
 };
 
 // ---- Cards ----

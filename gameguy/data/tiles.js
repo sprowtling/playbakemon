@@ -16,6 +16,14 @@
             prototype had one global list of solid letters and that
             caused a real bug.
 
+   ABOUT STAIRS: the stair tiles are only a PICTURE. Nothing in the game
+   knows about floors. To make stairs actually go somewhere, make them a
+   place in that map with a `to`, exactly like a door:
+       U: { name: 'Upstairs', sprite: 'stairs_up', under: '_',
+            to: { map: 'bedroom', col: 3, row: 5, facing: 'down' } }
+   The upstairs room is just another map. Put a matching stairs_down place
+   up there pointing back.
+
    TO ADD A NEW TILE:
      1. Paint it into an empty 32x32 cell of art/tileset.png
         (the spare cells are in the bottom rows).
@@ -39,7 +47,17 @@ const SPRITES = {
   exit_mat: [4,3], rug:    [5,3], counter: [6,3], shelf:      [7,3],
 
   bed: [0,4], desk: [1,4], table: [2,4], display: [3,4], oven: [4,4],
-  // cells [5,4] to [7,4] and the whole of row 5 are empty. They're yours.
+
+  // Outdoor decoration
+  fence_h: [5,4], fence_v: [6,4], gate:  [7,4],
+  steps_stone: [0,5], well: [1,5], barrel: [2,5], lamp_post: [3,5],
+  bench: [4,5], flowerbed: [5,5], mailbox: [6,5], hedge: [7,5],
+
+  // Indoor furniture
+  stairs_up: [0,6], stairs_down: [1,6], tv: [2,6], fridge: [3,6],
+  sofa: [4,6], chair: [5,6], houseplant: [6,6], wardrobe: [7,6],
+  sink: [0,7], clock: [1,7], poster: [2,7], floor_lamp: [3,7], box: [4,7],
+  // cells [5,7], [6,7] and [7,7] are empty. They're yours.
 
   // A third value names a DIFFERENT sheet. These live in art/items.png
   // (labelled in art/items-guide.png). Cells [4,1] to [7,1] there are empty.
@@ -84,8 +102,23 @@ const LEGENDS = {
     '^': { sprite: 'roof',       solid: true, color: '#7a8aa5' },
     'o': { sprite: 'window_ext', solid: true, color: '#a8dce8' },
     'i': { sprite: 'lh_top',  under: '.', solid: true, color: '#c8504a' },
-    'j': { sprite: 'lh_wall', under: '.', solid: true, color: '#f0ece2' },
+    'I': { sprite: 'lh_top',  under: '~', solid: true, color: '#c8504a' },
+    'j': { sprite: 'lh_wall', under: 's', solid: true, color: '#f0ece2' },
+    'J': { sprite: 'lh_wall', under: '~', solid: true, color: '#f0ece2' },
     'c': { sprite: 'crate',   under: ',', solid: true, color: '#9a7a50' },
+
+    // Decoration. All placeholders: repaint the cells in art/tileset.png.
+    'f': { sprite: 'fence_h',   under: '.', solid: true, color: '#9a7a50' },   // fence running east-west
+    'v': { sprite: 'fence_v',   under: '.', solid: true, color: '#9a7a50' },   // ...and north-south
+    'g': { sprite: 'gate',      under: ',', color: '#b8966a' },                // walkable: a gap in the fence
+    'k': { sprite: 'steps_stone', under: '.', color: '#9aa4aa' },              // walkable. See the note below about stairs.
+    'w': { sprite: 'well',      under: '.', solid: true, color: '#8a9498' },
+    'b': { sprite: 'barrel',    under: ',', solid: true, color: '#8a6444' },
+    'l': { sprite: 'lamp_post', under: ',', solid: true, color: '#3a4450' },
+    'n': { sprite: 'bench',     under: '.', solid: true, color: '#8a6444' },
+    'e': { sprite: 'flowerbed', under: '.', solid: true, color: '#6b4a32' },
+    'm': { sprite: 'mailbox',   under: '.', solid: true, color: '#4a6a8a' },
+    'y': { sprite: 'hedge',     under: '.', solid: true, color: '#35703a' },
   },
 
   indoor: {
@@ -100,6 +133,21 @@ const LEGENDS = {
     't': { sprite: 'table',   under: '_', solid: true, color: '#7a5a3c' },
     'c': { sprite: 'display', under: '_', solid: true, color: '#a8dce8' },
     'v': { sprite: 'oven',    under: '_', solid: true, color: '#8a5a48' },
+
+    // Furniture. All placeholders.
+    'u': { sprite: 'stairs_up',   under: '_', solid: true, color: '#cdbfa6' },   // see the note below
+    'n': { sprite: 'stairs_down', under: '_', solid: true, color: '#6a5a44' },
+    'y': { sprite: 'tv',         under: '_', solid: true, color: '#2a2a32' },
+    'f': { sprite: 'fridge',     under: '_', solid: true, color: '#dfe4e6' },
+    's': { sprite: 'sofa',       under: '_', solid: true, color: '#4a6a8a' },
+    'a': { sprite: 'chair',      under: '_', solid: true, color: '#7a5a3c' },
+    'l': { sprite: 'houseplant', under: '_', solid: true, color: '#3f8442' },
+    'q': { sprite: 'wardrobe',   under: '_', solid: true, color: '#6b4a32' },
+    'i': { sprite: 'sink',       under: '_', solid: true, color: '#cdbfa6' },
+    'o': { sprite: 'clock',      under: '#', solid: true, color: '#f0ece2' },    // on a wall
+    'p': { sprite: 'poster',     under: '#', solid: true, color: '#e8d8a0' },    // on a wall
+    'm': { sprite: 'floor_lamp', under: '_', solid: true, color: '#e8d8a0' },
+    'g': { sprite: 'box',        under: '_', solid: true, color: '#b8966a' },
   },
 
 };

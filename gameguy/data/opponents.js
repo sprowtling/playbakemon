@@ -37,11 +37,11 @@ const OPPONENTS = {
     reward: { money: 1 },
   },
 
-  kid1: {
-    name: 'Dockside Kid',
+  rolepa: {
+    name: 'Rolepa',
     deck: ['017', '017', '018', '025', '025', '026', '007', '007', '008', '043', '101', '105'],
     points: 3,
-    style: { mistakes: 0.35 },
+    style: { mistakes: 0.4 },
     minutes: 40,
     intro: "\"Fire beats everything. Watch.\"",
     ifYouWin: "\"...Water's cheating.\"",
@@ -49,7 +49,7 @@ const OPPONENTS = {
   },
 
   shop_regular: {
-    name: 'Shop Regular',
+    name: 'Yileen',
     deck: ['010', '010', '011', '012', '021', '021', '022', '027', '027', '028', '016', '102', '102', '106', '104', '119'],
     points: 3,
     style: { mistakes: 0.15 },
@@ -61,7 +61,7 @@ const OPPONENTS = {
   },
 
   sailor: {
-    name: 'Sailor',
+    name: 'Laut',
     deck: ['035', '035', '036', '037', '046', '046', '047', '013', '013', '014', '016', '016', '102', '106', '103', '117'],
     points: 4,
     style: { mistakes: 0.05 },

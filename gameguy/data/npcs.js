@@ -6,13 +6,13 @@
 
    An NPC has:
      name
-     look       colours for the little procedural person:
+     sprite     which sheet they're drawn from (data/characters.js).
+                Leave it out and they're a blocky person built from `look`.
+     look       colours for the blocky person, used when there's no sprite:
                 { skin, hair, shirt, legs }
-                SHORTCUT: people are drawn by code, not from the
-                spritesheet. It means a new person costs you four
-                colours and no art, but they all share one body.
-                When you want real character sprites, that's a job
-                for js/world.js → drawPerson().
+                Every blocky person shares one body, so `look` only
+                changes their colours. Characters with a `sprite` don't
+                use it at all.
      home       { map, col, row, facing }  where they stand by default
      schedule   (optional) a list of { if, map, col, row, facing }.
                 The FIRST entry whose `if` is true wins; if none are,
@@ -54,7 +54,8 @@
 const NPCS = {
 
   shopkeep: {
-    name: 'Shopkeep',
+    name: 'Tate',
+    sprite: 'shopkeep',
     look: { skin: '#B68E6B', hair: '#5a4a3a', shirt: '#2f6b62', legs: '#3a3a44' },
     home: { map: 'shop', col: 6, row: 1, facing: 'down' },
     talk: [
@@ -69,6 +70,7 @@ const NPCS = {
 
   oyo: {
     name: 'Mrs. Oyo',
+    sprite: 'baker',
     look: { skin: '#8a5a3c', hair: '#d8d4cc', shirt: '#e8e0d0', legs: '#7a5a50' },
     home: { map: 'bakery', col: 3, row: 1, facing: 'down' },
     talk: [
@@ -80,16 +82,19 @@ const NPCS = {
   },
 
   keeper: {
-    name: 'Lighthouse Keeper',          // PLACEHOLDER name
+    name: 'Mr. Oyo',          
+    sprite: 'keeper',
     look: { skin: '#c49a78', hair: '#9aa0a8', shirt: '#3a4a6a', legs: '#2a2a34' },
     home: { map: 'island_ne', col: 27, row: 10, facing: 'down' },
     talk: [
       { lines: ["\"Wind's turning. You can smell it before you can see it.\""] },
     ],
+    job: ['pick_weeds'],
   },
 
   megan: {
     name: 'Megan',
+    sprite: 'megan',
     look: { skin: '#e0b48c', hair: '#a8482a', shirt: '#e8c44a', legs: '#5a7a4a' },
     home: { map: 'island_se', col: 14, row: 19, facing: 'down' },     // the beach by the dock
     schedule: [
@@ -120,8 +125,9 @@ const NPCS = {
   },
 
   // PLACEHOLDER: the first of "the handful of other kids". Rename, rewrite, move.
-  kid1: {
-    name: 'Dockside Kid',
+  rolepa: {
+    name: 'Rolepa',
+    sprite: 'dock_kid',
     look: { skin: '#6a4a36', hair: '#1e1a18', shirt: '#c8504a', legs: '#3a4a6a' },
     home: { map: 'island_sw', col: 25, row: 10, facing: 'down' },
     talk: [
@@ -129,19 +135,20 @@ const NPCS = {
     ],
     trade: {
       pool: [
-        { give: '017', want: { type: 'water' } },
-        { give: '025', want: { type: 'grass' } },
-        { give: '007', want: { type: 'electric' } },
-        { give: '043', want: { rarity: 'uncommon' } },
+        { give: { rarity: 'common' }, want: { type: 'fire' } },
+        { give: { rarity: 'uncommon' }, want: { type: 'fire' } },
+        { give: { rarity: 'common' }, want: { type: 'fire' } },
+        { give: { rarity: 'common' }, want: { type: 'fire' } },
       ],
-      show: 1, refresh: 'week',
+      show: 1, refresh: 'day',
     },
-    battle: 'kid1',
+    battle: 'rolepa',
   },
 
   // PLACEHOLDER: whoever runs Island Finds.
   finds_keeper: {
-    name: 'Shopkeeper',
+    name: 'Payu',
+    sprite: 'finds_keeper',
     look: { skin: '#d8a880', hair: '#c8c0b0', shirt: '#7a5a8a', legs: '#4a4a3a' },
     home: { map: 'finds', col: 4, row: 1, facing: 'down' },
     talk: [
@@ -156,7 +163,8 @@ const NPCS = {
   // Only on the island when his boat is. The boat itself is a `prop`
   // on the island_se map with the same condition.
   sailor: {
-    name: 'Sailor',                     // PLACEHOLDER name
+    name: 'Laut',                     // PLACEHOLDER name
+    sprite: 'sailor',
     look: { skin: '#a87a58', hair: '#2a2a2a', shirt: '#f0ece2', legs: '#2f4a6a' },
     home: { map: 'island_se', col: 17, row: 23, facing: 'right' },
     presentIf: 'day:Tue,Sat',
@@ -170,15 +178,15 @@ const NPCS = {
     // means every visit brings a different pair of offers.
     trade: {
       pool: [
-        { give: '061', want: { rarity: 'uncommon' } },
-        { give: '037', want: { rarity: 'rare' } },
+        { give: { rarity: 'uncommon' }, want: { rarity: 'uncommon' } },
+        { give: '030', want: { rarity: 'rare' } },
         { give: '046', want: { type: 'dark' } },
         { give: '035', want: { rarity: 'uncommon' } },
         { give: '016', want: { type: 'psychic' } },
         { give: '063', want: { rarity: 'rare' } },
         { give: '021', want: { type: 'steel' } },
       ],
-      show: 2, refresh: 'day',
+      show: 1, refresh: 'day',
     },
     job: 'unload_boat',
     battle: 'sailor',
