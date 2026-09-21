@@ -56,13 +56,25 @@ const NPCS = {
 
   // Your mom. She's strict, but she loves you. She works part time in the pub.
   mom: {
+    name: 'Mom',
+    look: { skin: '#635040', hair: '#BACFA3', shirt: '#5D7A42', legs: '#5F427A' },
     home: { map: 'home_downstairs', col: 3, row: 4, facing: 'right' },
-    },
+    talk: [
+      { lines: ["\"Placeholder Lines.\""] },
+        ],
+      },
+  
   
   // Your dad. He works on the sea. He's only home once a week. He tries to bring you back presents whenever he's home.
   dad: {
+    name: 'Dad',
+    look: { skin: '#BFAC9C', hair: '#C26A30', shirt: '#96BCE3', legs: '#E3E396' },
     home: { map: 'home_downstairs', col: 13, row: 5, facing: 'left' },
-  },
+    talk: [
+        { lines: ["\"Placeholder Lines.\""] },
+          ],
+      },
+  
 
 
   // Tate runs the game shop. You can't really figure out how old he is. Maybe around your dad's age. He doesn't seem to like kids that much.
@@ -144,8 +156,15 @@ const NPCS = {
   },
 
   megans_mom: {
+    name: '',
+    sprite: '',
+    look: { skin: '', hair: '', shirt: '', legs: '' },
     home: { map: 'island_se', col: 18, row: 1, facing: 'right' },
-    },
+    talk: [
+      { lines: ["\"Placeholder Lines.\""] },
+        ],
+      },
+  
 
   // Island Kid. They're younger than you and live next door with their older brother, Liass. Their dad works on the mainland and sends money to them.
   rolepa: {
@@ -170,8 +189,14 @@ const NPCS = {
 
   // Ropela's older brother, a teenager. Your mom helps look after them. Wants to test into a homestay in Wilpena, resents Rolepa for keeping him here.
   liass: {
+    name: '',
+    look: { skin: '', hair: '', shirt: '', legs: '' },
     home: { map: 'island_ne', col: 25, row: 27, facing: 'right' },
-    },
+    talk: [
+      { lines: ["\"Placeholder Lines.\""] },
+        ],
+      },
+  
 
   // Payu calls herself a retired adventurer. Island Finds is open when she feels like being open. Sometimes she leaves the island for days at a time. She doesn't seem to have any family.
   finds_keeper: {

@@ -26,7 +26,7 @@ const SPEED = 84;       // walking speed, in world pixels per second
 // Set it to null and you go back to being a blocky person built from the colours below.
 const PLAYER_SPRITE = 'kid';
 // The four colours, used for anyone without a sprite.
-const PLAYER_LOOK = { skin: '#B68E6B', hair: '#3a2b21', shirt: '#4d7fbb', legs: '#4a6a8a' };
+const PLAYER_LOOK = { skin: '#997854', hair: '#B3693E', shirt: '#E6DB5A', legs: '#5AE6DA' };
 
 // ---- Time ----
 // One real second = this many game minutes. At 1.2, a full day
