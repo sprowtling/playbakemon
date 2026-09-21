@@ -265,11 +265,29 @@ function openTrade(target) {
   choose(def.name + ' will trade', options);
 }
 
+/* ---------------- the mirror ---------------- */
+// Each row cycles one part through LOOK_PALETTE (data/config.js) and
+// reopens the menu, so the change shows on the kid standing right there.
+
+function openMirror() {
+  const row = (part, label) => {
+    const options = LOOK_PALETTE[part];
+    const i = options.indexOf(state.look[part]);
+    return { label, hint: 'Now: ' + state.look[part] + '.  Press to try the next one.',
+             run: () => { state.look[part] = options[(i + 1) % options.length]; saveGame(); openMirror(); } };
+  };
+  choose('Change your look', [
+    row('skin', 'Skin'), row('hair', 'Hair'), row('shirt', 'Shirt'), row('legs', 'Legs'),
+    { label: 'Done' },
+  ]);
+}
+
 /* ---------------- actions ---------------- */
 
 function runAction(action, def) {
   if (action === 'collection') return openCollection();
   if (action === 'deck') return openDeckEditor();
+  if (action === 'mirror') return openMirror();
   if (action === 'desk') return choose(def.name, [
     { label: 'Look through the shoebox', run: () => openCollection() },
     { label: 'Build your deck', hint: deckList().length + ' cards in it.  ' + (deckProblem(deckList()) || 'Ready to play.'), run: () => openDeckEditor() },

@@ -152,6 +152,10 @@ const LEGENDS = {
     'p': { sprite: 'poster',     under: '#', solid: true, color: '#e8d8a0' },    // on a wall
     'm': { sprite: 'floor_lamp', under: '_', solid: true, color: '#e8d8a0' },
     'g': { sprite: 'box',        under: '_', solid: true, color: '#b8966a' },
+    // No sprite yet on purpose: this shows as a coloured square with its
+    // letter on it (see drawLetter's "no picture yet" fallback, js/world.js)
+    // until you paint a MIRROR into a spare cell and add `sprite: '...'` here.
+    'k': { under: '_', solid: true, color: '#b0b8d8' },
   },
 
 };

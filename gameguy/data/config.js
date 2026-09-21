@@ -30,6 +30,16 @@ const PLAYER_SPRITE = 'kid';
 // actually gets drawn and saved, so something (a mirror, a menu) can change it later.
 const PLAYER_LOOK = { skin: '#B68E6B', hair: '#3a2b21', shirt: '#4d7fbb', legs: '#4a6a8a' };
 
+// What the mirror (data/maps.js, home_upstairs) cycles through for each
+// part. Pulled from colours already worn by people around the island, so
+// however you end up looking, you still look like you belong here.
+const LOOK_PALETTE = {
+  skin:  ['#B68E6B', '#8a5a3c', '#c49a78', '#e0b48c', '#6a4a36', '#d8a880', '#a87a58'],
+  hair:  ['#3a2b21', '#5a4a3a', '#d8d4cc', '#9aa0a8', '#a8482a', '#1e1a18', '#c8c0b0', '#2a2a2a'],
+  shirt: ['#4d7fbb', '#2f6b62', '#e8e0d0', '#3a4a6a', '#e8c44a', '#c8504a', '#7a5a8a', '#f0ece2'],
+  legs:  ['#4a6a8a', '#3a3a44', '#7a5a50', '#2a2a34', '#5a7a4a', '#4a4a3a', '#2f4a6a'],
+};
+
 // ---- Time ----
 // One real second = this many game minutes. At 1.2, a full day
 // (7am to 10pm) lasts about twelve and a half real minutes.
