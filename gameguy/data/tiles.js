@@ -106,6 +106,7 @@ const LEGENDS = {
     'j': { sprite: 'lh_wall', under: 's', solid: true, color: '#f0ece2' },
     'J': { sprite: 'lh_wall', under: '~', solid: true, color: '#f0ece2' },
     'c': { sprite: 'crate',   under: ',', solid: true, color: '#9a7a50' },
+    'P': { sprite: ['water1', 'water2'], fps: 0.09, solid: true, color: '#4B8C94' },
 
     // Decoration. All placeholders: repaint the cells in art/tileset.png.
     'f': { sprite: 'fence_h',   under: '.', solid: true, color: '#9a7a50' },   // fence running east-west

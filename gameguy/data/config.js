@@ -33,8 +33,8 @@ const PLAYER_LOOK = { skin: '#B68E6B', hair: '#3a2b21', shirt: '#4d7fbb', legs: 
 // (7am to 10pm) lasts about twelve and a half real minutes.
 const GAME_MINUTES_PER_SECOND = 1.2;
 const DAY_START_HOUR = 7;    // you wake up at 7:00
-const SLEEPY_HOUR    = 20;   // a reminder appears at 8pm
-const COLLAPSE_HOUR  = 22;   // at 10pm you fall asleep wherever you are
+const SLEEPY_HOUR    = 21;   // a reminder appears at 8pm
+const COLLAPSE_HOUR  = 23;   // at 10pm you fall asleep wherever you are
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 // Day 1 is DAY_NAMES[0]. The short names used in conditions ("day:Thu")
 // are just the first three letters of these.

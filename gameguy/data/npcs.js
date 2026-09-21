@@ -53,6 +53,19 @@
 
 const NPCS = {
 
+
+  // Your mom. She's strict, but she loves you. She works part time in the pub.
+  mom: {
+    home: { map: 'home_downstairs', col: 3, row: 4, facing: 'right' },
+    },
+  
+  // Your dad. He works on the sea. He's only home once a week. He tries to bring you back presents whenever he's home.
+  dad: {
+    home: { map: 'home_downstairs', col: 13, row: 5, facing: 'left' },
+  },
+
+
+  // Tate runs the game shop. You can't really figure out how old he is. Maybe around your dad's age. He doesn't seem to like kids that much.
   shopkeep: {
     name: 'Tate',
     sprite: 'shopkeep',
@@ -68,6 +81,8 @@ const NPCS = {
     job: 'sweep_shop',
   },
 
+
+  // Ruiha Oyo, a nice old lady who always smells like bread. She lives with her husband Nikau above the bakery.
   oyo: {
     name: 'Mrs. Oyo',
     sprite: 'baker',
@@ -81,6 +96,8 @@ const NPCS = {
     job: ['bakery_shift', 'lighthouse_delivery'],
   },
 
+
+  // Nikau Oyo, an old man who acts grumpy sometimes, but he doesn't really mean it. Lives with his wife Ruiha above the bakery.
   keeper: {
     name: 'Mr. Oyo',          
     sprite: 'keeper',
@@ -92,6 +109,8 @@ const NPCS = {
     job: ['pick_weeds'],
   },
 
+
+  // Island kid, and your best friend. She's the same age as you; your birthdays are only 4 days apart. Her mother is in the VNPC.
   megan: {
     name: 'Megan',
     sprite: 'megan',
@@ -124,12 +143,16 @@ const NPCS = {
     battle: 'megan',
   },
 
-  // PLACEHOLDER: the first of "the handful of other kids". Rename, rewrite, move.
+  megans_mom: {
+    home: { map: 'island_se', col: 18, row: 1, facing: 'right' },
+    },
+
+  // Island Kid. They're younger than you and live next door with their older brother, Liass. Their dad works on the mainland and sends money to them.
   rolepa: {
     name: 'Rolepa',
     sprite: 'dock_kid',
     look: { skin: '#6a4a36', hair: '#1e1a18', shirt: '#c8504a', legs: '#3a4a6a' },
-    home: { map: 'island_sw', col: 25, row: 10, facing: 'down' },
+    home: { map: 'island_sw', col: 23, row: 17, facing: 'down' },
     talk: [
       { lines: ["\"I only collect fire types. Everything else is boring.\""] },
     ],
@@ -145,7 +168,12 @@ const NPCS = {
     battle: 'rolepa',
   },
 
-  // PLACEHOLDER: whoever runs Island Finds.
+  // Ropela's older brother, a teenager. Your mom helps look after them. Wants to test into a homestay in Wilpena, resents Rolepa for keeping him here.
+  liass: {
+    home: { map: 'island_ne', col: 25, row: 27, facing: 'right' },
+    },
+
+  // Payu calls herself a retired adventurer. Island Finds is open when she feels like being open. Sometimes she leaves the island for days at a time. She doesn't seem to have any family.
   finds_keeper: {
     name: 'Payu',
     sprite: 'finds_keeper',
@@ -160,10 +188,11 @@ const NPCS = {
     shop: 'island_finds',
   },
 
-  // Only on the island when his boat is. The boat itself is a `prop`
-  // on the island_se map with the same condition.
+
+  // Sailor on a ship that comes in twice a week with food from Waipoeroa. You and Megan have pestered him so much, he's become sort of like a big brother to you.
+  // The boat itself is a `prop`
   sailor: {
-    name: 'Laut',                     // PLACEHOLDER name
+    name: 'Laut',                     
     sprite: 'sailor',
     look: { skin: '#a87a58', hair: '#2a2a2a', shirt: '#f0ece2', legs: '#2f4a6a' },
     home: { map: 'island_se', col: 17, row: 23, facing: 'right' },
@@ -191,5 +220,4 @@ const NPCS = {
     job: 'unload_boat',
     battle: 'sailor',
   },
-
 };

@@ -62,42 +62,49 @@ const ACTIVITIES = {
     name: 'Dig',
     tool: 'shovel',
     on: ['s'], where: 'standing',
-    minutes: 15,
+    minutes: 10,
     oncePerSpot: true, marks: 'dug_hole',
-    text: 'Dig, dig, dig.',
+    text: 'Dig diggy dig!',
     finds: [
       { weight: 6, nothing: true,      line: 'Sand. Then wetter sand.' },
-      { weight: 5, item: 'worm',       line: 'A worm! It is not pleased.' },
+      { weight: 3, item: 'worm',       line: 'A worm! It is not pleased.' },
       { weight: 3, item: 'shell',      line: 'A shell, whole, with no chips.' },
       { weight: 3, item: 'oyster',     line: 'An oyster, shut like a fist.' },
-      { weight: 2, money: [1, 2],      line: "Loose change! Somebody's pocket had a hole in it." },
+      { weight: 2, money: [5, 10],      line: "Loose change! Somebody's pocket had a hole in it." },
       { weight: 1, item: 'bottle',     line: 'A bottle. Empty.' },
       { weight: 0.6, item: 'old_coin', line: "A coin, green with age. It isn't island money." },
-      { weight: 0.4, card: 'common',   line: 'A Bakemon card?! Gritty, a bit bent. Still counts.' },
+      { weight: 0.4, card: 'common',   line: 'A Bakemon card?! Soggy and bent, but still counts.' },
     ],
   },
 
-  fish: {
+  fish_ocean: {
     name: 'Fish',
     tool: 'rod',
     on: ['~'], where: 'facing',
-    bait: 'worm', noBait: "No bait. Worms live in the sand, if you've got a shovel.",
-    minutes: 30,
-    text: 'The float bobs. You wait. The float bobs.',
-    finds: [                                           // the sea
+    bait: 'oyster', noBait: "No bait. Grandpa used to say that oysters made the cod bite.",
+    minutes: 20,
+    text: 'The bobber floats. You wait. You start daydreaming about Bakemon.',
+    finds: [
       { weight: 5, nothing: true,       line: 'Something took the worm and left.' },
       { weight: 5, item: 'fish_small',  line: 'A fish! A small one. A fish, though.' },
       { weight: 2, item: 'fish_big',    line: 'The pole bends double. You land it anyway.' },
       { weight: 1, item: 'boot',        line: 'A boot. Of course.' },
       { weight: 0.3, item: 'pearl',     line: "An oyster on the hook, and inside it... that's a pearl." },
     ],
-    findsIn: {
-      island_nw: [                                     // the pond in the woods
-        { weight: 3, nothing: true,      line: 'The pond keeps its secrets.' },
-        { weight: 7, item: 'fish_small', line: 'Pond fish bite easy.' },
-        { weight: 1, item: 'fish_big',   line: "The pond's grandfather, by the look of it." },
-      ],
-    },
   },
+  
+  fish_pond: {
+    name: 'Fish', 
+    tool: 'rod', 
+    on: ['P'], where: 'facing',
+    bait: 'worm', noBait: "You're out of bait. If the pond eels eat a worm, is it cannibalism?", 
+    minutes: 20, 
+    text: 'The bobber floats. You wait. You kind of wish you were a fish. ',
+    finds: [
+      { weight: 3, nothing: true,      line: 'The pond keeps its secrets.' },
+      { weight: 7, item: 'fish_small', line: 'Pond fish bite easy.' },
+      { weight: 1, item: 'fish_big',   line: "The pond's grandfather, by the look of it." },
+    ],
+  }
 
 };

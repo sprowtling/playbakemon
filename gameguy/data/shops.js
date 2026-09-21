@@ -12,7 +12,7 @@
    so packs and trades never choke on an incomplete card. Once you
    fill in its rarity on the playmat and re-export, it uses that.
    ------------------------------------------------------------- */
-const RARITY_FALLBACK = 'common';
+const RARITY_FALLBACK = 'ultra rare';
 
 /* ---- Packs --------------------------------------------------
    A pack is a list of SLOTS. Each slot says how many cards to
@@ -61,7 +61,7 @@ const SHOPS = {
     name: 'Tidepool Games',
     restockDay: 'Thu',
     products: [
-      { pack: 'booster', price: 5, startStock: 1, restockTo: 6, otherKidsBuy: 1 },
+      { pack: 'booster', price: 800, startStock: 1, restockTo: 4, otherKidsBuy: 1 },
     ],
     soldOutLine: "\"All gone. Boat's in Thursday. Same as always.\"",
   },
@@ -70,9 +70,9 @@ const SHOPS = {
   island_finds: {
     name: 'Island Finds',
     products: [
-      { item: 'shovel', price: 4 },
-      { item: 'rod',    price: 9 },
-      { item: 'worm',   price: 1 },          // for the impatient. Digging them up is free.
+      { item: 'shovel', price: 1200 },
+      { item: 'rod',    price: 2000 },
+      { item: 'worm',   price: 5 },          // for the impatient. Digging them up is free.
     ],
     buys: true,
     soldOutLine: "\"Fresh out. Try me next week.\"",

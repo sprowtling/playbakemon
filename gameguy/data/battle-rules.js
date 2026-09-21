@@ -24,7 +24,7 @@ const BATTLE_RULES = {
   energyPerTurn: 1,
   retreatsPerTurn: 1,          // ASSUMED
   firstPlayerCanAttack: true,  // ASSUMED: the player who goes first may attack on turn one
-  evolveClearsStatus: true,    // ASSUMED
+  evolveClearsStatus: false,    // ASSUMED
   noBakemonLeftLoses: true,    // ASSUMED: if your active is KO'd and your bench is empty, you lose
   // The rules page says the discard pile is reshuffled once your deck AND hand are
   // empty. With `false`, an empty deck is enough (kinder with small island decks).
