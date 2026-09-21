@@ -99,6 +99,30 @@ To make them go somewhere, make them a `place` with a `to`, exactly like a door,
 the upstairs room in `MAPS` as its own map. There's a worked example at the top of
 `data/tiles.js`, and a live one: the `D` tile in Home leads to the Tile Demo room.
 
+**Turning a tile.** Give the map a `rotations` table: `rotations: { '6,1': 90 }` turns
+whatever sits at column 6, row 1 a quarter turn clockwise. There's a working pair in
+`home_upstairs` — the rug and the bed. It's only the picture that turns, and only the
+object, not the floor drawn under it; use 90, 180 or 270 to stay pixel-crisp. (Details
+at the top of `maps.js`.)
+
+**Drawing a map you can see.** `tools/ascii_map_builder.html` paints maps by hand. Press
+**Sprites** in its canvas bar and it stops showing coloured letters and shows the actual
+pictures out of `art/tileset.png`, reading your letters through whichever legend the
+dropdown beside it is set to. The **Turn** tool (or `R`) spins a tile a quarter at a time,
+and the **Bakemon maps.js** export tab hands back a `tiles:` block and a matching
+`rotations:` block to paste into `maps.js`.
+
+Open it through a local web server rather than double-clicking the file — browsers won't
+let a page read image pixels off the disk, and that's what cutting the sprites out needs.
+From the `gameguy` folder:
+
+```
+python3 -m http.server 8000
+```
+
+then visit `http://localhost:8000/tools/ascii_map_builder.html`. (The game itself is at
+`http://localhost:8000/`.) Without a server everything still works, just as letters.
+
 **A new room.** Copy the `bakery` map in `maps.js`, rename it, redraw it. Give it an `x` place
 whose `to` points back outside. Put a door letter on the island with a `to` pointing in.
 The red box tells you if either end lands in a wall.

@@ -37,12 +37,56 @@
         /* Grid display rules */
         .grid-cell {
             aspect-ratio: 1 / 1;
+            position: relative;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
             font-family: 'Fira Code', monospace;
             font-weight: 700;
             transition: outline 0.05s ease;
+            background-repeat: no-repeat;
+            image-rendering: pixelated;
+        }
+
+        /* Everything that TURNS lives in here. The cell itself keeps the ground
+           layer (a legend's `under:`), which must stay put — exactly like the
+           game, where a rotated rug still lies on an unrotated floor. */
+        .cell-art {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-repeat: no-repeat;
+            image-rendering: pixelated;
+            transition: transform 0.14s ease;
+        }
+
+        /* The little amber corner tag on a turned cell, so a rotation is
+           visible at a glance even when a sprite looks symmetrical. */
+        .cell-turn {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 5;
+            font-family: 'Fira Code', monospace;
+            font-size: 8px;
+            line-height: 1;
+            padding: 1px 2px;
+            background: #f59e0b;
+            color: #111827;
+            border-bottom-left-radius: 3px;
+            pointer-events: none;
+            /* The whole grid is scaled to zoom, so undo that here: the tag
+               stays the same size on screen instead of swallowing the tile. */
+            transform: scale(var(--tag-scale, 1));
+            transform-origin: top right;
+        }
+        .cell-turn:empty { display: none; }
+
+        .cell-rotated {
+            box-shadow: inset 0 0 0 calc(2px * var(--tag-scale, 1)) rgba(245, 158, 11, 0.85);
         }
 
         .show-grid .grid-cell {
@@ -119,7 +163,7 @@
             <!-- Drawing Tools Bar -->
             <div class="p-3 border-b border-gray-800">
                 <label class="text-xs font-semibold uppercase text-gray-400 tracking-wider block mb-2">Tools</label>
-                <div class="grid grid-cols-4 gap-1.5">
+                <div class="grid grid-cols-5 gap-1.5">
                     <button data-tool="brush" title="Brush / Paint (B)" class="tool-btn active-tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
                         <i class="fa-solid fa-paint-brush text-base"></i>
                         <span>Paint</span>
@@ -135,6 +179,10 @@
                     <button data-tool="eraser" title="Eraser (X)" class="tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
                         <i class="fa-solid fa-eraser text-base"></i>
                         <span>Erase</span>
+                    </button>
+                    <button data-tool="rotate" title="Turn a tile (R). Click for a quarter turn clockwise; right-click or shift-click turns it back." class="tool-btn p-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg flex flex-col items-center justify-center text-xs gap-1 transition">
+                        <i class="fa-solid fa-rotate text-base"></i>
+                        <span>Turn</span>
                     </button>
                 </div>
             </div>
@@ -196,6 +244,16 @@
                         <span id="zoom-level" class="px-2 font-mono text-gray-300">100%</span>
                         <button id="btn-zoom-in" class="px-2 py-1 hover:bg-gray-700 text-gray-300"><i class="fa-solid fa-plus"></i></button>
                         <button id="btn-zoom-reset" class="px-2 py-1 border-l border-gray-700 hover:bg-gray-700 text-gray-400" title="Fit to Screen"><i class="fa-solid fa-expand"></i></button>
+                    </div>
+
+                    <!-- Real game art. Needs ../data/tiles.js and ../art/*.png,
+                         i.e. this tool still sitting in gameguy/tools/. -->
+                    <div class="flex items-center bg-gray-800 rounded border border-gray-700 overflow-hidden">
+                        <button id="btn-toggle-sprites" class="px-2.5 py-1 hover:bg-gray-700 text-gray-300 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-image"></i>
+                            <span>Sprites</span>
+                        </button>
+                        <select id="select-legend" title="Which legend to read your letters with" class="bg-gray-800 border-l border-gray-700 text-gray-300 text-xs py-1 pl-1.5 pr-1 outline-none cursor-pointer disabled:opacity-40"></select>
                     </div>
 
                     <!-- Toggles -->
@@ -284,6 +342,7 @@
                 <button data-tab="raw" class="export-tab py-2 px-4 border-b-2 border-blue-500 text-blue-400">Plain ASCII</button>
                 <button data-tab="json" class="export-tab py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white">Full JSON State</button>
                 <button data-tab="array" class="export-tab py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white">2D Matrix Array</button>
+                <button data-tab="gamejs" class="export-tab py-2 px-4 border-b-2 border-transparent text-gray-400 hover:text-white">Bakemon maps.js</button>
             </div>
 
             <p id="export-info-text" class="text-xs text-gray-400 mb-2">Copy plaintext ASCII characters for tabletop notes or code.</p>
@@ -350,8 +409,20 @@
             <div class="space-y-3 text-xs text-gray-300 leading-relaxed">
                 <p><strong class="text-white">1. Create Tile Palette:</strong> Customize your tiles in the left sidebar. Each tile combines a background color with an overlay ASCII symbol.</p>
                 <p><strong class="text-white">2. Paint Canvas:</strong> Click or drag across the grid with the <strong>Paint Tool</strong>. Use the <strong>Fill Bucket</strong> to flood fill regions.</p>
-                <p><strong class="text-white">3. Export Map:</strong> Click <strong>Export Map</strong> to copy standard ASCII characters for your game files or JSON to save work for later.</p>
-                
+                <p><strong class="text-white">3. Export Map:</strong> Click <strong>Export Map</strong> to copy standard ASCII characters for your game files or JSON to save work for later. The <strong>Bakemon maps.js</strong> tab gives you a <code>tiles:</code> block and a matching <code>rotations:</code> block, ready to paste straight into <code>data/maps.js</code>.</p>
+
+                <hr class="border-gray-800 my-2">
+
+                <h4 class="font-bold text-white uppercase tracking-wider text-[10px]">Seeing the real art</h4>
+                <p>Press <strong class="text-white">Sprites</strong> in the canvas bar to swap the coloured letters for the actual pictures out of <code>art/tileset.png</code>. The dropdown beside it picks which legend your letters are read with &mdash; <code>r</code> is a rock outdoors and a rug indoors, so this matters. Letters that legend doesn't know (a map's own <code>places</code>, like a door) stay as letters.</p>
+                <p class="text-gray-400">If the button is greyed out, the tool can't reach the game's files. Keep it in <code>gameguy/tools/</code>, and open it through a local web server rather than double-clicking the file.</p>
+
+                <hr class="border-gray-800 my-2">
+
+                <h4 class="font-bold text-white uppercase tracking-wider text-[10px]">Turning tiles</h4>
+                <p>Pick the <strong class="text-white">Turn</strong> tool and click a tile to spin it a quarter turn clockwise: 90&deg;, 180&deg;, 270&deg;, then back to square. Right-click or shift-click goes the other way. Turned cells get an amber corner tag and an amber outline.</p>
+                <p>Only the object turns, never the ground beneath it, and turning changes nothing but the picture &mdash; a solid tile stays solid. Painting something new over a turned cell clears its turn.</p>
+
                 <hr class="border-gray-800 my-2">
                 
                 <h4 class="font-bold text-white uppercase tracking-wider text-[10px]">Keyboard Shortcuts</h4>
@@ -362,6 +433,8 @@
                     <li><span class="text-blue-400 font-bold">F</span> - Fill Bucket</li>
                     <li><span class="text-blue-400 font-bold">E</span> - Eyedropper</li>
                     <li><span class="text-blue-400 font-bold">X</span> - Eraser Tool</li>
+                    <li><span class="text-blue-400 font-bold">R</span> - Turn Tool</li>
+                    <li><span class="text-blue-400 font-bold">S</span> - Toggle Sprites</li>
                     <li><span class="text-blue-400 font-bold">G</span> - Toggle Gridlines</li>
                     <li><span class="text-blue-400 font-bold">1-9</span> - Select Tile #</li>
                 </ul>
@@ -381,6 +454,12 @@
         <i class="fa-solid fa-check-circle"></i>
         <span id="toast-message">Message</span>
     </div>
+
+    <!-- The game's own tile data, so this tool can show the real art. It defines
+         SPRITES, SHEETS and LEGENDS. If it can't be reached (the tool was moved,
+         or opened straight off the disk) the Sprites button simply stays off and
+         everything else works exactly as before. -->
+    <script src="../data/tiles.js"></script>
 
     <script>
         // Default Tile Preset Configuration
@@ -403,11 +482,142 @@
             activeTileId: 'tile_grass',
             activeTool: 'brush', // brush, fill, eyedropper, eraser
             grid: [], // 2D matrix storing tile IDs
+            rotations: {}, // 'col,row' -> degrees clockwise. Matches data/maps.js exactly.
             zoom: 1,
             showGrid: true,
+            showSprites: false, // draw the real tileset art instead of letters
+            legend: 'outdoor', // which of the game's legends reads your letters
             isMouseDown: false,
             editingTileId: null
         };
+
+        /* ============================================================
+           THE REAL GAME ART
+           ------------------------------------------------------------
+           data/tiles.js (loaded above) gives us three tables:
+             SPRITES  name -> [column, row] (and an optional sheet name)
+             SHEETS   sheet name -> image file, relative to gameguy/
+             LEGENDS  legend name -> letter -> how that letter looks
+           Each sprite is CUT OUT of its sheet once, into its own little
+           image, and that is what the cells use as a background. Pinning a
+           background to part of a big sheet instead looks fine at 100% but
+           leaks a hairline of the neighbouring sprite once you zoom in, and
+           zooming in is the entire point of this tool.
+           ============================================================ */
+        const SHEET_TILE_PX = 32;
+        const spriteSheets = {};
+        const spriteUrls = {};      // sprite name -> its own image, cut out and cached
+
+        function loadSpriteSheets() {
+            if (typeof SHEETS === 'undefined') return;
+            for (const [name, file] of Object.entries(SHEETS)) {
+                const img = new Image();
+                spriteSheets[name] = { img, ready: false };
+                img.onload = () => {
+                    spriteSheets[name].ready = true;
+                    updateSpriteToggleUI();
+                    if (state.showSprites) refreshEverything();
+                };
+                img.src = '../' + file;                   // this tool lives one folder down
+            }
+        }
+
+        // One sprite, on its own, as a data URL. Null if we can't get at it —
+        // which is what happens when the tool is opened straight off the disk,
+        // because then the browser won't let us read the pixels back.
+        function spriteUrl(name) {
+            if (name in spriteUrls) return spriteUrls[name];
+
+            const cell = (typeof SPRITES !== 'undefined') && SPRITES[name];
+            const sheet = cell && spriteSheets[cell[2] || 'tiles'];
+            if (!sheet || !sheet.ready) return null;      // still loading: ask again later
+
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = SHEET_TILE_PX;
+                const g = canvas.getContext('2d');
+                g.imageSmoothingEnabled = false;
+                g.drawImage(sheet.img,
+                    cell[0] * SHEET_TILE_PX, cell[1] * SHEET_TILE_PX, SHEET_TILE_PX, SHEET_TILE_PX,
+                    0, 0, SHEET_TILE_PX, SHEET_TILE_PX);
+                spriteUrls[name] = canvas.toDataURL();
+            } catch (err) {
+                spriteUrls[name] = null;
+            }
+            return spriteUrls[name];
+        }
+
+        function spritesAvailable() {
+            if (typeof SPRITES === 'undefined' || typeof LEGENDS === 'undefined') return false;
+            if (!Object.values(spriteSheets).some(sheet => sheet.ready)) return false;
+            // Cutting a sprite out means reading the sheet's pixels back, which a
+            // browser refuses for a page opened straight off the disk. Try and see.
+            return Object.keys(SPRITES).some(name => spriteUrl(name) !== null);
+        }
+
+        // What the current legend says a letter looks like, or null if it has
+        // nothing to say (a map's own `places` letters land here).
+        function legendLookFor(symbol) {
+            if (typeof LEGENDS === 'undefined') return null;
+            const legend = LEGENDS[state.legend];
+            return (legend && legend[symbol]) || null;
+        }
+
+        // A legend entry may list several sprites (ground variants) or a run of
+        // animation frames. For a still preview the first one is the honest pick.
+        function firstSpriteName(look) {
+            if (!look) return null;
+            if (Array.isArray(look.frames) && look.frames.length) return look.frames[0];
+            if (Array.isArray(look.sprite)) return look.sprite[0];
+            return look.sprite || null;
+        }
+
+        // Paint one or more sprites onto an element as stacked backgrounds,
+        // topmost first. Returns false if it drew nothing.
+        function paintSprites(el, names) {
+            const image = [];
+            for (const name of names) {
+                const url = spriteUrl(name);
+                if (url) image.push(`url('${url}')`);
+            }
+            if (!image.length) { el.style.backgroundImage = ''; return false; }
+            el.style.backgroundImage = image.join(',');
+            el.style.backgroundSize = '100% 100%';   // exactly fills the cell, every layer
+            el.style.backgroundPosition = 'center';
+            return true;
+        }
+
+        /* ---------------- rotations ---------------- */
+        // Spots are stored column-first, the same way data/maps.js writes them,
+        // so the export is a straight copy rather than a translation.
+        function rotKey(r, c) { return c + ',' + r; }
+
+        function getRotation(r, c) { return state.rotations[rotKey(r, c)] || 0; }
+
+        // Returns true if anything actually changed.
+        function clearRotation(r, c) {
+            const key = rotKey(r, c);
+            if (!state.rotations[key]) return false;
+            delete state.rotations[key];
+            return true;
+        }
+
+        // Click cycles 0 -> 90 -> 180 -> 270 -> 0, so you can always get back.
+        function rotateCell(r, c, backwards) {
+            const key = rotKey(r, c);
+            const next = (((state.rotations[key] || 0) + (backwards ? 270 : 90)) % 360);
+            if (next) state.rotations[key] = next;
+            else delete state.rotations[key];
+
+            const cell = elements.canvas.children[r * state.width + c];
+            if (cell) updateCellDOM(cell, state.grid[r][c], r, c);
+            updateCoordDisplay(r, c);
+            return true;
+        }
+
+        function countRotations() {
+            return Object.values(state.rotations).filter(Boolean).length;
+        }
 
         // History Stacks for Undo / Redo
         const historyStack = [];
@@ -443,10 +653,13 @@
 
         // Initialize Application
         window.addEventListener('DOMContentLoaded', () => {
+            loadSpriteSheets();
+            populateLegendSelect();
             initGrid(state.width, state.height, false);
             renderPalette();
             bindEvents();
             updateActiveTileDisplay();
+            updateSpriteToggleUI();
             pushHistoryState(); // Initial baseline state
         });
 
@@ -455,7 +668,8 @@
             const snapshot = {
                 width: state.width,
                 height: state.height,
-                grid: JSON.parse(JSON.stringify(state.grid))
+                grid: JSON.parse(JSON.stringify(state.grid)),
+                rotations: JSON.parse(JSON.stringify(state.rotations))
             };
 
             historyStack.push(snapshot);
@@ -489,6 +703,7 @@
             state.width = snapshot.width;
             state.height = snapshot.height;
             state.grid = JSON.parse(JSON.stringify(snapshot.grid));
+            state.rotations = JSON.parse(JSON.stringify(snapshot.rotations || {}));
 
             if (elements.inputWidth) elements.inputWidth.value = state.width;
             if (elements.inputHeight) elements.inputHeight.value = state.height;
@@ -507,6 +722,7 @@
             state.width = cols;
             state.height = rows;
             state.grid = Array(rows).fill(null).map(() => Array(cols).fill('tile_empty'));
+            state.rotations = {};
             renderGridCanvas();
             if (pushHistory) pushHistoryState();
         }
@@ -525,11 +741,11 @@
                     cell.dataset.row = r;
                     cell.dataset.col = c;
                     
-                    updateCellDOM(cell, state.grid[r][c]);
+                    updateCellDOM(cell, state.grid[r][c], r, c);
 
                     // Mouse interactions for painting
                     cell.addEventListener('mouseenter', () => {
-                        if (elements.coordDisplay) elements.coordDisplay.textContent = `X: ${c}, Y: ${r}`;
+                        updateCoordDisplay(r, c);
                         if (state.isMouseDown && state.activeTool === 'brush') {
                             paintCell(r, c);
                         } else if (state.isMouseDown && state.activeTool === 'eraser') {
@@ -538,9 +754,18 @@
                     });
 
                     cell.addEventListener('mousedown', (e) => {
+                        const turning = state.activeTool === 'rotate';
+                        // Right-click only means anything to the Turn tool.
+                        if (e.button === 2 && !turning) return;
+                        if (e.button !== 0 && e.button !== 2) return;
                         e.preventDefault();
-                        state.isMouseDown = true;
-                        handleCellClick(r, c);
+                        if (e.button === 0) state.isMouseDown = true;
+                        handleCellClick(r, c, { backwards: e.shiftKey || e.button === 2 });
+                    });
+
+                    // ...so let the Turn tool use it without the browser menu.
+                    cell.addEventListener('contextmenu', (e) => {
+                        if (state.activeTool === 'rotate') e.preventDefault();
                     });
 
                     elements.canvas.appendChild(cell);
@@ -548,12 +773,47 @@
             }
         }
 
-        // Update single DOM cell properties based on Tile state
-        function updateCellDOM(cellElement, tileId) {
+        // Update single DOM cell properties based on Tile state.
+        // The cell holds the ground layer, which never turns; its .cell-art child
+        // holds the object and the letter, and that is what spins.
+        function updateCellDOM(cellElement, tileId, r, c) {
             const tile = getTileById(tileId) || getTileById('tile_empty');
-            cellElement.textContent = tile.symbol;
+
+            let art = cellElement.querySelector('.cell-art');
+            if (!art) {
+                cellElement.textContent = '';
+                art = document.createElement('span');
+                art.className = 'cell-art';
+                cellElement.appendChild(art);
+                const tag = document.createElement('b');
+                tag.className = 'cell-turn';
+                cellElement.appendChild(tag);
+            }
+            const tag = cellElement.querySelector('.cell-turn');
+
             cellElement.style.backgroundColor = tile.bg;
-            cellElement.style.color = tile.fg;
+            art.style.color = tile.fg;
+
+            const look = state.showSprites ? legendLookFor(tile.symbol) : null;
+            const under = (look && look.under) ? legendLookFor(look.under) : null;
+            paintSprites(cellElement, under ? [firstSpriteName(under)] : []);
+            const drewSprite = paintSprites(art, look ? [firstSpriteName(look)] : []);
+            // No picture for this letter? Then it stays a letter, as it always was.
+            art.textContent = drewSprite ? '' : tile.symbol;
+            // Behind a sprite, show the legend's own fallback colour rather than
+            // this palette's arbitrary one, so nothing jarring can peek through.
+            if (drewSprite) cellElement.style.backgroundColor = (under && under.color) || look.color || '#111827';
+
+            const degrees = getRotation(r, c);
+            art.style.transform = degrees ? `rotate(${degrees}deg)` : '';
+            if (tag) tag.textContent = degrees ? String(degrees) : '';
+            cellElement.classList.toggle('cell-rotated', !!degrees);
+        }
+
+        function updateCoordDisplay(r, c) {
+            if (!elements.coordDisplay) return;
+            const degrees = getRotation(r, c);
+            elements.coordDisplay.textContent = `X: ${c}, Y: ${r}` + (degrees ? `  \u00b7  turned ${degrees}\u00b0` : '');
         }
 
         // Retrieve Tile from state
@@ -589,7 +849,7 @@
         }
 
         // Handle User Click on Canvas
-        function handleCellClick(r, c) {
+        function handleCellClick(r, c, opts) {
             let strokeChanged = false;
 
             if (state.activeTool === 'brush') {
@@ -600,6 +860,8 @@
                 pickTileFromCanvas(r, c);
             } else if (state.activeTool === 'eraser') {
                 strokeChanged = eraseCell(r, c);
+            } else if (state.activeTool === 'rotate') {
+                strokeChanged = rotateCell(r, c, !!(opts && opts.backwards));
             }
 
             if (strokeChanged) {
@@ -607,21 +869,24 @@
             }
         }
 
-        // Paint cell
+        // Paint cell. Putting something NEW on a spot drops that spot's turn:
+        // the turn belonged to the thing that used to be there.
         function paintCell(r, c) {
             if (state.grid[r][c] === state.activeTileId) return false;
             state.grid[r][c] = state.activeTileId;
+            clearRotation(r, c);
             const cell = elements.canvas.children[r * state.width + c];
-            if (cell) updateCellDOM(cell, state.activeTileId);
+            if (cell) updateCellDOM(cell, state.activeTileId, r, c);
             return true;
         }
 
         // Erase cell (Reset to empty tile)
         function eraseCell(r, c) {
-            if (state.grid[r][c] === 'tile_empty') return false;
+            const hadTurn = clearRotation(r, c);
+            if (state.grid[r][c] === 'tile_empty' && !hadTurn) return false;
             state.grid[r][c] = 'tile_empty';
             const cell = elements.canvas.children[r * state.width + c];
-            if (cell) updateCellDOM(cell, 'tile_empty');
+            if (cell) updateCellDOM(cell, 'tile_empty', r, c);
             return true;
         }
 
@@ -651,9 +916,10 @@
 
                 if (state.grid[r][c] === targetTileId) {
                     state.grid[r][c] = replacementTileId;
+                    clearRotation(r, c);
                     changed = true;
                     const cell = elements.canvas.children[r * state.width + c];
-                    if (cell) updateCellDOM(cell, replacementTileId);
+                    if (cell) updateCellDOM(cell, replacementTileId, r, c);
 
                     queue.push([r + 1, c]);
                     queue.push([r - 1, c]);
@@ -750,7 +1016,9 @@
                 });
             });
 
+            state.rotations = {};       // a freshly pasted map hasn't been turned yet
             renderGridCanvas();
+            fitToScreen();
             pushHistoryState();
 
             if (elements.asciiModal) {
@@ -776,7 +1044,7 @@
                 item.innerHTML = `
                     <div class="flex items-center space-x-3 overflow-hidden">
                         <span class="text-xs text-gray-500 font-mono w-3">${index + 1}</span>
-                        <div class="w-8 h-8 rounded flex items-center justify-center font-mono font-bold text-base shrink-0 border border-black/20 shadow-inner" style="background-color: ${tile.bg}; color: ${tile.fg}">
+                        <div class="palette-swatch w-8 h-8 rounded flex items-center justify-center font-mono font-bold text-base shrink-0 border border-black/20 shadow-inner" style="background-color: ${tile.bg}; color: ${tile.fg}">
                             ${tile.symbol}
                         </div>
                         <div class="truncate">
@@ -796,6 +1064,8 @@
                         ` : ''}
                     </div>
                 `;
+
+                decorateSwatch(item.querySelector('.palette-swatch'), tile);
 
                 item.addEventListener('click', (e) => {
                     if (e.target.closest('button')) return;
@@ -822,6 +1092,21 @@
             });
         }
 
+        // Show a palette or header swatch as the real sprite when sprites are on.
+        // Here the ground layer and the object can share one element, because
+        // nothing in a swatch ever turns.
+        function decorateSwatch(el, tile) {
+            if (!el) return;
+            el.style.backgroundImage = '';
+            el.style.imageRendering = 'pixelated';
+            if (!state.showSprites) { el.textContent = tile.symbol; return; }
+
+            const look = legendLookFor(tile.symbol);
+            const under = (look && look.under) ? legendLookFor(look.under) : null;
+            const names = [firstSpriteName(look), under ? firstSpriteName(under) : null].filter(Boolean);
+            el.textContent = paintSprites(el, names) ? '' : tile.symbol;
+        }
+
         // Set Active Tile
         function setActiveTile(id) {
             state.activeTileId = id;
@@ -833,11 +1118,48 @@
         function updateActiveTileDisplay() {
             const tile = getTileById(state.activeTileId);
             if (elements.activeBadge) {
-                elements.activeBadge.textContent = tile.symbol;
                 elements.activeBadge.style.backgroundColor = tile.bg;
                 elements.activeBadge.style.color = tile.fg;
+                decorateSwatch(elements.activeBadge, tile);
             }
             if (elements.activeName) elements.activeName.textContent = tile.name;
+        }
+
+        // Fill the legend dropdown from whatever legends the game actually has.
+        function populateLegendSelect() {
+            const select = document.getElementById('select-legend');
+            if (!select) return;
+            const names = (typeof LEGENDS !== 'undefined') ? Object.keys(LEGENDS) : [];
+            if (names.length && !names.includes(state.legend)) state.legend = names[0];
+            select.innerHTML = names.length
+                ? names.map(n => `<option value="${n}">${n}</option>`).join('')
+                : '<option>none</option>';
+            if (names.length) select.value = state.legend;
+        }
+
+        function updateSpriteToggleUI() {
+            const btn = document.getElementById('btn-toggle-sprites');
+            const select = document.getElementById('select-legend');
+            if (!btn) return;
+
+            const ok = spritesAvailable();
+            btn.disabled = !ok;
+            btn.title = ok
+                ? "Draw the real pictures from art/tileset.png instead of letters (S)"
+                : "Can't reach the game's art from here. Keep this tool in gameguy/tools/ and open it through a local web server rather than off the disk.";
+            btn.classList.toggle('opacity-40', !ok);
+            btn.classList.toggle('cursor-not-allowed', !ok);
+
+            const on = ok && state.showSprites;
+            btn.classList.toggle('bg-blue-900/40', on);
+            btn.classList.toggle('text-blue-300', on);
+            if (select) select.disabled = !on;
+        }
+
+        function refreshEverything() {
+            renderPalette();
+            renderGridCanvas();
+            updateActiveTileDisplay();
         }
 
         // Set Active Drawing Tool
@@ -948,6 +1270,7 @@
                 for (let c = 0; c < state.width; c++) {
                     if (state.grid[r][c] === tileId) {
                         state.grid[r][c] = 'tile_empty';
+                        clearRotation(r, c);
                     }
                 }
             }
@@ -974,16 +1297,45 @@
                 }).join('\n');
             } else if (format === 'json') {
                 return JSON.stringify({
-                    version: "1.0",
+                    version: "1.1",
                     width: state.width,
                     height: state.height,
                     palette: state.palette,
-                    grid: state.grid
+                    grid: state.grid,
+                    rotations: state.rotations
                 }, null, 2);
             } else if (format === 'array') {
                 const asciiGrid = state.grid.map(row => row.map(tileId => getTileById(tileId).symbol));
                 return JSON.stringify(asciiGrid, null, 2);
+            } else if (format === 'gamejs') {
+                return generateBakemonExport();
             }
+        }
+
+        // The `tiles:` and `rotations:` blocks of a map in data/maps.js, indented
+        // to sit inside a map entry, so this is a paste rather than a translation.
+        function generateBakemonExport() {
+            const quote = text => "'" + text.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+            const lines = ['    tiles: ['];
+            state.grid.forEach(row => {
+                lines.push('      ' + quote(row.map(tileId => getTileById(tileId).symbol).join('')) + ',');
+            });
+            lines.push('    ],');
+
+            const spots = Object.keys(state.rotations).filter(key => state.rotations[key]);
+            if (spots.length) {
+                // Reading order: down the rows, then across, so the list is
+                // easy to follow against the drawing above it.
+                spots.sort((a, b) => {
+                    const [ac, ar] = a.split(',').map(Number);
+                    const [bc, br] = b.split(',').map(Number);
+                    return ar - br || ac - bc;
+                });
+                lines.push('    rotations: {');
+                spots.forEach(key => lines.push(`      '${key}': ${state.rotations[key]},`));
+                lines.push('    },');
+            }
+            return lines.join('\n');
         }
 
         function openExportModal() {
@@ -1007,6 +1359,7 @@
                 state.height = data.height;
                 state.palette = data.palette;
                 state.grid = data.grid;
+                state.rotations = data.rotations || {};   // files saved before turns existed have none
                 state.activeTileId = state.palette[0].id;
 
                 if (elements.inputWidth) elements.inputWidth.value = state.width;
@@ -1082,6 +1435,14 @@
                         });
                     });
 
+                    // Keep the turns that are still on the map; drop the rest.
+                    const keptRotations = {};
+                    for (const [key, degrees] of Object.entries(state.rotations)) {
+                        const [kc, kr] = key.split(',').map(Number);
+                        if (kc < w && kr < h) keptRotations[key] = degrees;
+                    }
+                    state.rotations = keptRotations;
+
                     state.width = w;
                     state.height = h;
                     state.grid = newGrid;
@@ -1095,9 +1456,9 @@
             const zoomOutBtn = document.getElementById('btn-zoom-out');
             const zoomResetBtn = document.getElementById('btn-zoom-reset');
 
-            if (zoomInBtn) zoomInBtn.addEventListener('click', () => { state.zoom = Math.min(2.5, state.zoom + 0.15); applyZoom(); });
-            if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { state.zoom = Math.max(0.5, state.zoom - 0.15); applyZoom(); });
-            if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => { state.zoom = 1.0; applyZoom(); });
+            if (zoomInBtn) zoomInBtn.addEventListener('click', () => { state.zoom = Math.min(MAX_ZOOM, state.zoom + 0.15); applyZoom(); });
+            if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => { state.zoom = Math.max(MIN_ZOOM, state.zoom - 0.15); applyZoom(); });
+            if (zoomResetBtn) zoomResetBtn.addEventListener('click', fitToScreen);
 
             const toggleGridBtn = document.getElementById('btn-toggle-grid');
             if (toggleGridBtn) {
@@ -1110,6 +1471,29 @@
                         if (elements.canvas) elements.canvas.classList.remove('show-grid');
                         e.currentTarget.classList.remove('bg-blue-900/40', 'text-blue-300');
                     }
+                });
+            }
+
+            const spritesBtn = document.getElementById('btn-toggle-sprites');
+            if (spritesBtn) {
+                spritesBtn.addEventListener('click', () => {
+                    if (!spritesAvailable()) {
+                        showToast("Can't reach the game's art from here.");
+                        return;
+                    }
+                    state.showSprites = !state.showSprites;
+                    updateSpriteToggleUI();
+                    refreshEverything();
+                    showToast(state.showSprites ? 'Showing the real tileset art' : 'Back to letters');
+                });
+            }
+
+            const legendSelect = document.getElementById('select-legend');
+            if (legendSelect) {
+                legendSelect.addEventListener('change', () => {
+                    state.legend = legendSelect.value;
+                    refreshEverything();
+                    showToast(`Reading letters with the ${state.legend} legend`);
                 });
             }
 
@@ -1180,6 +1564,7 @@
                         if (format === 'raw') info.textContent = 'Copy plaintext ASCII characters for tabletop notes or code.';
                         else if (format === 'json') info.textContent = 'JSON file format containing complete palette and map array.';
                         else if (format === 'array') info.textContent = '2D Matrix Array ready to paste into JS/Python game code.';
+                        else if (format === 'gamejs') info.textContent = `The tiles: and rotations: blocks for a map in data/maps.js. ${countRotations()} tile(s) turned.`;
                     }
                 });
             });
@@ -1260,6 +1645,11 @@
                 if (key === 'f') setTool('fill');
                 if (key === 'e') setTool('eyedropper');
                 if (key === 'x') setTool('eraser');
+                if (key === 'r') setTool('rotate');
+                if (key === 's') {
+                    const spriteBtn = document.getElementById('btn-toggle-sprites');
+                    if (spriteBtn) spriteBtn.click();
+                }
                 if (key === 'g') {
                     const gridBtn = document.getElementById('btn-toggle-grid');
                     if (gridBtn) gridBtn.click();
@@ -1275,9 +1665,36 @@
         }
 
         // Apply Zoom Transform
+        const MIN_ZOOM = 0.25, MAX_ZOOM = 6;
+
         function applyZoom() {
-            if (elements.canvas) elements.canvas.style.transform = `scale(${state.zoom})`;
+            if (elements.canvas) {
+                elements.canvas.style.transform = `scale(${state.zoom})`;
+                // Never bigger than it is at 100%, and never much smaller than legible.
+                elements.canvas.style.setProperty('--tag-scale', Math.min(1, 1.5 / state.zoom));
+            }
             if (elements.zoomLevel) elements.zoomLevel.textContent = `${Math.round(state.zoom * 100)}%`;
+        }
+
+        // Blow the map up (or shrink it down) until it just fills the viewport.
+        // A small room is 9 tiles across and sits there as a postage stamp at
+        // 100%, which is no use when you're trying to SEE what you're building.
+        function fitToScreen() {
+            if (!elements.canvas || !elements.canvasContainer) return;
+
+            const wasScaled = elements.canvas.style.transform;
+            elements.canvas.style.transform = 'scale(1)';       // measure it unscaled
+            const box = elements.canvas.getBoundingClientRect();
+            elements.canvas.style.transform = wasScaled;
+            if (!box.width || !box.height) return;
+
+            const room = 56;   // leave a little air around the edges
+            const fit = Math.min(
+                (elements.canvasContainer.clientWidth - room) / box.width,
+                (elements.canvasContainer.clientHeight - room) / box.height
+            );
+            state.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fit));
+            applyZoom();
         }
 
         // Show Toast Notification

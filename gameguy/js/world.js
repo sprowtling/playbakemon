@@ -164,12 +164,28 @@ function tileHash(col, row) {
 }
 
 // `size` is optional: menus use it to draw an item icon bigger than one tile.
-function drawSprite(name, x, y, size) {
+// `turn` is optional too: degrees clockwise, spun about the middle of the tile.
+function drawSprite(name, x, y, size, turn) {
   const cell = SPRITES[name];
   const sheet = cell && sheets[cell[2] || 'tiles'];
   if (!sheet || !sheet.ready) return false;
-  ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, x, y, size || TILE, size || TILE);
+  const s = size || TILE;
+  if (!turn) {
+    ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, x, y, s, s);
+    return true;
+  }
+  ctx.save();
+  ctx.translate(x + s / 2, y + s / 2);          // move 0,0 to the middle of the tile,
+  ctx.rotate(turn * Math.PI / 180);             // spin the page, then draw centred on it
+  ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, TILE, TILE, -s / 2, -s / 2, s, s);
+  ctx.restore();
   return true;
+}
+
+// How far the thing at this spot is turned, in degrees. 0 almost everywhere.
+// A map says so with  rotations: { '6,1': 90 }   (see the top of data/maps.js).
+function turnAt(map, col, row) {
+  return (map.rotations && map.rotations[col + ',' + row]) || 0;
 }
 
 // Which activity (data/goods.js) could be done right here, right now? Or null.
@@ -194,12 +210,16 @@ function drawLetter(map, ch, col, row, time, depth) {
 
   if (look && look.under && (depth || 0) < 3) drawLetter(map, look.under, col, row, time, (depth || 0) + 1);
 
+  // Only the tile itself turns, never whatever `under` just drew beneath it,
+  // so a rug spun a quarter turn still lies on a floor that stayed put.
+  const turn = (depth || 0) === 0 ? turnAt(map, col, row) : 0;
+
   let name = null;
   if (look && look.frames)                   name = look.frames[Math.floor(time * (look.fps || 2) + (col + row) % 2) % look.frames.length];
   else if (look && Array.isArray(look.sprite)) name = look.sprite[tileHash(col, row) % look.sprite.length];
   else if (look)                             name = look.sprite;
 
-  if (name && drawSprite(name, x, y)) return;
+  if (name && drawSprite(name, x, y, TILE, turn)) return;
 
   // No picture (yet). Show SOMETHING: a coloured square with the letter on it.
   ctx.fillStyle = (look && look.color) || '#d23ad2';
@@ -287,7 +307,7 @@ function drawWorld(time) {
       if (inBounds(c, r)) drawLetter(current, current.tiles[r][c], c, r, time);
     }
   }
-  for (const p of propsHere) drawSprite(p.sprite, p.col * TILE, p.row * TILE);
+  for (const p of propsHere) drawSprite(p.sprite, p.col * TILE, p.row * TILE, TILE, turnAt(current, p.col, p.row));
   // today's holes in the sand
   for (const [spot, mark] of Object.entries((state.dug || {}).spots || {})) {
     const [map, where] = spot.split(':'), [c, r] = where.split(',').map(Number);
@@ -400,6 +420,14 @@ function validateData() {
     for (const p of map.props || []) {
       if (!SPRITES[p.sprite]) say(`Map "${name}" has a prop with sprite "${p.sprite}", which isn't named in SPRITES.`);
       checkConds(`Map "${name}", prop "${p.sprite}"`, p.showIf);
+    }
+    for (const [spot, degrees] of Object.entries(map.rotations || {})) {
+      const where = `Map "${name}", rotations entry "${spot}"`;
+      const at = /^(\d+),(\d+)$/.exec(spot);
+      if (!at) { say(`${where} isn't a spot on the map. Write it as column,row with no spaces, like "6,1".`); continue; }
+      const col = Number(at[1]), row = Number(at[2]);
+      if (!map.tiles[row] || map.tiles[row][col] === undefined) say(`${where} is off the map, which is ${width} wide and ${map.tiles.length} tall.`);
+      if (typeof degrees !== 'number' || !isFinite(degrees)) say(`${where} turns it by ${JSON.stringify(degrees)}. That wants to be a plain number of degrees, like 90.`);
     }
   }
 
