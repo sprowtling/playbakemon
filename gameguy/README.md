@@ -99,6 +99,12 @@ To make them go somewhere, make them a `place` with a `to`, exactly like a door,
 the upstairs room in `MAPS` as its own map. There's a worked example at the top of
 `data/tiles.js`, and a live one: the `D` tile in Home leads to the Tile Demo room.
 
+**Turning a tile.** Give the map a `rotations` table: `rotations: { '6,1': 90 }` turns
+whatever sits at column 6, row 1 a quarter turn clockwise. There's a working pair in
+`home_upstairs` — the rug and the bed. It's only the picture that turns, and only the
+object, not the floor drawn under it; use 90, 180 or 270 to stay pixel-crisp. (Details
+at the top of `maps.js`.)
+
 **A new room.** Copy the `bakery` map in `maps.js`, rename it, redraw it. Give it an `x` place
 whose `to` points back outside. Put a door letter on the island with a `to` pointing in.
 The red box tells you if either end lands in a wall.

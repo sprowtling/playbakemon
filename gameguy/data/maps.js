@@ -14,6 +14,7 @@
      tiles    the drawing
      places   letters that do something when you face them and press E
      props    (optional) extra sprites that only appear sometimes
+     rotations (optional) single tiles turned on the spot
 
    THE ISLAND IS FOUR MAPS: north-west, north-east, south-west,
    south-east. Each is 40 x 30 tiles. Walk off the east side of one
@@ -45,6 +46,23 @@
      walkOn      true  → triggers by stepping on it instead of pressing E,
                           and doesn't block. (For cave mouths, doormats...)
    Places always block movement unless walkOn is true.
+
+   TURNING A TILE:
+     rotations: { '6,1': 90 }
+   turns whatever this map draws at column 6, row 1 by 90 degrees clockwise.
+   Columns count from 0 along the top row, rows from 0 down the left side —
+   the same numbers a door's `to` uses. 90, 180 and 270 land on exact pixels
+   and stay crisp; other angles work but the picture will hang over its
+   neighbours' corners.
+
+   Two things it does NOT do, on purpose:
+     - It never turns the ground. A tile with `under:` draws the floor first
+       and then itself, and only the "itself" part turns, so a rug spun a
+       quarter turn still lies flat on an unturned floor.
+     - It changes nothing but the picture. A solid tile stays solid, a door
+       still leads where it led, a bed still puts you to sleep.
+   Props at that spot turn too, since they're just a sprite sitting there.
+   The red box will tell you if a spot is misspelt or falls off the map.
    ============================================================ */
 
 const MAPS = {
@@ -336,6 +354,12 @@ const MAPS = {
       d: { name: 'Your desk', action: 'desk' },
       w: { name: 'Window', line: "You can see the shop's roof from here. And the sea past it." },
          },
+    // Turn single tiles on the spot. Format: 'column,row': degrees clockwise.
+    // Delete either line and that tile goes back to sitting square.
+    rotations: {
+      '6,1': 90,    // the rug, a quarter turn
+      '7,1': 180,   // the bed, head swapped to the other end
+    },
        },
 
   finds: {
