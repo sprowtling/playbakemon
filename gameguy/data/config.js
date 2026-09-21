@@ -25,7 +25,9 @@ const SPEED = 84;       // walking speed, in world pixels per second
 // Which sprite sheet you're drawn from (data/characters.js).
 // Set it to null and you go back to being a blocky person built from the colours below.
 const PLAYER_SPRITE = 'kid';
-// The four colours, used for anyone without a sprite.
+// The four colours, used for anyone without a sprite. This is only the
+// STARTING look — a new game copies it into state.look, which is what
+// actually gets drawn and saved, so something (a mirror, a menu) can change it later.
 const PLAYER_LOOK = { skin: '#B68E6B', hair: '#3a2b21', shirt: '#4d7fbb', legs: '#4a6a8a' };
 
 // ---- Time ----

@@ -32,6 +32,7 @@ function newState() {
     dug: { day: 1, spots: {} },      // tiles already dug up today
     deckEdited: false,               // until you edit your deck by hand, it's "everything you own"
     player: { map: START.map, col: START.col, row: START.row, facing: START.facing },
+    look: Object.assign({}, PLAYER_LOOK),   // the kid's colours. A copy, so changing it never touches the default.
   };
   for (const id of START.cards) { s.collection[id] = (s.collection[id] || 0) + 1; s.seen[id] = true; }
   for (const [shopId, shop] of Object.entries(SHOPS)) {

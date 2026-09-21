@@ -307,7 +307,7 @@ function drawWorld(time) {
 
   // People are drawn top-to-bottom so whoever is lower on screen is in front.
   const people = npcsHere.map(n => ({ y: n.row * TILE, draw: () => drawPerson(n.col * TILE, n.row * TILE, n.def.look, n.facing, 0, n.def.sprite) }));
-  people.push({ y: player.y, draw: () => drawPerson(player.x, player.y, PLAYER_LOOK, player.facing, player.walkTimer, PLAYER_SPRITE) });
+  people.push({ y: player.y, draw: () => drawPerson(player.x, player.y, state.look || PLAYER_LOOK, player.facing, player.walkTimer, PLAYER_SPRITE) });
   people.sort((a, b) => a.y - b.y).forEach(p => p.draw());
 
   if (DEBUG && showBoxes) {
