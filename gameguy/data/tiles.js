@@ -82,9 +82,33 @@ const SHEETS = { tiles: 'art/tileset.png', items: 'art/items.png' };
                                     This is how a tree stands on grass: the
                                     tree picture has a see-through background.
      solid:  true                   you can't walk through it
+     size:   [2, 1]                 the object is bigger than one tile — see below
      color:  '#4c9a44'              used ONLY if the picture is missing, so a
                                     half-finished tile still shows up as a
                                     coloured square with its letter on it
+
+   THINGS BIGGER THAN ONE TILE
+   ---------------------------
+   Bought art is full of furniture drawn two tiles wide or three tall. Say so
+   with `size: [across, down]`, and the sprite's [column, row] becomes the
+   TOP-LEFT corner of a block that big in the sheet. For instance the boat in
+   this sheet is really boat_l and boat_r side by side, so it could be one
+   2 x 1 object:
+
+       'L': { sprite: 'boat_l', under: '~', size: [2,1], solid: true }
+
+   In a map you then type that letter ONCE, at the object's top-left corner,
+   and leave ordinary floor in the tiles it covers — the object is painted
+   over them afterwards. Those covered tiles block you if the object is solid,
+   and facing any of them counts as facing the object, so a wide counter still
+   passes you to the shopkeep.
+
+   `size` and `solid` are separate: a 2 x 2 rug is big AND walkable.
+   A quarter turn swaps an object's width and height, so `rotations` on a
+   non-square one only really makes sense at 180. The red box says so.
+
+   tools/sheet_importer.html finds these sizes for you: drop a sheet in and it
+   spots which pictures run across several cells and writes the `size` out.
 */
 const LEGENDS = {
 

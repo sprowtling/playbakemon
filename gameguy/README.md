@@ -95,12 +95,27 @@ the ones you want and it writes the `SHEETS`, `SPRITES` and legend lines to past
 also save you a labelled guide image for the new sheet, the way `art/tileset-guide.png`
 makes the built-in one readable.
 
-The engine already handles any number of sheets — a sprite's third value names which one
-it's on (`gravestone: [2, 0, 'graveyard']`), and sheets can be any size. What it can't do
-is draw an object bigger than one tile: split those across two letters and stack them, the
-way the lighthouse (`i`/`I` over `j`/`J`) and the houses (`^` over `#`) already do.
+The engine handles any number of sheets — a sprite's third value names which one it's on
+(`gravestone: [2, 0, 'graveyard']`), and sheets can be any size.
 
 This one needs no web server and no internet — double-clicking the file works.
+
+**Furniture that's bigger than one tile.** Bought art is full of it: sofas two tiles wide,
+bookcases three tall. Give the legend entry a `size`:
+
+```js
+'G': { sprite: 'bookshelf', under: '_', size: [2, 3], solid: true },
+```
+
+and type that letter **once** in the map, at the object's top-left corner, leaving floor in
+the tiles it covers. The engine paints the object over them, blocks them if it's solid, and
+treats facing any of them as facing the object. `size` and `solid` are independent, so a
+2 x 2 rug is big and still walkable. The sheet importer works these sizes out for you and
+writes them into the code it gives you. (Details at the top of `tiles.js`.)
+
+The older trick still works and is sometimes what you want: the lighthouse (`i`/`I` over
+`j`/`J`) and the houses (`^` over `#`) are built from stacked letters, which lets each
+piece behave differently.
 
 Editing the sheet: open `art/tileset.png` in any pixel editor — Piskel and Photopea are
 free and run in a browser; Aseprite is the usual paid one. Set the grid to 32x32, turn off
