@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sheet Importer</title>
+<!--
+  ============================================================
+  SHEET IMPORTER — turn any tilesheet PNG into tiles.js entries.
+  ============================================================
+  Drop a sheet in, say how big one tile is, and every cell is laid
+  out big and labelled. Type a name under the ones you want and this
+  writes the SHEETS, SPRITES and legend lines to paste into
+  data/tiles.js. It'll also hand you a labelled guide image, the way
+  art/tileset-guide.png makes the built-in sheet readable.
+
+  Deliberately self-contained: no web fonts, no CDN, no server. It
+  reads the PNG you pick straight off your own disk, so it works by
+  double-clicking the file on a machine with nothing installed.
+
+  If it CAN reach ../data/tiles.js it does one extra thing: warns you
+  when a name you type is already taken by the game.
+  ============================================================
+-->
+<style>
+  :root {
+    --bg: #030712;
+    --panel: #111827;
+    --panel-2: #0b1220;
+    --line: #1f2937;
+    --line-2: #374151;
+    --text: #e5e7eb;
+    --dim: #9ca3af;
+    --dimmer: #6b7280;
+    --blue: #3b82f6;
+    --blue-dim: #1e3a8a;
+    --amber: #f59e0b;
+    --green: #10b981;
+    --red: #f87171;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+  }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: .2px; }
+  header p { margin: 2px 0 0; font-size: 13px; color: var(--dim); }
+
+  main { padding: 20px; max-width: 1500px; margin: 0 auto; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 18px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* The four steps, spelled out. This tool is for people who do not
+     already know what a spritesheet cell is. */
+  ol.steps { margin: 0; padding-left: 20px; font-size: 14px; color: var(--dim); }
+  ol.steps li { margin: 4px 0; }
+  ol.steps b { color: var(--text); font-weight: 600; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+
+  input[type=text], input[type=number], select {
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 9px;
+    font: 14px var(--mono);
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--blue); }
+  input:disabled { opacity: .45; }
+
+  button {
+    background: var(--line);
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 14px;
+    font: 600 14px system-ui, sans-serif;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--line-2); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { background: var(--blue); border-color: #60a5fa; color: #fff; }
+  button.primary:hover:not(:disabled) { background: #2563eb; }
+
+  #drop {
+    border: 2px dashed var(--line-2);
+    border-radius: 10px;
+    padding: 34px 20px;
+    text-align: center;
+    color: var(--dim);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--blue); background: #0d1a33; color: var(--text); }
+  #drop b { color: var(--text); }
+
+  .note { font-size: 13px; color: var(--dim); margin: 10px 0 0; }
+  .warn { color: var(--amber); }
+  .bad  { color: var(--red); }
+  .good { color: var(--green); }
+
+  /* ---- the cell grid ---- */
+  #cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+    gap: 12px;
+  }
+
+  .cell {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cell.named { border-color: var(--green); }
+  .cell.dupe  { border-color: var(--red); }
+  .cell.empty { opacity: .38; }
+
+  /* Checkerboard so you can SEE which sprites have a see-through
+     background — that is what decides whether a tile can use `under:`. */
+  .thumb {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 4px;
+    cursor: pointer;
+    image-rendering: pixelated;
+    background-color: #1a2436;
+    background-image:
+      linear-gradient(45deg, #223049 25%, transparent 25%, transparent 75%, #223049 75%),
+      linear-gradient(45deg, #223049 25%, transparent 25%, transparent 75%, #223049 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+    display: block;
+  }
+  .thumb canvas {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  .cell .meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font: 11px var(--mono);
+    color: var(--dimmer);
+  }
+  .cell .flag { color: var(--amber); }
+  .cell input {
+    width: 100%;
+    padding: 5px 7px;
+    font-size: 13px;
+  }
+
+  #output {
+    background: #05080f;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font: 13px/1.6 var(--mono);
+    white-space: pre;
+    overflow-x: auto;
+    color: #cbd5e1;
+    max-height: 460px;
+  }
+  #output .c { color: var(--dimmer); }
+
+  #toast {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    background: var(--blue);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+    z-index: 50;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sheet Importer</h1>
+  <p>Turn any tilesheet PNG into <code>data/tiles.js</code> entries, without counting squares.</p>
+</header>
+
+<main>
+
+  <div class="panel">
+    <h2>How this works</h2>
+    <ol class="steps">
+      <li>Pick a <b>PNG tilesheet</b> below. Nothing is uploaded anywhere — it's read on this machine.</li>
+      <li>Set <b>how big one tile is</b>. For this game that's <b>32</b>. If the cells look wrong, it's this number.</li>
+      <li>Type a <b>name</b> under each picture you want. Skip the ones you don't. Tab moves you along.</li>
+      <li>Copy the code at the bottom into <code>data/tiles.js</code>, and drop the PNG into <code>gameguy/art/</code>.</li>
+    </ol>
+  </div>
+
+  <div class="panel">
+    <h2>1 · The sheet</h2>
+    <div id="drop">
+      <b>Drop a PNG here</b>, or click to choose one
+      <div class="note" id="drop-sub">Any size. Any number of cells.</div>
+    </div>
+    <input type="file" id="file" accept="image/png,image/*" class="hide">
+
+    <div class="row hide" id="sheet-settings" style="margin-top:16px">
+      <div class="field">
+        <label for="tile-size">Tile size (px)</label>
+        <input type="number" id="tile-size" min="1" max="512" value="32" style="width:110px">
+      </div>
+      <div class="field">
+        <label for="sheet-name">Sheet name (used in code)</label>
+        <input type="text" id="sheet-name" placeholder="kitchen" style="width:180px">
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:7px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text)">
+          <input type="checkbox" id="prefix" style="width:auto"> Put the sheet name in front of every sprite name
+        </label>
+      </div>
+      <button id="btn-clear-names">Clear all names</button>
+    </div>
+    <p class="note" id="sheet-info"></p>
+  </div>
+
+  <div class="panel hide" id="panel-cells">
+    <h2>2 · Name what you want <span style="text-transform:none;letter-spacing:0;color:var(--dimmer)">— click a picture to jump to its box</span></h2>
+    <div id="cells"></div>
+  </div>
+
+  <div class="panel hide" id="panel-out">
+    <h2>3 · Paste this in</h2>
+    <div class="row" style="margin-bottom:12px">
+      <button class="primary" id="btn-copy">Copy the code</button>
+      <button id="btn-guide">Download a labelled guide image</button>
+      <span class="note" id="out-count" style="margin:0;align-self:center"></span>
+    </div>
+    <div id="output"></div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<!-- Both optional. If they load we can warn about names the game already
+     uses, and suggest letters nothing has claimed. Neither is required. -->
+<script src="../data/tiles.js" onerror="void 0"></script>
+<script src="../data/maps.js" onerror="void 0"></script>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const state = {
+  fileName: '',
+  img: null,
+  tileSize: 32,
+  sheetName: '',
+  cols: 0,
+  rows: 0,
+  cells: [],          // { col, row, empty, transparent }
+  names: {},          // 'col,row' -> the name you typed
+  prefix: false,
+};
+
+const el = id => document.getElementById(id);
+const key = (c, r) => c + ',' + r;
+
+/* ============================================================
+   LOADING A SHEET
+   ============================================================ */
+const drop = el('drop');
+const fileInput = el('file');
+
+drop.addEventListener('click', () => fileInput.click());
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.classList.remove('over');
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+});
+
+function loadFile(file) {
+  if (!file.type.startsWith('image/')) { toast("That isn't an image."); return; }
+
+  const img = new Image();
+  // A blob URL counts as ours, so we're allowed to read the pixels back
+  // even when this page was opened straight off the disk.
+  img.onload = () => {
+    URL.revokeObjectURL(img.src);
+    state.img = img;
+    state.fileName = file.name;
+
+    // A name for the sheet, guessed from the file name: kitchen_32x32.png -> kitchen
+    if (!state.sheetName) {
+      const guess = file.name.replace(/\.[a-z0-9]+$/i, '')
+                             .replace(/[^a-z0-9]+/gi, '_')
+                             .replace(/_?\d+x\d+_?/i, '')
+                             .replace(/^_+|_+$/g, '')
+                             .toLowerCase();
+      state.sheetName = guess || 'sheet';
+      el('sheet-name').value = state.sheetName;
+    }
+
+    restoreNames();
+    el('sheet-settings').classList.remove('hide');
+    drop.innerHTML = '<b>' + escapeHtml(file.name) + '</b> — ' + img.naturalWidth + ' x ' + img.naturalHeight
+                   + ' px<div class="note">Click to swap it for a different sheet.</div>';
+    buildGrid();
+  };
+  img.onerror = () => toast("Couldn't read that image.");
+  img.src = URL.createObjectURL(file);
+}
+
+/* ============================================================
+   SLICING IT UP
+   ============================================================ */
+function buildGrid() {
+  if (!state.img) return;
+
+  const size = state.tileSize;
+  const w = state.img.naturalWidth, h = state.img.naturalHeight;
+  state.cols = Math.floor(w / size);
+  state.rows = Math.floor(h / size);
+
+  const info = el('sheet-info');
+  const total = state.cols * state.rows;
+
+  if (state.cols < 1 || state.rows < 1) {
+    info.className = 'note bad';
+    info.textContent = `A tile of ${size}px doesn't fit in a ${w} x ${h} image. Try a smaller tile size.`;
+    el('panel-cells').classList.add('hide');
+    el('panel-out').classList.add('hide');
+    return;
+  }
+  if (total > 2048) {
+    info.className = 'note bad';
+    info.textContent = `${state.cols} x ${state.rows} is ${total} cells, which is too many to lay out. `
+                     + `That almost always means the tile size is wrong — for this game it's 32.`;
+    el('panel-cells').classList.add('hide');
+    el('panel-out').classList.add('hide');
+    return;
+  }
+
+  // Cut every cell out and look at it.
+  const sheet = document.createElement('canvas');
+  sheet.width = w; sheet.height = h;
+  const sctx = sheet.getContext('2d', { willReadFrequently: true });
+  sctx.imageSmoothingEnabled = false;
+  sctx.drawImage(state.img, 0, 0);
+
+  state.cells = [];
+  for (let r = 0; r < state.rows; r++) {
+    for (let c = 0; c < state.cols; c++) {
+      const data = sctx.getImageData(c * size, r * size, size, size).data;
+      let opaque = 0, clear = 0;
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] === 0) clear++; else opaque++;
+      }
+      state.cells.push({
+        col: c, row: r,
+        empty: opaque === 0,               // nothing drawn here at all
+        transparent: clear > 0,            // has see-through bits, so `under:` works
+      });
+    }
+  }
+
+  const leftoverW = w % size, leftoverH = h % size;
+  const drawn = state.cells.filter(cell => !cell.empty).length;
+  info.className = 'note';
+  info.innerHTML = `<span class="good">${state.cols} x ${state.rows} cells</span>, `
+    + `${drawn} with something in them, ${total - drawn} empty.`
+    + (leftoverW || leftoverH
+        ? ` <span class="warn">${leftoverW}px across and ${leftoverH}px down are left over — `
+          + `the sheet may not be a clean multiple of ${size}, so check the last row and column.</span>`
+        : '');
+
+  renderCells();
+  renderOutput();
+}
+
+function renderCells() {
+  const wrap = el('cells');
+  wrap.innerHTML = '';
+  const size = state.tileSize;
+
+  for (const cell of state.cells) {
+    const k = key(cell.col, cell.row);
+
+    const box = document.createElement('div');
+    box.className = 'cell' + (cell.empty ? ' empty' : '');
+    box.dataset.key = k;
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const g = canvas.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(state.img, cell.col * size, cell.row * size, size, size, 0, 0, size, size);
+    thumb.appendChild(canvas);
+    box.appendChild(thumb);
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = `<span>[${cell.col},${cell.row}]</span>`
+      + (cell.empty ? '<span>empty</span>'
+         : cell.transparent ? '<span class="flag" title="Has see-through parts, so this can sit on top of another tile with under:">see-through</span>'
+         : '<span title="Fills its whole cell">solid fill</span>');
+    box.appendChild(meta);
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = cell.empty ? '(nothing here)' : 'name it…';
+    input.value = state.names[k] || '';
+    input.spellcheck = false;
+    input.addEventListener('input', () => {
+      const clean = input.value.trim().replace(/[^A-Za-z0-9_]/g, '_');
+      if (clean !== input.value.trim()) input.value = clean;
+      if (clean) state.names[k] = clean; else delete state.names[k];
+      saveNames();
+      markCells();
+      renderOutput();
+    });
+    box.appendChild(input);
+
+    thumb.addEventListener('click', () => input.focus());
+    wrap.appendChild(box);
+  }
+
+  el('panel-cells').classList.remove('hide');
+  markCells();
+}
+
+// Green border for named, red for a name used twice.
+function markCells() {
+  const counts = {};
+  for (const name of Object.values(state.names)) counts[name] = (counts[name] || 0) + 1;
+
+  for (const box of document.querySelectorAll('.cell')) {
+    const name = state.names[box.dataset.key];
+    box.classList.toggle('named', !!name && counts[name] === 1);
+    box.classList.toggle('dupe', !!name && counts[name] > 1);
+  }
+}
+
+/* ============================================================
+   THE CODE TO PASTE
+   ============================================================ */
+function finalName(raw) {
+  return state.prefix ? state.sheetName + '_' + raw : raw;
+}
+
+// Names data/tiles.js already uses, if we were able to load it.
+function takenNames() {
+  return (typeof SPRITES !== 'undefined' && SPRITES) ? SPRITES : null;
+}
+
+// Letters nothing has claimed yet, so the starter block below is something you
+// can paste rather than something you have to go and de-duplicate. Skips every
+// legend letter AND every letter any map uses for a `place`, because a place
+// quietly wins over the legend on the map that defines it.
+function freeLetters(howMany) {
+  if (typeof LEGENDS === 'undefined' || !LEGENDS) return null;
+
+  const used = new Set();
+  for (const legend of Object.values(LEGENDS)) {
+    for (const ch of Object.keys(legend)) used.add(ch);
+  }
+  if (typeof MAPS !== 'undefined' && MAPS) {
+    for (const map of Object.values(MAPS)) {
+      for (const ch of Object.keys(map.places || {})) used.add(ch);
+    }
+  }
+  const pool = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
+  const free = pool.filter(ch => !used.has(ch));
+  return free.length >= howMany ? free.slice(0, howMany) : null;
+}
+
+function renderOutput() {
+  const named = state.cells
+    .map(cell => ({ cell, raw: state.names[key(cell.col, cell.row)] }))
+    .filter(entry => entry.raw);
+
+  el('panel-out').classList.toggle('hide', named.length === 0);
+  el('out-count').textContent = named.length
+    ? `${named.length} sprite${named.length === 1 ? '' : 's'} named`
+    : '';
+  if (!named.length) return;
+
+  const sheet = state.sheetName || 'sheet';
+  const taken = takenNames();
+  const clashes = [];
+  const seen = {};
+  const dupes = [];
+
+  const lines = [];
+  lines.push('C/* ---------------- 1. Put the PNG in gameguy/art/ ---------------- */');
+  lines.push('C// This file:  art/' + state.fileName);
+  lines.push('');
+  lines.push('C/* ---------------- 2. Add the sheet to SHEETS in data/tiles.js ---------------- */');
+  lines.push(`  ${sheet}: 'art/${state.fileName}',`);
+  lines.push('');
+  lines.push('C/* ---------------- 3. Add these to SPRITES in data/tiles.js ---------------- */');
+  lines.push('C  // ' + state.fileName + ' — ' + state.tileSize + 'px tiles');
+
+  for (const { cell, raw } of named) {
+    const name = finalName(raw);
+    if (taken && Object.prototype.hasOwnProperty.call(taken, name)) clashes.push(name);
+    if (seen[name]) dupes.push(name); else seen[name] = true;
+    lines.push(`  ${name}: [${cell.col},${cell.row},'${sheet}'],`);
+  }
+
+  lines.push('');
+  lines.push('C/* ---------------- 4. Give the ones you want a LETTER in a legend ---------------- */');
+  const letters = freeLetters(named.length);
+  if (letters) {
+    lines.push('C// These letters are free in both legends right now. Change any you like.');
+  } else {
+    lines.push('C// Give each one its own letter — no two entries in a legend can share.');
+  }
+  lines.push("C// under:  a letter drawn underneath ('.' outdoors, '_' indoors)");
+  lines.push('C// solid:  true if you cannot walk through it. Both are guesses below.');
+  named.forEach(({ cell, raw }, i) => {
+    const name = finalName(raw);
+    const letter = letters ? letters[i] : '?';
+    // A sprite with see-through parts sits ON something and is probably furniture.
+    // One that fills its cell edge to edge is probably ground you walk on.
+    const parts = [`sprite: '${name}'`];
+    let nudge = '';
+    if (cell.transparent) {
+      parts.push(`under: '${/out|garden|yard|field|forest|nature/i.test(state.sheetName) ? '.' : '_'}'`);
+      parts.push('solid: true');
+    } else {
+      // Filling the cell edge to edge does NOT mean walkable — a wall does that
+      // too — so say so rather than quietly guessing wrong.
+      nudge = '   // ground? a wall fills its cell too: add  solid: true  if you can\'t walk here';
+    }
+    lines.push(`  '${letter}': { ${parts.join(', ')} },${nudge}`);
+  });
+
+  const out = el('output');
+  out.innerHTML = lines.map(line =>
+    line.startsWith('C') ? `<span class="c">${escapeHtml(line.slice(1))}</span>` : escapeHtml(line)
+  ).join('\n');
+
+  const warnings = [];
+  if (dupes.length) warnings.push(`<span class="bad">Used twice: ${[...new Set(dupes)].join(', ')}. Every sprite needs its own name.</span>`);
+  if (clashes.length) warnings.push(`<span class="warn">Already used by the game: ${[...new Set(clashes)].join(', ')}. Rename, or tick the prefix box above.</span>`);
+  if (warnings.length) out.innerHTML += '\n\n' + warnings.join('\n');
+}
+
+// What goes on the clipboard: the code, without the tool's own colouring.
+function plainOutput() {
+  return el('output').textContent;
+}
+
+/* ============================================================
+   THE GUIDE IMAGE
+   ------------------------------------------------------------
+   The reason art/tileset-guide.png exists: every cell blown up and
+   labelled, so you never have to hold the grid in your head.
+   ============================================================ */
+function downloadGuide() {
+  if (!state.img) return;
+
+  const size = state.tileSize, S = 3, LABEL = 20;
+  const cellW = size * S, cellH = size * S + LABEL;
+  const canvas = document.createElement('canvas');
+  canvas.width = state.cols * cellW;
+  canvas.height = state.rows * cellH;
+
+  const g = canvas.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = '#17343b';
+  g.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (const cell of state.cells) {
+    const x = cell.col * cellW, y = cell.row * cellH;
+
+    // checkerboard, so see-through parts read as see-through
+    for (let a = 0; a < S * 4; a++) for (let b = 0; b < S * 4; b++) {
+      g.fillStyle = (a + b) % 2 ? '#2a4a52' : '#23424a';
+      g.fillRect(x + a * (cellW / (S * 4)), y + b * (cellW / (S * 4)), cellW / (S * 4), cellW / (S * 4));
+    }
+
+    g.drawImage(state.img, cell.col * size, cell.row * size, size, size, x, y, cellW, cellW);
+    g.strokeStyle = 'rgba(255,255,255,0.25)';
+    g.strokeRect(x + 0.5, y + 0.5, cellW - 1, cellW - 1);
+
+    const raw = state.names[key(cell.col, cell.row)];
+    g.fillStyle = raw ? '#f2ead3' : '#7d9aa0';
+    g.font = '12px sans-serif';
+    g.fillText((raw ? finalName(raw) : (cell.empty ? '—' : '(unnamed)')) + '  [' + cell.col + ',' + cell.row + ']',
+               x + 4, y + cellW + 14);
+  }
+
+  const link = document.createElement('a');
+  link.download = (state.sheetName || 'sheet') + '-guide.png';
+  link.href = canvas.toDataURL();
+  link.click();
+  toast('Guide image saved');
+}
+
+/* ============================================================
+   REMEMBERING YOUR WORK
+   ------------------------------------------------------------
+   Naming sixty cells and losing it to a stray refresh would be
+   miserable, so names are kept per file name, in this browser.
+   ============================================================ */
+function storeKey() { return 'sheet-importer:' + state.fileName; }
+
+function saveNames() {
+  try {
+    localStorage.setItem(storeKey(), JSON.stringify({
+      names: state.names, sheetName: state.sheetName, tileSize: state.tileSize, prefix: state.prefix
+    }));
+  } catch (err) { /* private window, blocked storage: carry on without it */ }
+}
+
+function restoreNames() {
+  state.names = {};
+  try {
+    const saved = JSON.parse(localStorage.getItem(storeKey()) || 'null');
+    if (!saved) return;
+    state.names = saved.names || {};
+    if (saved.sheetName) { state.sheetName = saved.sheetName; el('sheet-name').value = saved.sheetName; }
+    if (saved.tileSize)  { state.tileSize  = saved.tileSize;  el('tile-size').value  = saved.tileSize; }
+    state.prefix = !!saved.prefix;
+    el('prefix').checked = state.prefix;
+    if (Object.keys(state.names).length) toast('Picked up where you left off');
+  } catch (err) { /* nothing saved, or unreadable */ }
+}
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+el('tile-size').addEventListener('input', () => {
+  const size = parseInt(el('tile-size').value, 10);
+  if (!size || size < 1) return;
+  state.tileSize = size;
+  saveNames();
+  buildGrid();
+});
+
+el('sheet-name').addEventListener('input', () => {
+  state.sheetName = el('sheet-name').value.trim().replace(/[^A-Za-z0-9_]/g, '_');
+  el('sheet-name').value = state.sheetName;
+  saveNames();
+  renderOutput();
+});
+
+el('prefix').addEventListener('change', () => {
+  state.prefix = el('prefix').checked;
+  saveNames();
+  renderOutput();
+});
+
+el('btn-clear-names').addEventListener('click', () => {
+  if (!Object.keys(state.names).length) return;
+  state.names = {};
+  saveNames();
+  renderCells();
+  renderOutput();
+  toast('Names cleared');
+});
+
+el('btn-copy').addEventListener('click', async () => {
+  const text = plainOutput();
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    const area = document.createElement('textarea');
+    area.value = text;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand('copy');
+    document.body.removeChild(area);
+  }
+  toast('Copied');
+});
+
+el('btn-guide').addEventListener('click', downloadGuide);
+
+/* ---------------- odds and ends ---------------- */
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+}
+
+let toastTimer = null;
+function toast(message) {
+  const box = el('toast');
+  box.textContent = message;
+  box.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => box.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

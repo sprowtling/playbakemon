@@ -416,6 +416,7 @@
                 <h4 class="font-bold text-white uppercase tracking-wider text-[10px]">Seeing the real art</h4>
                 <p>Press <strong class="text-white">Sprites</strong> in the canvas bar to swap the coloured letters for the actual pictures out of <code>art/tileset.png</code>. The dropdown beside it picks which legend your letters are read with &mdash; <code>r</code> is a rock outdoors and a rug indoors, so this matters. Letters that legend doesn't know (a map's own <code>places</code>, like a door) stay as letters.</p>
                 <p class="text-gray-400">If the button is greyed out, the tool can't reach the game's files. Keep it in <code>gameguy/tools/</code>, and open it through a local web server rather than double-clicking the file.</p>
+                <p>Got a new tilesheet you want in here? Run it through <code>tools/sheet_importer.html</code> first &mdash; it names the cells for you and writes the <code>data/tiles.js</code> entries. Once they're in, this tool picks them up on reload.</p>
 
                 <hr class="border-gray-800 my-2">
 

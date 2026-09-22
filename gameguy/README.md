@@ -87,6 +87,21 @@ window) let you skip time and grant money so you don't have to wait to see resul
 [7,7] are free) → name the cell in `SPRITES` → give it a letter in a legend → type the
 letter into a map. (Details at the top of `tiles.js`.)
 
+**A whole new tilesheet.** Open `tools/sheet_importer.html`, drop the PNG in, and it lays
+every cell out big and labelled — with a checkerboard behind the see-through ones, so you
+can tell at a glance which tiles can sit on top of another with `under:`. Type a name under
+the ones you want and it writes the `SHEETS`, `SPRITES` and legend lines to paste into
+`data/tiles.js`; the letters it suggests are ones no legend and no map has claimed. It'll
+also save you a labelled guide image for the new sheet, the way `art/tileset-guide.png`
+makes the built-in one readable.
+
+The engine already handles any number of sheets — a sprite's third value names which one
+it's on (`gravestone: [2, 0, 'graveyard']`), and sheets can be any size. What it can't do
+is draw an object bigger than one tile: split those across two letters and stack them, the
+way the lighthouse (`i`/`I` over `j`/`J`) and the houses (`^` over `#`) already do.
+
+This one needs no web server and no internet — double-clicking the file works.
+
 Editing the sheet: open `art/tileset.png` in any pixel editor — Piskel and Photopea are
 free and run in a browser; Aseprite is the usual paid one. Set the grid to 32x32, turn off
 anti-aliasing, and export as PNG **with transparency**. A tile with `under:` in its legend
