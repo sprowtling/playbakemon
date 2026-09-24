@@ -189,22 +189,23 @@ const LEGENDS = {
     'p': { sprite: 'poster',     under: '#', solid: true, color: '#e8d8a0' },    // on a wall
     'm': { sprite: 'floor_lamp', under: '_', solid: true, color: '#e8d8a0' },
     'g': { sprite: 'box',        under: '_', solid: true, color: '#b8966a' },
-  },
-  
-  walls: {
-  // solid:  true if you cannot walk through it. Both are guesses below.
-    'A': { sprite: 'walls_middle_divider', under: '_', solid: true },
+
+    // From art/midcentury_modern_room_door_tiles.png (the 'walls' sheet).
+    // Gold trim: thin lines on a see-through cell, drawn over the floor.
+    'A': { sprite: 'walls_middle_divider',      under: '_', solid: true },
     'C': { sprite: 'walls_bottom_right_corner', under: '_', solid: true },
-    'D': { sprite: 'walls_bottom_left_corner', under: '_', solid: true },
-    'E': { sprite: 'walls_top_right_corner', under: '_', solid: true },
-    'K': { sprite: 'walls_top_left_corner', under: '_', solid: true },
-    'N': { sprite: 'walls_bottom_edge', under: '_', solid: true },
-    'O': { sprite: 'walls_left_edge', under: '_', solid: true },
-    'Q': { sprite: 'walls_top_edge', under: '_', solid: true },
-    'U': { sprite: 'walls_right_edge', under: '_', solid: true },
-    'V': { sprite: 'walls_peach_striped_wall' },   // ground? a wall fills its cell too: add  solid: true  if you can't walk here
-    'W': { sprite: 'walls_bamboo_tile' },   // ground? a wall fills its cell too: add  solid: true  if you can't walk here
-    'X': { sprite: 'walls_peach_striped_border' },   // ground? a wall fills its cell too: add  solid: true  if you can't walk here
-   },
+    'D': { sprite: 'walls_bottom_left_corner',  under: '_', solid: true },
+    'E': { sprite: 'walls_top_right_corner',    under: '_', solid: true },
+    'K': { sprite: 'walls_top_left_corner',     under: '_', solid: true },
+    'N': { sprite: 'walls_bottom_edge',         under: '_', solid: true },
+    'O': { sprite: 'walls_left_edge',           under: '_', solid: true },
+    'Q': { sprite: 'walls_top_edge',            under: '_', solid: true },
+    'U': { sprite: 'walls_right_edge',          under: '_', solid: true },
+    // Wall faces fill their whole cell and you can't walk through them.
+    'V': { sprite: 'walls_peach_striped_wall',   solid: true },
+    'X': { sprite: 'walls_peach_striped_border', solid: true },
+    // A floor: walkable.
+    'W': { sprite: 'walls_bamboo_tile' },
+  },
 
 };

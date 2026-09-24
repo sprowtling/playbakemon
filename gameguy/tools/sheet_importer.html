@@ -280,6 +280,13 @@
         <input type="number" id="tile-size" min="1" max="512" value="32" style="width:110px">
       </div>
       <div class="field">
+        <label for="place-kind">These tiles are for</label>
+        <select id="place-kind" title="Which legend in data/tiles.js the letters go into">
+          <option value="indoor">indoor rooms</option>
+          <option value="outdoor">the outdoors</option>
+        </select>
+      </div>
+      <div class="field">
         <label for="sheet-name">Sheet name (used in code)</label>
         <input type="text" id="sheet-name" placeholder="kitchen" style="width:180px">
       </div>
@@ -335,6 +342,7 @@ const state = {
   names: {},          // 'col,row' -> the name you typed
   prefix: false,
   findBig: true,      // spot objects drawn across more than one cell
+  placeKind: 'indoor',// which legend the letters are pasted into
 };
 
 const el = id => document.getElementById(id);
@@ -708,14 +716,18 @@ function renderOutput() {
   }
 
   lines.push('');
-  lines.push('C/* ---------------- 4. Give the ones you want a LETTER in a legend ---------------- */');
+  const kind = state.placeKind;
+  lines.push(`C/* ---------------- 4. Paste these INSIDE the  ${kind}: {  ...  }  block of LEGENDS ---------------- */`);
+  lines.push(`C// Just above that block's closing  },  — among the letters already there.`);
+  lines.push(`C// Don't start a new block for this sheet: every map uses ONE legend, so`);
+  lines.push(`C// a block of its own could never share a room with the ${kind === 'indoor' ? 'floor' : 'grass'}.`);
   const letters = freeLetters(named.length);
   if (letters) {
-    lines.push('C// These letters are free in both legends right now. Change any you like.');
+    lines.push('C// These letters are free right now. Change any you like.');
   } else {
     lines.push('C// Give each one its own letter — no two entries in a legend can share.');
   }
-  lines.push("C// under:  a letter drawn underneath ('.' outdoors, '_' indoors)");
+  lines.push(`C// under:  the letter drawn underneath ('${kind === 'indoor' ? '_' : '.'}' is the ${kind === 'indoor' ? 'floor' : 'grass'})`);
   lines.push('C// solid:  true if you cannot walk through it. Both are guesses below.');
   named.forEach(({ cell, raw }, i) => {
     const name = finalName(raw);
@@ -725,7 +737,7 @@ function renderOutput() {
     const parts = [`sprite: '${name}'`];
     let nudge = '';
     if (cell.transparent) {
-      parts.push(`under: '${/out|garden|yard|field|forest|nature/i.test(state.sheetName) ? '.' : '_'}'`);
+      parts.push(`under: '${state.placeKind === 'outdoor' ? '.' : '_'}'`);
       if (cell.w > 1 || cell.h > 1) parts.push(`size: [${cell.w},${cell.h}]`);
       parts.push('solid: true');
     } else {
@@ -822,7 +834,7 @@ function saveNames() {
   try {
     localStorage.setItem(storeKey(), JSON.stringify({
       names: state.names, sheetName: state.sheetName, tileSize: state.tileSize,
-      prefix: state.prefix, findBig: state.findBig
+      prefix: state.prefix, findBig: state.findBig, placeKind: state.placeKind
     }));
   } catch (err) { /* private window, blocked storage: carry on without it */ }
 }
@@ -838,6 +850,7 @@ function restoreNames() {
     state.prefix = !!saved.prefix;
     el('prefix').checked = state.prefix;
     if (saved.findBig !== undefined) { state.findBig = !!saved.findBig; el('find-big').checked = state.findBig; }
+    if (saved.placeKind) { state.placeKind = saved.placeKind; el('place-kind').value = saved.placeKind; }
     if (Object.keys(state.names).length) toast('Picked up where you left off');
   } catch (err) { /* nothing saved, or unreadable */ }
 }
@@ -862,6 +875,12 @@ el('sheet-name').addEventListener('input', () => {
 
 el('prefix').addEventListener('change', () => {
   state.prefix = el('prefix').checked;
+  saveNames();
+  renderOutput();
+});
+
+el('place-kind').addEventListener('change', () => {
+  state.placeKind = el('place-kind').value;
   saveNames();
   renderOutput();
 });

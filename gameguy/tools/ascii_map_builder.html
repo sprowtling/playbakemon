@@ -254,6 +254,10 @@
                             <span>Sprites</span>
                         </button>
                         <select id="select-legend" title="Which legend to read your letters with" class="bg-gray-800 border-l border-gray-700 text-gray-300 text-xs py-1 pl-1.5 pr-1 outline-none cursor-pointer disabled:opacity-40"></select>
+                        <button id="btn-load-legend" title="Put every tile this legend knows into your palette, so you can see and paint them" class="px-2.5 py-1 border-l border-gray-700 hover:bg-gray-700 text-gray-300 flex items-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Load tiles</span>
+                        </button>
                     </div>
 
                     <!-- Toggles -->
@@ -415,6 +419,7 @@
 
                 <h4 class="font-bold text-white uppercase tracking-wider text-[10px]">Seeing the real art</h4>
                 <p>Press <strong class="text-white">Sprites</strong> in the canvas bar to swap the coloured letters for the actual pictures out of <code>art/tileset.png</code>. The dropdown beside it picks which legend your letters are read with &mdash; <code>r</code> is a rock outdoors and a rug indoors, so this matters. Letters that legend doesn't know (a map's own <code>places</code>, like a door) stay as letters.</p>
+                <p>Added new tiles to <code>data/tiles.js</code> and can't find them? Press <strong class="text-white">Load tiles</strong>: it puts every tile the chosen legend knows into your palette, named after its sprite.</p>
                 <p class="text-gray-400">If the button is greyed out, the tool can't reach the game's files. Keep it in <code>gameguy/tools/</code>, and open it through a local web server rather than double-clicking the file.</p>
                 <p>Got a new tilesheet you want in here? Run it through <code>tools/sheet_importer.html</code> first &mdash; it names the cells for you and writes the <code>data/tiles.js</code> entries. Once they're in, this tool picks them up on reload.</p>
 
@@ -1155,6 +1160,44 @@
             btn.classList.toggle('bg-blue-900/40', on);
             btn.classList.toggle('text-blue-300', on);
             if (select) select.disabled = !on;
+            const load = document.getElementById('btn-load-legend');
+            if (load) load.disabled = !on;
+        }
+
+        // Letters the chosen legend knows that the palette doesn't have yet.
+        // The palette starts with just the eight letters this tool shipped with,
+        // so any tile added to data/tiles.js is invisible here until it's loaded.
+        function missingLegendLetters() {
+            if (typeof LEGENDS === 'undefined' || !LEGENDS[state.legend]) return [];
+            return Object.keys(LEGENDS[state.legend])
+                .filter(ch => !state.palette.some(t => t.symbol === ch));
+        }
+
+        function loadLegendTiles() {
+            const legend = (typeof LEGENDS !== 'undefined') && LEGENDS[state.legend];
+            if (!legend) return 0;
+            const missing = missingLegendLetters();
+            for (const ch of missing) {
+                const look = legend[ch];
+                state.palette.push({
+                    id: 'tile_legend_' + state.legend + '_' + ch.charCodeAt(0),
+                    name: firstSpriteName(look) || `Tile '${ch}'`,     // e.g. walls_peach_striped_wall
+                    symbol: ch,
+                    bg: look.color || '#374151',
+                    fg: '#f9fafb'
+                });
+            }
+            return missing.length;
+        }
+
+        // Nudge, rather than silently leave new art unreachable.
+        function mentionMissingTiles() {
+            const count = missingLegendLetters().length;
+            if (state.showSprites && count) {
+                showToast(`${count} ${state.legend} tile${count === 1 ? " isn't" : "s aren't"} in your palette yet \u2014 press Load tiles`);
+                return true;
+            }
+            return false;
         }
 
         function refreshEverything() {
@@ -1485,7 +1528,18 @@
                     state.showSprites = !state.showSprites;
                     updateSpriteToggleUI();
                     refreshEverything();
-                    showToast(state.showSprites ? 'Showing the real tileset art' : 'Back to letters');
+                    if (!mentionMissingTiles()) showToast(state.showSprites ? 'Showing the real tileset art' : 'Back to letters');
+                });
+            }
+
+            const loadLegendBtn = document.getElementById('btn-load-legend');
+            if (loadLegendBtn) {
+                loadLegendBtn.addEventListener('click', () => {
+                    const added = loadLegendTiles();
+                    refreshEverything();
+                    showToast(added
+                        ? `Added ${added} ${state.legend} tile${added === 1 ? '' : 's'} to your palette`
+                        : `Every ${state.legend} tile is already in your palette`);
                 });
             }
 
@@ -1494,7 +1548,7 @@
                 legendSelect.addEventListener('change', () => {
                     state.legend = legendSelect.value;
                     refreshEverything();
-                    showToast(`Reading letters with the ${state.legend} legend`);
+                    if (!mentionMissingTiles()) showToast(`Reading letters with the ${state.legend} legend`);
                 });
             }
 
