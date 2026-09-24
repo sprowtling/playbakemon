@@ -76,6 +76,50 @@ function refreshPeople() {
 
 const inBounds = (col, row) => row >= 0 && row < ROWS && col >= 0 && col < COLS;
 
+/* ---------------- objects bigger than one tile ----------------
+   A legend entry (or a place) may say  size: [2, 1]  meaning "this is two
+   tiles wide and one tall". Its sprite's [column, row] is then the TOP-LEFT
+   of a 2x1 block in the sheet, and in the map you type the letter ONCE, at
+   the object's top-left corner. The tiles it covers keep whatever floor
+   letter you like — the object is painted over them afterwards.
+   ---------------------------------------------------------------- */
+
+// What a letter looks like: its place if that place brings its own picture,
+// otherwise the map's legend.
+function lookFor(map, ch) {
+  const place = map.places && map.places[ch];
+  if (place && place.sprite) return place;
+  const legend = LEGENDS[map.legend];
+  return (legend && legend[ch]) || null;
+}
+
+// [width, height] in tiles, or null for the ordinary one-tile kind.
+function tileSize(map, ch) {
+  const size = (lookFor(map, ch) || {}).size;
+  if (!Array.isArray(size)) return null;
+  const w = Math.max(1, Math.floor(size[0] || 1));
+  const h = Math.max(1, Math.floor(size[1] || 1));
+  return (w > 1 || h > 1) ? [w, h] : null;
+}
+
+// Every tile swallowed by a bigger object, pointing back at the corner it
+// belongs to: 'col,row' -> { col, row, ch }. Worked out once per map.
+function mapCover(map) {
+  if (map._cover) return map._cover;
+  const cover = {};
+  map.tiles.forEach((line, r) => {
+    for (let c = 0; c < line.length; c++) {
+      const size = tileSize(map, line[c]);
+      if (!size) continue;
+      for (let dy = 0; dy < size[1]; dy++) for (let dx = 0; dx < size[0]; dx++) {
+        if (dx || dy) cover[(c + dx) + ',' + (r + dy)] = { col: c, row: r, ch: line[c] };
+      }
+    }
+  });
+  map._cover = cover;
+  return cover;
+}
+
 function letterSolid(map, ch) {
   const place = map.places && map.places[ch];
   if (place) return !place.walkOn;                 // places block, unless you're meant to step on them
@@ -96,9 +140,15 @@ function solidAt(col, row) {
     const c = dx < 0 ? nb.tiles[0].length + col : dx > 0 ? col - COLS : col;
     const r = dy < 0 ? nb.tiles.length + row    : dy > 0 ? row - ROWS : row;
     const line = nb.tiles[r];
-    return !line || line[c] === undefined || letterSolid(nb, line[c]);
+    if (!line || line[c] === undefined) return true;
+    if (letterSolid(nb, line[c])) return true;
+    const over = mapCover(nb)[c + ',' + r];
+    return !!(over && letterSolid(nb, over.ch));
   }
   if (letterSolid(current, current.tiles[row][col])) return true;
+  // Standing under the far end of a wide sofa still means standing in a sofa.
+  const covered = mapCover(current)[col + ',' + row];
+  if (covered && letterSolid(current, covered.ch)) return true;
   if (propsHere.some(p => p.solid && p.col === col && p.row === row)) return true;
   if (npcsHere.some(n => n.col === col && n.row === row)) return true;
   return false;
@@ -130,7 +180,10 @@ function facingTarget() {
   const npc = npcsHere.find(n => n.col === col && n.row === row);
   if (npc) return { npc, def: npc.def, name: npc.def.name };
   if (!inBounds(col, row)) return null;
-  const place = current.places && current.places[current.tiles[row][col]];
+  // Facing the right-hand half of a wide counter is facing the counter.
+  const over = mapCover(current)[col + ',' + row];
+  const ch = over ? over.ch : current.tiles[row][col];
+  const place = current.places && current.places[ch];
   if (!place || place.walkOn) return null;
   // A counter that passes you on to the person behind it.
   if (place.talkTo && NPCS[place.talkTo]) {
@@ -182,6 +235,26 @@ function drawSprite(name, x, y, size, turn) {
   return true;
 }
 
+// A sprite that is more than one tile: `cell` is its top-left in the sheet and
+// it reaches `w` tiles across and `h` down from there. Turning spins it about
+// the middle of the WHOLE object, not the middle of its first tile.
+function drawSpriteBlock(name, x, y, w, h, turn) {
+  const cell = SPRITES[name];
+  const sheet = cell && sheets[cell[2] || 'tiles'];
+  if (!sheet || !sheet.ready) return false;
+  const sw = w * TILE, sh = h * TILE;
+  if (!turn) {
+    ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, sw, sh, x, y, sw, sh);
+    return true;
+  }
+  ctx.save();
+  ctx.translate(x + sw / 2, y + sh / 2);
+  ctx.rotate(turn * Math.PI / 180);
+  ctx.drawImage(sheet.img, cell[0] * TILE, cell[1] * TILE, sw, sh, -sw / 2, -sh / 2, sw, sh);
+  ctx.restore();
+  return true;
+}
+
 // How far the thing at this spot is turned, in degrees. 0 almost everywhere.
 // A map says so with  rotations: { '6,1': 90 }   (see the top of data/maps.js).
 function turnAt(map, col, row) {
@@ -203,30 +276,51 @@ function availableActivity() {
   return null;
 }
 
-function drawLetter(map, ch, col, row, time, depth) {
-  const place = map.places && map.places[ch];
-  const look = (place && place.sprite) ? place : LEGENDS[map.legend][ch];
+// Which picture a look wants right now: one of its frames, one of its
+// several ground variants, or simply the one it names.
+function spriteNameFor(look, col, row, time) {
+  if (!look) return null;
+  if (look.frames) return look.frames[Math.floor(time * (look.fps || 2) + (col + row) % 2) % look.frames.length];
+  if (Array.isArray(look.sprite)) return look.sprite[tileHash(col, row) % look.sprite.length];
+  return look.sprite || null;
+}
+
+// A coloured rectangle with the letter on it, for a tile whose picture is
+// missing or still loading. Half-finished work still shows up.
+function drawMissing(ch, look, x, y, w, h) {
+  ctx.fillStyle = (look && look.color) || '#d23ad2';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.font = '12px monospace';
+  ctx.fillText(ch, x + 12, y + 20);
+}
+
+// `groundOnly` draws just the `under` layers and stops. Objects bigger than a
+// tile use it on the first pass, then paint themselves in full on the second.
+function drawLetter(map, ch, col, row, time, depth, groundOnly) {
+  const look = lookFor(map, ch);
   const x = col * TILE, y = row * TILE;
 
   if (look && look.under && (depth || 0) < 3) drawLetter(map, look.under, col, row, time, (depth || 0) + 1);
+  if (groundOnly) return;
 
   // Only the tile itself turns, never whatever `under` just drew beneath it,
   // so a rug spun a quarter turn still lies on a floor that stayed put.
   const turn = (depth || 0) === 0 ? turnAt(map, col, row) : 0;
 
-  let name = null;
-  if (look && look.frames)                   name = look.frames[Math.floor(time * (look.fps || 2) + (col + row) % 2) % look.frames.length];
-  else if (look && Array.isArray(look.sprite)) name = look.sprite[tileHash(col, row) % look.sprite.length];
-  else if (look)                             name = look.sprite;
-
+  const name = spriteNameFor(look, col, row, time);
   if (name && drawSprite(name, x, y, TILE, turn)) return;
+  drawMissing(ch, look, x, y, TILE, TILE);
+}
 
-  // No picture (yet). Show SOMETHING: a coloured square with the letter on it.
-  ctx.fillStyle = (look && look.color) || '#d23ad2';
-  ctx.fillRect(x, y, TILE, TILE);
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.font = '12px monospace';
-  ctx.fillText(ch, x + 12, y + 20);
+// The second pass: one whole object, spilling out of its corner tile.
+function drawBigLetter(map, ch, col, row, time) {
+  const look = lookFor(map, ch);
+  const [w, h] = tileSize(map, ch) || [1, 1];
+  const x = col * TILE, y = row * TILE;
+  const name = spriteNameFor(look, col, row, time);
+  if (name && drawSpriteBlock(name, x, y, w, h, turnAt(map, col, row))) return;
+  drawMissing(ch, look, x, y, w * TILE, h * TILE);
 }
 
 // Everybody on the island is drawn here: you and every NPC.
@@ -294,6 +388,9 @@ function drawBlockyPerson(px, py, look, facing, walkTimer) {
   ctx.fillRect(x + 14, y + 14 + bob, 4, 1);
 }
 
+// How far off-screen to start looking for objects that reach back onto it.
+const BIG_REACH = 4;
+
 function drawWorld(time) {
   updateCamera();
   ctx.save();
@@ -302,11 +399,25 @@ function drawWorld(time) {
   ctx.translate(-camera.x, -camera.y);
 
   const c0 = Math.floor(camera.x / TILE), r0 = Math.floor(camera.y / TILE);
-  for (let r = r0; r <= r0 + VIEW_ROWS; r++) {
-    for (let c = c0; c <= c0 + VIEW_COLS; c++) {
-      if (inBounds(c, r)) drawLetter(current, current.tiles[r][c], c, r, time);
+  // Start a few tiles early: an object anchored just off the top or left of
+  // the screen still has the rest of itself showing on it.
+  const anchors = [];
+  for (let r = r0 - BIG_REACH; r <= r0 + VIEW_ROWS; r++) {
+    for (let c = c0 - BIG_REACH; c <= c0 + VIEW_COLS; c++) {
+      if (!inBounds(c, r)) continue;
+      const ch = current.tiles[r][c];
+      if (tileSize(current, ch)) {
+        drawLetter(current, ch, c, r, time, 0, true);     // its ground now...
+        anchors.push({ ch, c, r });                       // ...itself in a moment
+      } else if (r >= r0 && c >= c0) {
+        drawLetter(current, ch, c, r, time);
+      }
     }
   }
+  // Lower objects paint over higher ones, the same way people are sorted, so
+  // a chair in front of a bookcase overlaps it rather than the other way round.
+  anchors.sort((a, b) => a.r - b.r || a.c - b.c);
+  for (const a of anchors) drawBigLetter(current, a.ch, a.c, a.r, time);
   for (const p of propsHere) drawSprite(p.sprite, p.col * TILE, p.row * TILE, TILE, turnAt(current, p.col, p.row));
   // today's holes in the sand
   for (const [spot, mark] of Object.entries((state.dug || {}).spots || {})) {
@@ -366,6 +477,14 @@ function validateData() {
   const walkable = (map, col, row) => map.tiles[row] && map.tiles[row][col] !== undefined && !letterSolid(map, map.tiles[row][col]);
   const opposite = { north: 'south', south: 'north', east: 'west', west: 'east' };
 
+  const checkSize = (where, size) => {
+    if (size === undefined) return;
+    const ok = Array.isArray(size) && size.length === 2
+      && size.every(n => Number.isInteger(n) && n >= 1);
+    if (!ok) say(`${where} has size ${JSON.stringify(size)}. That wants to be two whole numbers, like [2, 1] for something two tiles wide and one tall.`);
+    else if (size[0] === 1 && size[1] === 1) say(`${where} has size [1, 1], which is just an ordinary tile. Leave the size off.`);
+  };
+
   const checkConds = (where, conds) => {
     for (const c of [].concat(conds || [])) if (!conditionLooksValid(c)) say(`${where} has a condition the game doesn't understand: "${c}". The kinds it knows are listed at the top of data/story.js.`);
   };
@@ -401,6 +520,7 @@ function validateData() {
       if (!map.tiles.some(line => line.includes(ch))) say(`${where} is defined but the letter never appears in the map.`);
       if (!place.sprite && !legend[ch]) say(`${where} has no look: give it a sprite, or add "${ch}" to the ${map.legend} legend.`);
       if (place.sprite && !SPRITES[place.sprite]) say(`${where} uses sprite "${place.sprite}", which isn't named in SPRITES (data/tiles.js).`);
+      checkSize(where, place.size);
       if (place.under && !legend[place.under]) say(`${where} is drawn over "${place.under}", which isn't in the ${map.legend} legend.`);
       if (place.talkTo && !NPCS[place.talkTo]) say(`${where} passes you to NPC "${place.talkTo}", who isn't in data/npcs.js.`);
       if (place.to) {
@@ -421,6 +541,26 @@ function validateData() {
       if (!SPRITES[p.sprite]) say(`Map "${name}" has a prop with sprite "${p.sprite}", which isn't named in SPRITES.`);
       checkConds(`Map "${name}", prop "${p.sprite}"`, p.showIf);
     }
+    // Objects bigger than one tile: do they fit, and do any two collide?
+    const claimed = {};
+    map.tiles.forEach((line, r) => {
+      for (let c = 0; c < line.length; c++) {
+        const size = tileSize(map, line[c]);
+        if (!size) continue;
+        const [w, h] = size;
+        const where = `Map "${name}": the "${line[c]}" at column ${c}, row ${r} is ${w} x ${h} tiles and`;
+        if (c + w > width || r + h > map.tiles.length) {
+          say(`${where} runs off the map, which is ${width} wide and ${map.tiles.length} tall. Move it, or shrink its size.`);
+          continue;
+        }
+        for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) {
+          const spot = (c + dx) + ',' + (r + dy);
+          if (claimed[spot]) say(`${where} lands on column ${c + dx}, row ${r + dy}, which the "${claimed[spot]}" is already using. Two big objects can't share a tile.`);
+          else claimed[spot] = line[c];
+        }
+      }
+    });
+
     for (const [spot, degrees] of Object.entries(map.rotations || {})) {
       const where = `Map "${name}", rotations entry "${spot}"`;
       const at = /^(\d+),(\d+)$/.exec(spot);
@@ -428,10 +568,16 @@ function validateData() {
       const col = Number(at[1]), row = Number(at[2]);
       if (!map.tiles[row] || map.tiles[row][col] === undefined) say(`${where} is off the map, which is ${width} wide and ${map.tiles.length} tall.`);
       if (typeof degrees !== 'number' || !isFinite(degrees)) say(`${where} turns it by ${JSON.stringify(degrees)}. That wants to be a plain number of degrees, like 90.`);
+      const spun = map.tiles[row] && tileSize(map, map.tiles[row][col]);
+      if (spun && spun[0] !== spun[1] && degrees % 180 !== 0) {
+        say(`${where} turns a ${spun[0]} x ${spun[1]} object by ${degrees}. A quarter turn swaps its width and height, so it will hang over its neighbours. Use 180, or give it a square size.`);
+      }
     }
   }
 
   for (const legendName of Object.keys(LEGENDS)) for (const [ch, def] of Object.entries(LEGENDS[legendName])) {
+    checkSize(`Legend "${legendName}", letter "${ch}"`, def.size);
+    if (def.size && (def.frames || Array.isArray(def.sprite))) say(`Legend "${legendName}", letter "${ch}" has a size AND several pictures. An object bigger than one tile needs a single sprite.`);
     for (const s of [].concat(def.sprite || [], def.frames || [])) if (!SPRITES[s]) say(`Legend "${legendName}", letter "${ch}": sprite "${s}" isn't named in SPRITES.`);
     if (def.under && !LEGENDS[legendName][def.under]) say(`Legend "${legendName}", letter "${ch}" is drawn over "${def.under}", which isn't in that legend.`);
   }

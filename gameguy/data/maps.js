@@ -55,7 +55,19 @@
    and stay crisp; other angles work but the picture will hang over its
    neighbours' corners.
 
-   Two things it does NOT do, on purpose:
+   SOMETHING BIGGER THAN ONE TILE:
+   A legend entry with `size: [2, 1]` (data/tiles.js) is two tiles wide. Type
+   its letter ONCE, at the object's top-left corner, and leave floor in the
+   tiles it covers:
+
+       '#________#'
+       '#_BB_____#'      <- WRONG: that's two beds, side by side
+       '#_B______#'      <- right: one 2-wide bed, floor to its right
+
+   The game blocks the covered tiles for you, and the red box tells you if an
+   object runs off the map or lands on another one.
+
+   Two things `rotations` does NOT do, on purpose:
      - It never turns the ground. A tile with `under:` draws the floor first
        and then itself, and only the "itself" part turns, so a rug spun a
        quarter turn still lies flat on an unturned floor.
