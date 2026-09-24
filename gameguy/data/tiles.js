@@ -58,6 +58,22 @@ const SPRITES = {
   sofa: [4,6], chair: [5,6], houseplant: [6,6], wardrobe: [7,6],
   sink: [0,7], clock: [1,7], poster: [2,7], floor_lamp: [3,7], box: [4,7],
   // cells [5,7], [6,7] and [7,7] are empty. They're yours.
+  
+  
+  // midcentury_modern_room_door_tiles.png — 32px tiles
+  walls_middle_divider: [6,1,'walls'],
+  walls_bottom_right_corner: [13,3,'walls'],
+  walls_bottom_left_corner: [14,3,'walls'],
+  walls_top_right_corner: [13,4,'walls'],
+  walls_top_left_corner: [14,4,'walls'],
+  walls_bottom_edge: [6,5,'walls'],
+  walls_left_edge: [13,5,'walls'],
+  walls_top_edge: [6,6,'walls'],
+  walls_right_edge: [10,6,'walls'],
+  walls_peach_striped_wall: [11,7,'walls'],
+  walls_bamboo_tile: [5,8,'walls'],
+  walls_peach_striped_border: [12,8,'walls'],
+  
 
   // A third value names a DIFFERENT sheet. These live in art/items.png
   // (labelled in art/items-guide.png). Cells [4,1] to [7,1] there are empty.
@@ -68,7 +84,7 @@ const SPRITES = {
 
 // The picture files. To add a sheet: put the PNG in art/, name it here, and use
 // that name as the third value of a sprite.
-const SHEETS = { tiles: 'art/tileset.png', items: 'art/items.png' };
+const SHEETS = { tiles: 'art/tileset.png', items: 'art/items.png', walls: 'art/midcentury_modern_room_door_tiles.png' };
 
 /* What a legend entry can say:
 
@@ -174,5 +190,21 @@ const LEGENDS = {
     'm': { sprite: 'floor_lamp', under: '_', solid: true, color: '#e8d8a0' },
     'g': { sprite: 'box',        under: '_', solid: true, color: '#b8966a' },
   },
+  
+  walls: {
+  // solid:  true if you cannot walk through it. Both are guesses below.
+    'A': { sprite: 'walls_middle_divider', under: '_', solid: true },
+    'C': { sprite: 'walls_bottom_right_corner', under: '_', solid: true },
+    'D': { sprite: 'walls_bottom_left_corner', under: '_', solid: true },
+    'E': { sprite: 'walls_top_right_corner', under: '_', solid: true },
+    'K': { sprite: 'walls_top_left_corner', under: '_', solid: true },
+    'N': { sprite: 'walls_bottom_edge', under: '_', solid: true },
+    'O': { sprite: 'walls_left_edge', under: '_', solid: true },
+    'Q': { sprite: 'walls_top_edge', under: '_', solid: true },
+    'U': { sprite: 'walls_right_edge', under: '_', solid: true },
+    'V': { sprite: 'walls_peach_striped_wall' },   // ground? a wall fills its cell too: add  solid: true  if you can't walk here
+    'W': { sprite: 'walls_bamboo_tile' },   // ground? a wall fills its cell too: add  solid: true  if you can't walk here
+    'X': { sprite: 'walls_peach_striped_border' },   // ground? a wall fills its cell too: add  solid: true  if you can't walk here
+   },
 
 };
