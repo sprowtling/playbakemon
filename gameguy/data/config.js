@@ -44,6 +44,24 @@ const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satu
 // Day 1 is DAY_NAMES[0]. The short names used in conditions ("day:Thu")
 // are just the first three letters of these.
 
+// ---- The calendar ----
+// Every month is exactly four weeks, so every month starts on a Monday and
+// the first Saturday is always the 6th. A year is 12 x 28 = 336 days.
+const DAYS_PER_MONTH = 28;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+// A new game begins on the 1st of this month. Short names ("month:Jun") are
+// the first three letters, same as the days.
+const START_MONTH = 'Jun';
+// Which months make up each season ("season:summer"). Rename them, add a
+// wet season, anything: each month should appear once.
+const SEASONS = {
+  spring: ['Mar', 'Apr', 'May'],
+  summer: ['Jun', 'Jul', 'Aug'],
+  autumn: ['Sep', 'Oct', 'Nov'],
+  winter: ['Dec', 'Jan', 'Feb'],
+};
+
 // The colour laid over the world at each hour. [hour, 'r,g,b', strength 0-1]
 // The game blends smoothly between neighbouring entries.
 const SKY_TINT = [
@@ -96,5 +114,6 @@ const SAVE_VERSION = 1;
 // While DEBUG is true these keys work during play:
 //   1  skip ahead one hour        3  get a free pack
 //   2  +5 money                   4  go straight to tomorrow morning
+//   5  go straight to the 1st of next month
 //   0  show collision boxes
 const DEBUG = true;

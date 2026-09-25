@@ -179,7 +179,7 @@ function banner(text) { ui.banner = { text, t: 0 }; }
 function drawHud(dt) {
   // Day and clock, top left.
   setFont(24);
-  const dayLine = dayName() + ', day ' + state.day;
+  const dayLine = dateText();
   const w = Math.max(ctx.measureText(dayLine).width, 120) + 40;
   panel(20, 20, w, 78);
   ctx.fillStyle = COLOR.sand; ctx.fillText(dayLine, 40, 52);

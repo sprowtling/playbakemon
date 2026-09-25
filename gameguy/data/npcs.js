@@ -48,6 +48,7 @@
                     'day'    a fresh pick every morning (right for the sailor: he's
                              only here some days, so every visit looks different)
                     'week'   a fresh pick every Monday
+                    'month'  a fresh pick on the 1st of every month
                   Each pool offer can be taken once per appearance. If the same
                   offer comes round again weeks later, it's available again.
                   The pick is random but FIXED for that day or week: leaving and

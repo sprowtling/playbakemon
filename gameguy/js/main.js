@@ -17,7 +17,7 @@ const KEYS = {
   action: ['e', 'enter', ' '], cancel: ['escape', 'backspace'], collection: ['c'],
   remove: ['x', '-', 'delete'], auto: ['f'],
   use: ['f'], bag: ['i', 'b'],
-  dbg1: ['1'], dbg2: ['2'], dbg3: ['3'], dbg4: ['4'], dbg0: ['0'],
+  dbg1: ['1'], dbg2: ['2'], dbg3: ['3'], dbg4: ['4'], dbg5: ['5'], dbg0: ['0'],
 };
 const heldKeys = {}, freshKeys = new Set();
 
@@ -104,6 +104,7 @@ function updateWorld(dt) {
     if (pressed('dbg2')) { state.money += 5; toast('+' + moneyText(5) + ' (debug)'); }
     if (pressed('dbg3')) { const ids = rollPack('booster'); const wasNew = ids.map(id => { const n = owned(id) === 0; addCard(id); return n; }); openPackScreen('booster', ids, wasNew, () => fireEvent('pack_opened')); }
     if (pressed('dbg4')) goToSleep(false);
+    if (pressed('dbg5')) { state.day += DAYS_PER_MONTH - dateNow(); goToSleep(false); }    // to the last day of the month, then sleep
     if (pressed('dbg0')) showBoxes = !showBoxes;
   }
 }
@@ -156,7 +157,7 @@ function showTitle() {
   const begin = saved => fadeThrough(() => startGame(saved), { dur: 0.4, then: () => { banner(current.title); if (!saved) fireEvent('newgame'); } });
 
   const options = [];
-  if (save) options.push({ label: 'Continue', hint: DAY_NAMES[(save.day - 1) % 7] + ', day ' + save.day + '.   ' + Object.values(save.collection).filter(n => n > 0).length + ' cards found.', run: () => begin(save) });
+  if (save) options.push({ label: 'Continue', hint: dateText(save.day) + '.   ' + Object.values(save.collection).filter(n => n > 0).length + ' cards found.', run: () => begin(save) });
   options.push({ label: 'New game', hint: save ? 'This replaces your saved game.' : '', run: () => {
     if (!save) return begin(null);
     choose('Start over and lose the saved game?', [{ label: 'Keep my save', run: showTitle }, { label: 'Start over', run: () => { eraseSave(); begin(null); } }], showTitle);

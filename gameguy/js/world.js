@@ -615,7 +615,7 @@ function validateData() {
     for (const sp of d.schedule || []) checkConds(where + ' (schedule)', sp.if);
     for (const j of [].concat(d.job || [])) if (!JOBS[j]) say(`${where} offers job "${j}", which isn't in data/jobs.js.`);
     if (d.shop && !SHOPS[d.shop]) say(`${where} runs shop "${d.shop}", which isn't in data/shops.js.`);
-    if (d.trade && d.trade.pool && !['day', 'week'].includes(d.trade.refresh)) say(`${where} has a trade pool but its refresh is "${d.trade.refresh}". Use 'day' or 'week'.`);
+    if (d.trade && d.trade.pool && !['day', 'week', 'month'].includes(d.trade.refresh)) say(`${where} has a trade pool but its refresh is "${d.trade.refresh}". Use 'day', 'week' or 'month'.`);
     for (const o of ((d.trade && d.trade.offers) || []).concat((d.trade && d.trade.pool) || [])) {
       if (typeof o.give === 'string') {
         if (!CARD_BY_ID[o.give]) say(`${where} offers to trade away card "${o.give}", which doesn't exist.`);
@@ -724,6 +724,13 @@ function validateData() {
     if (!['shift', 'delivery', 'minigame'].includes(job.type)) say(`Job "${id}" has type "${job.type}". Known types: shift, delivery, minigame.`);
     checkConds(`Job "${id}"`, job.availableIf);
     if (job.type === 'delivery' && !NPCS[job.deliverTo]) say(`Job "${id}" delivers to NPC "${job.deliverTo}", who doesn't exist.`);
+  }
+  for (const [id, shop] of Object.entries(SHOPS)) checkConds(`Shop "${id}" (restockIf)`, shop.restockIf);
+  if (!MONTH_NAMES.some(m => m.slice(0, 3) === START_MONTH)) say(`START_MONTH (data/config.js) is "${START_MONTH}". It wants the first three letters of a month in MONTH_NAMES, like 'Jun'.`);
+  if (MONTH_NAMES.length !== 12) say(`MONTH_NAMES (data/config.js) has ${MONTH_NAMES.length} months. The calendar expects 12.`);
+  for (const m of MONTH_NAMES.map(m => m.slice(0, 3))) {
+    const inSeasons = Object.values(SEASONS).filter(list => list.includes(m)).length;
+    if (inSeasons !== 1) say(`SEASONS (data/config.js) lists "${m}" ${inSeasons === 0 ? 'in no season' : 'in ' + inSeasons + ' seasons'}. Each month belongs in exactly one.`);
   }
   for (const [id, shop] of Object.entries(SHOPS)) for (const p of shop.products) {
     if (p.pack && !PACKS[p.pack]) say(`Shop "${id}" sells pack "${p.pack}", which isn't in PACKS.`);
