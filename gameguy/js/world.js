@@ -67,9 +67,129 @@ function refreshPeople() {
     if (!check(def.presentIf)) continue;
     const spot = (def.schedule || []).find(s => check(s.if)) || def.home;
     if (spot.map !== currentName) continue;
-    npcsHere.push({ id, def, col: spot.col, row: spot.row, facing: spot.facing || 'down', homeFacing: spot.facing || 'down' });
+    // A schedule spot can say its own  wander: 1  (a tight shop floor), otherwise
+    // the person's everyday  wander  applies. No wander at all means they stand still.
+    const wander = spot.wander !== undefined ? spot.wander : (def.wander || 0);
+    npcsHere.push({ id, def, col: spot.col, row: spot.row, facing: spot.facing || 'down', homeFacing: spot.facing || 'down',
+                    spot, wander, x: spot.col * TILE, y: spot.row * TILE, from: null, path: [], wait: restTime(), walkTimer: 0 });
   }
   propsHere = (current.props || []).filter(p => check(p.showIf));
+}
+
+/* ---------------- people who wander ----------------
+   An NPC with  wander: 2  strolls about within 2 tiles of wherever they're
+   meant to be right now (their home, or their schedule spot). Over and over:
+     1. REST    stand still for a few seconds
+     2. PICK    choose a random free tile inside their patch
+     3. PLAN    findPath() works out the steps to get there
+     4. WALK    glide along those steps one tile at a time
+   People live on the grid. n.col/n.row is the tile they OWN: the one you bump
+   into and talk to. n.x/n.y is where they're DRAWN, which slides toward it.
+   Starting a step, they claim the next tile at once and keep hold of the one
+   they're leaving (n.from) until they arrive, so you can't slip into either.
+   ---------------------------------------------------------------- */
+
+const restTime = () => NPC_REST[0] + Math.random() * (NPC_REST[1] - NPC_REST[0]);
+const randInt  = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+
+// Is this person standing on (or stepping off) this tile?
+const npcOn = (n, col, row) => (n.col === col && n.row === row) || (n.from && n.from.col === col && n.from.row === row);
+
+// Does any part of the player's feet touch this tile?
+function playerCovers(col, row) {
+  const b = hitbox(player.x, player.y);
+  return col >= Math.floor(b.x / TILE) && col <= Math.floor((b.x + b.w - 1) / TILE)
+      && row >= Math.floor(b.y / TILE) && row <= Math.floor((b.y + b.h - 1) / TILE);
+}
+
+// Could this person step onto this tile right now?
+function npcCanStand(n, col, row) {
+  if (!inBounds(col, row)) return false;                                   // never off the map's edge
+  if (Math.abs(col - n.spot.col) > n.wander || Math.abs(row - n.spot.row) > n.wander) return false;   // stay in their patch
+  if (current.places && current.places[current.tiles[row][col]]) return false;   // keep doors, signs and counters clear
+  if (solidAt(col, row)) return false;                                     // walls, furniture, other people
+  return !playerCovers(col, row);                                          // and never onto you
+}
+
+// BREADTH-FIRST SEARCH: the classic way to find the shortest walk on a grid.
+// Picture spilling ink on the start tile. It spreads one ring at a time: first
+// to every tile 1 step away, then 2 steps, then 3... The moment the ink reaches
+// the goal, that's the shortest way there. `cameFrom` remembers which tile the
+// ink spread IN from, so walking it backwards from the goal gives the route.
+// `canUse(col, row)` decides which tiles the ink may flow into.
+// Returns the steps to take, [{col,row}, ...] (not counting where you already
+// are), or null if the goal can't be reached at all.
+function findPath(from, to, canUse) {
+  const key = (col, row) => col + ',' + row;
+  const cameFrom = { [key(from.col, from.row)]: null };
+  const queue = [{ col: from.col, row: from.row }];
+  while (queue.length) {
+    const here = queue.shift();                          // oldest first: that's what makes it ring by ring
+    if (here.col === to.col && here.row === to.row) {
+      const path = [];
+      for (let t = here; cameFrom[key(t.col, t.row)]; t = cameFrom[key(t.col, t.row)]) path.unshift(t);
+      return path;
+    }
+    for (const [dc, dr] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const next = { col: here.col + dc, row: here.row + dr };
+      if (key(next.col, next.row) in cameFrom || !canUse(next.col, next.row)) continue;
+      cameFrom[key(next.col, next.row)] = here;
+      queue.push(next);
+    }
+  }
+  return null;
+}
+
+// Steps 2 and 3: somewhere to go, and how to get there. An empty list if
+// nowhere works out (boxed in, or the patch is all furniture).
+function planStroll(n) {
+  for (let tries = 0; tries < 8; tries++) {
+    const goal = { col: n.spot.col + randInt(-n.wander, n.wander), row: n.spot.row + randInt(-n.wander, n.wander) };
+    if ((goal.col === n.col && goal.row === n.row) || !npcCanStand(n, goal.col, goal.row)) continue;
+    const path = findPath(n, goal, (col, row) => npcCanStand(n, col, row));
+    if (path) return path;
+  }
+  return [];
+}
+
+// Called every frame the world is running (not during dialogue or menus,
+// so nobody walks off mid-conversation).
+function updatePeople(dt) {
+  for (const n of npcsHere) {
+    if (!n.wander) continue;
+
+    // 4. WALK: mid-step, slide toward the tile they've claimed.
+    if (n.from) {
+      const step = NPC_SPEED * dt, tx = n.col * TILE, ty = n.row * TILE;
+      n.x += Math.max(-step, Math.min(step, tx - n.x));
+      n.y += Math.max(-step, Math.min(step, ty - n.y));
+      n.walkTimer += dt;
+      if (n.x === tx && n.y === ty) {
+        n.from = null;                                   // arrived: let go of the old tile
+        if (!n.path.length) { n.wait = Math.max(n.wait, restTime()); n.walkTimer = 0; }
+      }
+      continue;
+    }
+
+    // 1. REST
+    if (n.wait > 0) { n.wait -= dt; n.walkTimer = 0; continue; }
+
+    // 2 & 3. PICK and PLAN
+    if (!n.path.length) {
+      n.path = planStroll(n);
+      if (!n.path.length) n.wait = restTime();           // nowhere to go today; try again later
+      continue;
+    }
+
+    // Take the next step, unless something moved into the way since we planned
+    // (you, usually). Then give up on this stroll and think again shortly.
+    const next = n.path[0];
+    if (!npcCanStand(n, next.col, next.row)) { n.path = []; n.wait = 0.5 + Math.random(); n.walkTimer = 0; continue; }
+    n.path.shift();
+    n.facing = next.col > n.col ? 'right' : next.col < n.col ? 'left' : next.row > n.row ? 'down' : 'up';
+    n.from = { col: n.col, row: n.row };
+    n.col = next.col; n.row = next.row;
+  }
 }
 
 /* ---------------- what's at a tile ---------------- */
@@ -150,7 +270,7 @@ function solidAt(col, row) {
   const covered = mapCover(current)[col + ',' + row];
   if (covered && letterSolid(current, covered.ch)) return true;
   if (propsHere.some(p => p.solid && p.col === col && p.row === row)) return true;
-  if (npcsHere.some(n => n.col === col && n.row === row)) return true;
+  if (npcsHere.some(n => npcOn(n, col, row))) return true;
   return false;
 }
 
@@ -177,7 +297,7 @@ function facingTarget() {
   const t = playerTile();
   const [dc, dr] = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] }[player.facing];
   const col = t.col + dc, row = t.row + dr;
-  const npc = npcsHere.find(n => n.col === col && n.row === row);
+  const npc = npcsHere.find(n => npcOn(n, col, row));
   if (npc) return { npc, def: npc.def, name: npc.def.name };
   if (!inBounds(col, row)) return null;
   // Facing the right-hand half of a wide counter is facing the counter.
@@ -426,7 +546,7 @@ function drawWorld(time) {
   }
 
   // People are drawn top-to-bottom so whoever is lower on screen is in front.
-  const people = npcsHere.map(n => ({ y: n.row * TILE, draw: () => drawPerson(n.col * TILE, n.row * TILE, n.def.look, n.facing, 0, n.def.sprite) }));
+  const people = npcsHere.map(n => ({ y: n.y, draw: () => drawPerson(n.x, n.y, n.def.look, n.facing, n.walkTimer, n.def.sprite) }));
   people.push({ y: player.y, draw: () => drawPerson(player.x, player.y, PLAYER_LOOK, player.facing, player.walkTimer, PLAYER_SPRITE) });
   people.sort((a, b) => a.y - b.y).forEach(p => p.draw());
 
@@ -593,7 +713,9 @@ function validateData() {
       const map = MAPS[spot.map];
       if (!map) say(`NPC "${id}" is placed in map "${spot.map}", which doesn't exist.`);
       else if (!walkable(map, spot.col, spot.row)) say(`NPC "${id}" stands at column ${spot.col}, row ${spot.row} of "${spot.map}", which is solid or off the map.`);
+      if (spot.wander !== undefined && !(Number.isInteger(spot.wander) && spot.wander >= 0)) say(`NPC "${id}" has a spot in "${spot.map}" with wander: ${JSON.stringify(spot.wander)}. That wants to be a whole number of tiles, like 2 (or 0 to stand still).`);
     }
+    if (npc.wander !== undefined && !(Number.isInteger(npc.wander) && npc.wander >= 0)) say(`NPC "${id}" has wander: ${JSON.stringify(npc.wander)}. That wants to be a whole number of tiles, like 2 (or 0 to stand still).`);
     if (npc.sprite && !CHARACTERS[npc.sprite]) say(`NPC "${id}" uses sprite "${npc.sprite}", which isn't in CHARACTERS (data/characters.js).`);
     checkInteraction(`NPC "${id}"`, npc);
   }

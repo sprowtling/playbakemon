@@ -75,6 +75,9 @@ function updateWorld(dt) {
   if (dy && !blocked(player.x, player.y + dy * step)) player.y += dy * step;
   player.walkTimer = (dx || dy) ? player.walkTimer + dt : 0;
 
+  // --- everyone else strolling about ---
+  updatePeople(dt);
+
   // --- walked off the side of the map? ---
   const t = playerTile();
   if (!inBounds(t.col, t.row)) {

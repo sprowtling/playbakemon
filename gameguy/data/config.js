@@ -21,6 +21,11 @@ const UI_FONT = '"Patrick Hand", "Trebuchet MS", "Segoe UI", sans-serif';
 // ---- Movement ----
 const SPEED = 84;       // walking speed, in world pixels per second
 
+// ---- People who wander (anyone with  wander  in data/npcs.js) ----
+const NPC_SPEED = 36;              // their strolling speed. Slower than you, so you can catch them.
+const NPC_REST  = [2, 6];          // after each stroll they stand still this many seconds (random, in between)
+const NPC_PAUSE_AFTER_TALK = 4;    // seconds they stay put after you've talked to them
+
 // ---- The kid ----
 // Which sprite sheet you're drawn from (data/characters.js).
 // Set it to null and you go back to being a blocky person built from the colours below.

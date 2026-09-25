@@ -18,6 +18,8 @@ function interact(target) {
   if (target.npc && !target.acrossCounter) {
     target.npc.facing = { up: 'down', down: 'up', left: 'right', right: 'left' }[player.facing];
   }
+  // ...and don't wander off the second the conversation's over.
+  if (target.npc) target.npc.wait = Math.max(target.npc.wait, NPC_PAUSE_AFTER_TALK);
 
   // 1. Are you carrying something for this person?
   if (who) for (const [jobId, job] of Object.entries(JOBS)) {
