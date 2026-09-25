@@ -20,6 +20,13 @@
                 SHORTCUT: people don't walk between spots. They're
                 simply somewhere else the next time you enter a map.
                 Nobody moves while you're watching.
+     wander     (optional) how many tiles they'll stroll from their spot,
+                e.g.  wander: 2  lets them roam a 5x5 patch around it.
+                Leave it out (or 0) and they stand still. A schedule entry
+                can have its own wander, which wins while they're there:
+                  { if: 'hour>=12', map: 'shop', col: 4, row: 4, wander: 1 }
+                They keep off doors, counters and anything solid, and step
+                around you. Speed and resting time are in data/config.js.
      presentIf  (optional) conditions for them to be on the island at all
      talk       a list of { if, lines, once, set, give }.
                 The FIRST entry whose `if` is true is what they say.
@@ -41,6 +48,7 @@
                     'day'    a fresh pick every morning (right for the sailor: he's
                              only here some days, so every visit looks different)
                     'week'   a fresh pick every Monday
+                    'month'  a fresh pick on the 1st of every month
                   Each pool offer can be taken once per appearance. If the same
                   offer comes round again weeks later, it's available again.
                   The pick is random but FIXED for that day or week: leaving and
@@ -128,8 +136,9 @@ const NPCS = {
     sprite: 'megan',
     look: { skin: '#e0b48c', hair: '#a8482a', shirt: '#e8c44a', legs: '#5a7a4a' },
     home: { map: 'island_se', col: 14, row: 19, facing: 'down' },     // the beach by the dock
+    wander: 3,                                                       // she can't keep still on the beach...
     schedule: [
-      { if: ['hour>=12', 'hour<17', '!day:Sun'], map: 'shop', col: 4, row: 4, facing: 'left' },
+      { if: ['hour>=12', 'hour<17', '!day:Sun'], map: 'shop', col: 4, row: 4, facing: 'left', wander: 1 },   // ...but the shop's small
     ],
     presentIf: 'hour<17',        // after five she's home for dinner (see her door in maps.js)
     talk: [
@@ -172,6 +181,7 @@ const NPCS = {
     sprite: 'dock_kid',
     look: { skin: '#6a4a36', hair: '#1e1a18', shirt: '#c8504a', legs: '#3a4a6a' },
     home: { map: 'island_sw', col: 23, row: 17, facing: 'down' },
+    wander: 2,
     talk: [
       { lines: ["\"I only collect fire types. Everything else is boring.\""] },
     ],

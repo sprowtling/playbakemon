@@ -43,6 +43,8 @@ const PACKS = {
 
 /* ---- Shops --------------------------------------------------
    restockDay         new stock arrives the morning of this day
+   restockIf          ...or instead, whenever these conditions are true in the
+                      morning, e.g.  restockIf: 'date=1'  for once a month
    restockTo          ...and the shelf is filled back up to this many
    startStock         how many are on the shelf on day 1
    otherKidsBuy       every night, this many sell to kids who aren't you.

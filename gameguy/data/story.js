@@ -16,11 +16,25 @@
        '!flag:met_megan'     a leading ! flips ANY condition
        'day:Thu'             today is Thursday
        'day:Tue,Sat'         today is Tuesday OR Saturday
+       'month:Jun'           this month (first three letters; commas for OR)
+       'season:summer'       this season (the seasons are set in data/config.js)
        'time:morning'        morning | afternoon | evening | night
-       'hour>=9'             numbers: hour, money, daynum, week,
+       'hour>=9'             numbers: hour, money, daynum, week, date, year,
        'money<5'               cards (different cards owned),
        'cards>=20'             total (all copies)
                              with  >=  <=  >  <  =
+         date     the day of the month, 1 to 28. 'date=1' is the 1st.
+         daynum   days since the game began (day 1 is the first day).
+         week     weeks since the game began, NOT the week of the month.
+         year     1 for the first year; it turns over on January 1st.
+
+   THE CALENDAR: every month is 28 days, exactly four weeks, so every
+   month starts on a Monday. That makes patterns easy to write:
+       ['date=1']                    the 1st of every month
+       ['day:Sat', 'date<=7']        the first Saturday of every month
+       ['month:Aug', 'date=28']      one particular day of the year
+   Prefer month + date over daynum for story moments. If START_MONTH
+   ever changes, 'month:Aug' still means August; 'daynum=85' won't.
        'has:004'             you own card 004
        'dupe:004'            you own more than one
        'carrying:loaf'       you're holding that delivery item
@@ -48,6 +62,9 @@
        lines  what's said
        set    flags to switch on afterwards
        give   { money: 1 } or { card: '004' } or { item: 'shovel' }
+
+   Dialogue can say the date too: {day} {month} {date} {season}
+   become "Monday", "June", "3", "summer".
 
    Only one event plays per trigger: the first one in the list that
    qualifies. Order the list from most specific to most general.

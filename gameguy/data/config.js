@@ -21,6 +21,11 @@ const UI_FONT = '"Patrick Hand", "Trebuchet MS", "Segoe UI", sans-serif';
 // ---- Movement ----
 const SPEED = 84;       // walking speed, in world pixels per second
 
+// ---- People who wander (anyone with  wander  in data/npcs.js) ----
+const NPC_SPEED = 36;              // their strolling speed. Slower than you, so you can catch them.
+const NPC_REST  = [2, 6];          // after each stroll they stand still this many seconds (random, in between)
+const NPC_PAUSE_AFTER_TALK = 4;    // seconds they stay put after you've talked to them
+
 // ---- The kid ----
 // Which sprite sheet you're drawn from (data/characters.js).
 // Set it to null and you go back to being a blocky person built from the colours below.
@@ -38,6 +43,24 @@ const COLLAPSE_HOUR  = 23;   // at 10pm you fall asleep wherever you are
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 // Day 1 is DAY_NAMES[0]. The short names used in conditions ("day:Thu")
 // are just the first three letters of these.
+
+// ---- The calendar ----
+// Every month is exactly four weeks, so every month starts on a Monday and
+// the first Saturday is always the 6th. A year is 12 x 28 = 336 days.
+const DAYS_PER_MONTH = 28;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+// A new game begins on the 1st of this month. Short names ("month:Jun") are
+// the first three letters, same as the days.
+const START_MONTH = 'Jun';
+// Which months make up each season ("season:summer"). Rename them, add a
+// wet season, anything: each month should appear once.
+const SEASONS = {
+  spring: ['Mar', 'Apr', 'May'],
+  summer: ['Jun', 'Jul', 'Aug'],
+  autumn: ['Sep', 'Oct', 'Nov'],
+  winter: ['Dec', 'Jan', 'Feb'],
+};
 
 // The colour laid over the world at each hour. [hour, 'r,g,b', strength 0-1]
 // The game blends smoothly between neighbouring entries.
@@ -91,5 +114,6 @@ const SAVE_VERSION = 1;
 // While DEBUG is true these keys work during play:
 //   1  skip ahead one hour        3  get a free pack
 //   2  +5 money                   4  go straight to tomorrow morning
+//   5  go straight to the 1st of next month
 //   0  show collision boxes
 const DEBUG = true;

@@ -18,6 +18,8 @@ function interact(target) {
   if (target.npc && !target.acrossCounter) {
     target.npc.facing = { up: 'down', down: 'up', left: 'right', right: 'left' }[player.facing];
   }
+  // ...and don't wander off the second the conversation's over.
+  if (target.npc) target.npc.wait = Math.max(target.npc.wait, NPC_PAUSE_AFTER_TALK);
 
   // 1. Are you carrying something for this person?
   if (who) for (const [jobId, job] of Object.entries(JOBS)) {
@@ -231,7 +233,7 @@ function buyPack(packId) {
 function currentOffers(id, trade) {
   const out = (trade.offers || []).map((offer, i) => ({ offer, key: 'trade:' + id + ':' + i }));
   if (trade.pool && trade.pool.length) {
-    const period = trade.refresh === 'day' ? 'day' + state.day : 'week' + weekNow();
+    const period = trade.refresh === 'day' ? 'day' + state.day : trade.refresh === 'month' ? 'month' + monthsIn() : 'week' + weekNow();
     for (const i of seededPick(trade.pool.length, trade.show || 1, id + ':' + period))
       out.push({ offer: trade.pool[i], key: 'trade:' + id + ':pool' + i + ':' + period });     // the period is in the key, so
   }                                                                                            // next time round it's fresh again
@@ -297,13 +299,14 @@ function runAction(action, def) {
 
 function goToSleep(collapsed) {
   const tomorrow = DAY_NAMES[state.day % 7];
+  const tomorrowDate = monthName(state.day + 1) + ' ' + dateNow(state.day + 1);
   let notes = [];
   fadeThrough(() => {
     notes = startNewDay();
     if (collapsed) { loadMap(START.map, START.col, START.row, 'down'); notes.unshift("You wake up in your own bed. Somebody must have carried you home."); }
     else refreshPeople();
     saveGame();
-  }, { dur: 0.6, text: tomorrow, sub: 'day ' + (state.day + 1),
+  }, { dur: 0.6, text: tomorrow, sub: tomorrowDate,
        then: () => { const go = () => fireEvent('daystart'); if (notes.length) say('', notes, go); else go(); } });
 }
 

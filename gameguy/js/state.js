@@ -49,6 +49,28 @@ const dayShort  = () => dayName().slice(0, 3);
 const hourNow   = () => Math.floor(state.minutes / 60);
 const weekNow   = () => Math.floor((state.day - 1) / 7) + 1;
 
+/* ---------------- the calendar ----------------
+   Nothing new is saved for this. `state.day` already counts up forever
+   (1, 2, 3 ... 300), and the date is worked out from it, the same way
+   `% 7` above turns day 11 into a Thursday. Here it's `% DAYS_PER_MONTH`
+   for the date, and whole months counted from START_MONTH for the month.
+   Each of these takes a day number, so the title screen can ask about a
+   save that isn't loaded yet. Leave it out and it means today.
+   ---------------------------------------------------------------- */
+
+const MONTH_SHORTS = MONTH_NAMES.map(m => m.slice(0, 3));
+const startMonth   = Math.max(0, MONTH_SHORTS.indexOf(START_MONTH));
+const monthsIn     = (day = state.day) => Math.floor((day - 1) / DAYS_PER_MONTH);      // whole months since the game began
+const dateNow      = (day = state.day) => (day - 1) % DAYS_PER_MONTH + 1;               // 1 to 28
+const monthIndex   = (day = state.day) => (startMonth + monthsIn(day)) % 12;
+const monthName    = (day = state.day) => MONTH_NAMES[monthIndex(day)];
+const monthShort   = (day = state.day) => MONTH_SHORTS[monthIndex(day)];
+const yearNow      = (day = state.day) => Math.floor((startMonth + monthsIn(day)) / 12) + 1;
+const seasonNow    = (day = state.day) => Object.keys(SEASONS).find(s => SEASONS[s].includes(monthShort(day))) || '';
+
+// "Monday, June 3"
+const dateText = (day = state.day) => DAY_NAMES[(day - 1) % 7] + ', ' + monthName(day) + ' ' + dateNow(day);
+
 function phaseNow() {
   const h = hourNow();
   if (h < 12) return 'morning';
@@ -96,7 +118,8 @@ function startNewDay() {
       const key = productKey(p);
       if (shelf[key] === undefined) shelf[key] = p.startStock;         // product added after the save was made
       shelf[key] = Math.max(0, shelf[key] - (p.otherKidsBuy || 0));
-      if (dayShort() === shop.restockDay) shelf[key] = Math.max(shelf[key], p.restockTo);
+      const restocks = dayShort() === shop.restockDay || (shop.restockIf !== undefined && check(shop.restockIf));
+      if (restocks) shelf[key] = Math.max(shelf[key], p.restockTo);
     }
   }
   return notes;
@@ -206,15 +229,18 @@ const setFlag = name => { state.flags[name] = true; };
 
 // The words a condition may start with. The validator uses this to catch
 // typos at startup; add to BOTH lists if you invent a new kind of condition.
-const CONDITION_NUMBERS = ['hour', 'money', 'daynum', 'week', 'cards', 'total'];
-const CONDITION_KINDS   = ['flag', 'day', 'time', 'has', 'dupe', 'carrying', 'jobdone', 'stock', 'item'];
+const CONDITION_NUMBERS = ['hour', 'money', 'daynum', 'week', 'date', 'year', 'cards', 'total'];
+const CONDITION_KINDS   = ['flag', 'day', 'month', 'season', 'time', 'has', 'dupe', 'carrying', 'jobdone', 'stock', 'item'];
 
 function conditionLooksValid(cond) {
   const c = String(cond).replace(/^!+/, '');
   const cmp = c.match(/^(\w+)\s*(>=|<=|>|<|=)\s*(\d+)$/);
   if (cmp) return CONDITION_NUMBERS.includes(cmp[1]);
   const parts = c.split(':');
-  return parts.length === 2 && parts[1] !== '' && CONDITION_KINDS.includes(parts[0]);
+  if (!(parts.length === 2 && parts[1] !== '' && CONDITION_KINDS.includes(parts[0]))) return false;
+  // Calendar words have a fixed list of answers, so a typo like "month:Juen" can be caught too.
+  const known = { day: DAY_NAMES.map(d => d.slice(0, 3)), month: MONTH_SHORTS, season: Object.keys(SEASONS) }[parts[0]];
+  return !known || parts[1].split(',').every(w => known.includes(w));
 }
 
 function checkOne(cond) {
@@ -223,7 +249,7 @@ function checkOne(cond) {
   const cmp = cond.match(/^(\w+)\s*(>=|<=|>|<|=)\s*(\d+)$/);
   if (cmp) {
     const values = { hour: hourNow(), money: state.money, daynum: state.day, week: weekNow(),
-                     cards: uniqueOwned(), total: totalOwned() };
+                     date: dateNow(), year: yearNow(), cards: uniqueOwned(), total: totalOwned() };
     if (!(cmp[1] in values)) return false;      // the validator has already complained about it
     const a = values[cmp[1]], b = Number(cmp[3]);
     return { '>=': a >= b, '<=': a <= b, '>': a > b, '<': a < b, '=': a === b }[cmp[2]];
@@ -233,6 +259,8 @@ function checkOne(cond) {
   switch (kind) {
     case 'flag':     return !!state.flags[arg];
     case 'day':      return arg.split(',').includes(dayShort());
+    case 'month':    return arg.split(',').includes(monthShort());
+    case 'season':   return arg.split(',').includes(seasonNow());
     case 'time':     return phaseNow() === arg;
     case 'has':      return owned(arg) > 0;
     case 'dupe':     return owned(arg) > 1;
@@ -253,10 +281,10 @@ function check(conds) {
 // "1 coin", "3 coins".
 const moneyText = n => n + ' ' + (n === 1 ? MONEY_NAME_ONE : MONEY_NAME);
 
-// Fills in {money}, {moneyname}, {moneyone} and {day} inside dialogue text.
+// Fills in {money}, {moneyname}, {moneyone}, {day}, {month}, {date} and {season} inside dialogue text.
 function fmt(text, extra) {
   // (`state` is null on the title screen, before a game has been loaded.)
-  const values = Object.assign({ moneyname: MONEY_NAME, moneyone: MONEY_NAME_ONE }, state ? { money: state.money, day: dayName() } : {}, extra || {});
+  const values = Object.assign({ moneyname: MONEY_NAME, moneyone: MONEY_NAME_ONE }, state ? { money: state.money, day: dayName(), month: monthName(), date: dateNow(), season: seasonNow() } : {}, extra || {});
   return String(text).replace(/\{(\w+)\}/g, (whole, key) => (key in values ? values[key] : whole));
 }
 
