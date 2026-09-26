@@ -68,7 +68,7 @@ window.clearBakemonPlayer = clearBakemonPlayer;
   wireRulesDrawer();
   wireNavDropdowns();
   wireThemeSwitch();
-  wireChallenges();
+  updateChallengeBadge();
 
   // Let the host page know the shared header is ready, in case it needs to do anything after
   document.dispatchEvent(new CustomEvent("bakemon-shared-header-ready"));
@@ -128,6 +128,13 @@ function renderIdentity() {
   const strong = document.createElement("strong");
   strong.textContent = player.display_name;
   profileLink.append(strong);
+  // Filled in by updateChallengeBadge() once it knows how many pending
+  // challenges are waiting — the actual list lives on the profile this
+  // link already goes to, not here.
+  const badge = document.createElement("span");
+  badge.className = "bakemon-identity-badge";
+  badge.id = "bakemon-identity-badge";
+  profileLink.append(badge);
   el.append(profileLink);
 
   const switchBtn = document.createElement("button");
@@ -146,7 +153,7 @@ function renderIdentity() {
 function wireNavDropdowns() {
   const items = document.querySelectorAll(".bakemon-nav-item.has-dropdown");
   items.forEach(item => {
-    const trigger = item.querySelector(".bakemon-nav-trigger, .bakemon-theme-trigger, .bakemon-challenges-trigger");
+    const trigger = item.querySelector(".bakemon-nav-trigger, .bakemon-theme-trigger");
     trigger?.addEventListener("click", (e) => {
       e.stopPropagation();
       const wasOpen = item.classList.contains("open");
@@ -219,15 +226,6 @@ function wireRulesDrawer() {
 }
 
 // ---------- Match challenges ----------
-// Named distinctly from any per-page escapeHtml() to avoid colliding with it —
-// classic <script> tags share one top-level scope, so a same-named function
-// here would silently override (or be overridden by) the host page's own.
-function bakemonEscapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str || "";
-  return div.innerHTML;
-}
-
 // The Supabase CDN script tag and this one are both plain <script src>
 // tags; nothing guarantees which finishes loading first, so wait for
 // window.supabase to actually exist rather than assuming it's already there.
@@ -245,76 +243,30 @@ function waitForSupabaseLib(maxWaitMs = 3000) {
 const BAKEMON_SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const BAKEMON_SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 
-// Shows a small bell in the header, hidden entirely until there's at least
-// one pending challenge addressed to the logged-in player — same "no bells
-// and whistles until there's something to show" spirit as the rest of the
-// header. Own Supabase client, independent of whatever the host page's own
-// inline script sets up, so this works the same regardless of script order.
-async function wireChallenges() {
+// A count only — just enough to notice something's waiting. The actual
+// challenge list (message, room code, Join/Dismiss) lives on the player's
+// own profile page now, not here, so it's still there to check back on
+// later instead of vanishing once a header dropdown gets closed.
+async function updateChallengeBadge() {
   const player = getBakemonPlayer();
   if (!player) return;
 
-  const wrapper = document.getElementById("bakemon-challenges-switch");
-  const badge = document.getElementById("bakemon-challenges-badge");
-  const list = document.getElementById("bakemon-challenges-list");
-  if (!wrapper || !badge || !list) return;
+  const badge = document.getElementById("bakemon-identity-badge");
+  if (!badge) return;
 
   const ready = await waitForSupabaseLib();
   if (!ready) return; // a missed notification badge isn't worth failing the page over
 
   const sb = window.supabase.createClient(BAKEMON_SUPABASE_URL, BAKEMON_SUPABASE_ANON_KEY);
+  const { count, error } = await sb
+    .from("challenges")
+    .select("id", { count: "exact", head: true })
+    .eq("to_player_id", player.id)
+    .eq("status", "pending");
+  if (error) { console.error("shared-header.js: failed to count challenges", error); return; }
 
-  async function loadChallenges() {
-    const { data, error } = await sb
-      .from("challenges")
-      .select("id, from_player_id, room_code, message, created_at")
-      .eq("to_player_id", player.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-    if (error) { console.error("shared-header.js: failed to load challenges", error); return; }
-    await renderChallenges(data || []);
+  if (count > 0) {
+    badge.textContent = String(count);
+    badge.style.display = "inline-block";
   }
-
-  async function renderChallenges(challenges) {
-    if (challenges.length === 0) {
-      wrapper.style.display = "none";
-      list.innerHTML = "";
-      return;
-    }
-    wrapper.style.display = "";
-    badge.style.display = "";
-    badge.textContent = String(challenges.length);
-
-    const fromIds = [...new Set(challenges.map(c => c.from_player_id))];
-    const { data: fromPlayers } = await sb.from("players").select("id, display_name").in("id", fromIds);
-    const nameFor = (id) => (fromPlayers || []).find(p => p.id === id)?.display_name || "Someone";
-
-    list.innerHTML = challenges.map(c => `
-      <div class="bakemon-challenge-item">
-        <div class="bakemon-challenge-from">${bakemonEscapeHtml(nameFor(c.from_player_id))} challenged you!</div>
-        ${c.message ? `<div class="bakemon-challenge-message">"${bakemonEscapeHtml(c.message)}"</div>` : ""}
-        <div class="bakemon-challenge-code">Room code: <strong>${bakemonEscapeHtml(c.room_code)}</strong></div>
-        <div class="bakemon-challenge-actions">
-          <button type="button" class="small primary" data-join-challenge="${c.id}" data-room-code="${bakemonEscapeHtml(c.room_code)}">Join</button>
-          <button type="button" class="small" data-dismiss-challenge="${c.id}">Dismiss</button>
-        </div>
-      </div>
-    `).join("");
-
-    list.querySelectorAll("[data-join-challenge]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        wrapper.classList.remove("open");
-        await sb.from("challenges").update({ status: "dismissed" }).eq("id", btn.dataset.joinChallenge);
-        location.href = `playmat.html?join=${encodeURIComponent(btn.dataset.roomCode)}`;
-      });
-    });
-    list.querySelectorAll("[data-dismiss-challenge]").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        await sb.from("challenges").update({ status: "dismissed" }).eq("id", btn.dataset.dismissChallenge);
-        loadChallenges();
-      });
-    });
-  }
-
-  await loadChallenges();
 }

@@ -153,48 +153,22 @@
   .bakemon-theme-option:hover { background: rgba(255,255,255,0.08); }
   .bakemon-theme-option.current { color: var(--accent-2, var(--accent, #d8e04a)); }
 
-  /* Match challenges — hidden entirely (see wireChallenges() in shared-header.js)
-     until there's actually a pending one, same has-dropdown mechanism as the
-     Cards/Battle menus and the theme switch. */
-  .bakemon-challenges-trigger {
-    all: unset;
-    cursor: pointer;
-    position: relative;
-    font-size: 17px;
-    line-height: 1;
-    padding: 2px;
-  }
-  .bakemon-challenges-badge {
-    position: absolute;
-    top: -4px;
-    right: -6px;
+  /* Match challenge count — hidden entirely (see updateChallengeBadge() in
+     shared-header.js) until there's actually a pending one. Sits right in
+     the "Playing as [name]" identity link, which already goes to your
+     profile — that's where the actual challenge list lives now. */
+  .bakemon-identity-badge {
+    display: none;
+    margin-left: 4px;
     background: #c0392b;
     color: #fff;
     font-size: 10px;
     font-weight: 700;
     line-height: 1;
     border-radius: 999px;
-    padding: 2px 5px;
-    box-shadow: 0 0 0 2px var(--mat-green, #1d4d3a);
+    padding: 2px 6px;
+    vertical-align: middle;
   }
-  .bakemon-challenges-list {
-    width: 260px;
-    max-height: 320px;
-    overflow-y: auto;
-  }
-  .bakemon-challenge-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.04);
-  }
-  .bakemon-challenge-item + .bakemon-challenge-item { margin-top: 6px; }
-  .bakemon-challenge-from { color: var(--accent-2, var(--accent, #d8e04a)); font-weight: 700; font-size: 13px; }
-  .bakemon-challenge-message { color: var(--text-light, #cfe8db); font-size: 12px; font-style: italic; }
-  .bakemon-challenge-code { color: var(--text-light, #cfe8db); font-size: 12px; }
-  .bakemon-challenge-actions { display: flex; gap: 6px; margin-top: 2px; }
 
   #rules-backdrop {
     display: none;
@@ -284,12 +258,6 @@
   </nav>
   <div class="bakemon-header-right">
     <div class="bakemon-identity" id="bakemon-identity-slot"></div>
-    <div class="bakemon-nav-item has-dropdown" id="bakemon-challenges-switch" style="display:none;">
-      <button type="button" class="bakemon-challenges-trigger" id="bakemon-challenges-trigger" aria-label="Match challenges">
-        🔔<span class="bakemon-challenges-badge" id="bakemon-challenges-badge" style="display:none;"></span>
-      </button>
-      <div class="bakemon-dropdown align-right bakemon-challenges-list" id="bakemon-challenges-list"></div>
-    </div>
     <div class="bakemon-nav-item has-dropdown" id="bakemon-theme-switch">
       <button type="button" class="bakemon-theme-trigger" id="bakemon-theme-trigger" aria-label="Change color theme"></button>
       <div class="bakemon-dropdown align-right">
