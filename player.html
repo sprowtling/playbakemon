@@ -179,6 +179,39 @@
     margin-bottom: 10px;
     box-sizing: border-box;
   }
+
+  /* Challenge-to-a-match modal, same shell pattern as the favorite-card picker */
+  #challenge-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #challenge-backdrop.open { display: flex; }
+  #challenge-modal {
+    background: var(--mat-green);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: var(--panel-shadow);
+    padding: 18px;
+    max-width: 360px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  #challenge-modal h3 { color: var(--accent); margin: 0 0 10px; }
+  #challenge-room-code, #challenge-message {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    box-sizing: border-box;
+  }
+  #challenge-status { font-size: 12px; color: var(--text-muted); margin-top: 8px; min-height: 14px; }
   #picker-list {
     overflow-y: auto;
     overflow-x: hidden;
@@ -223,6 +256,9 @@
 <div id="content">
   <h2 id="profile-heading">Loading…</h2>
   <div id="profile-subheading"></div>
+  <div style="text-align:center; margin-bottom:14px;">
+    <button id="challenge-btn" class="primary small" style="display:none;">Challenge to a Match</button>
+  </div>
 
   <div id="stat-summary">
     <div class="stat"><div class="value" id="stat-wins">-</div><div class="label">Matches Won</div></div>
@@ -253,6 +289,21 @@
   </div>
 </div>
 
+<div id="challenge-backdrop">
+  <div id="challenge-modal">
+    <h3>Challenge <span id="challenge-target-name"></span></h3>
+    <label for="challenge-room-code" style="font-size:12px; color:var(--text-muted);">Room code</label>
+    <input type="text" id="challenge-room-code" placeholder="e.g. blorp">
+    <label for="challenge-message" style="font-size:12px; color:var(--text-muted); margin-top:8px;">Message (optional)</label>
+    <input type="text" id="challenge-message" placeholder="e.g. meet me at 8:00 pm" maxlength="200">
+    <div id="challenge-status"></div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button id="challenge-send-btn" class="primary">Send Challenge</button>
+      <button id="challenge-cancel-btn" class="small">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="shared-header.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -280,12 +331,13 @@ function formatDate(iso) {
 
 let targetPlayer = null;   // { id, display_name } — whose profile we're looking at
 let isOwnProfile = false;
+let loggedInPlayer = null; // whoever's actually logged in on this browser, if anyone
 let allCards = [];         // fetched once, reused by the favorite picker
 let activeSlot = null;     // which slot (1/2/3) the picker is currently filling
 
 async function init() {
   const viewingId = new URLSearchParams(location.search).get("id");
-  const loggedInPlayer = window.getBakemonPlayer();
+  loggedInPlayer = window.getBakemonPlayer();
 
   const idToLoad = viewingId || (loggedInPlayer ? loggedInPlayer.id : null);
   if (!idToLoad) {
@@ -312,6 +364,7 @@ async function init() {
   document.getElementById("profile-subheading").textContent = isOwnProfile
     ? "This is your profile."
     : "";
+  document.getElementById("challenge-btn").style.display = (loggedInPlayer && !isOwnProfile) ? "" : "none";
 
   await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory()]);
 }
@@ -611,6 +664,43 @@ function closePicker() {
   document.getElementById("picker-backdrop").classList.remove("open");
   activeSlot = null;
 }
+
+// ---------- Challenge to a match ----------
+document.getElementById("challenge-btn").addEventListener("click", () => {
+  document.getElementById("challenge-target-name").textContent = targetPlayer.display_name;
+  document.getElementById("challenge-room-code").value = "";
+  document.getElementById("challenge-message").value = "";
+  document.getElementById("challenge-status").textContent = "";
+  document.getElementById("challenge-backdrop").classList.add("open");
+});
+document.getElementById("challenge-cancel-btn").addEventListener("click", closeChallengeModal);
+document.getElementById("challenge-backdrop").addEventListener("click", (e) => {
+  if (e.target.id === "challenge-backdrop") closeChallengeModal();
+});
+function closeChallengeModal() {
+  document.getElementById("challenge-backdrop").classList.remove("open");
+}
+
+document.getElementById("challenge-send-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("challenge-status");
+  const roomCode = document.getElementById("challenge-room-code").value.trim().toUpperCase();
+  const message = document.getElementById("challenge-message").value.trim();
+
+  if (!roomCode) { statusEl.textContent = "Enter a room code to challenge with."; return; }
+
+  statusEl.textContent = "Sending...";
+  const { error } = await supabaseClient.from("challenges").insert({
+    from_player_id: loggedInPlayer.id,
+    to_player_id: targetPlayer.id,
+    room_code: roomCode,
+    message: message || null
+  });
+
+  if (error) { statusEl.textContent = "Couldn't send challenge: " + error.message; return; }
+
+  statusEl.textContent = `Challenge sent! They'll see it next time they're on the site.`;
+  setTimeout(closeChallengeModal, 1500);
+});
 
 async function chooseFavorite(cardId) {
   if (!activeSlot) return;
