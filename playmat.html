@@ -459,9 +459,10 @@
         <div class="row-label" id="my-zone-counts"></div>
       </div>
     </div>
-    <!-- Spectator view: just the active slot + bench for both players, read-only, no
-         hand/deck/discard/score. Shown instead of #player-field-col when the room code
-         you entered already has two other players seated. -->
+    <!-- Spectator view: item slot, active, and bench for both players — everything a
+         player already sees of their opponent (energy, status, equipped item) — but
+         read-only and with no hand/deck/discard/score. Shown instead of #player-field-col
+         when the room code you entered already has two other players seated. -->
     <div class="field-col" id="spectator-field-col" style="display:none;">
       <div class="field">
         <div class="row-label"><span id="spec-p2-name">Player 2</span></div>
@@ -1090,29 +1091,42 @@ function renderReadOnlySidePanel(slot) {
   `;
 }
 
-// Minimal read-only board for spectators: active + bench for both players,
-// respecting the same face-down-until-setup-locked rule the two players
-// see of each other. No hand, deck/discard counts, score, or item slot —
-// just enough to follow the match.
+// Minimal read-only board for spectators: item slot, active, and bench for
+// both players — energy, status, everything a player already sees of their
+// opponent — respecting the same face-down-until-setup-locked rule the two
+// players see of each other. Just no hands; those stay private.
 function renderSpectatorMat() {
   if (!tableState) return;
   const setupLocked = !!tableState.state.setup_locked;
-  const p1State = tableState.state.player_1 || { active: null, bench: [null, null, null] };
-  const p2State = tableState.state.player_2 || { active: null, bench: [null, null, null] };
+  const p1State = tableState.state.player_1 || { active: null, bench: [null, null, null], item_slot: null };
+  const p2State = tableState.state.player_2 || { active: null, bench: [null, null, null], item_slot: null };
 
   document.getElementById("spec-p1-name").textContent = spectatorNames.player_1 || "Player 1";
   document.getElementById("spec-p2-name").textContent = spectatorNames.player_2 || "Player 2";
-  document.getElementById("spec-p1-active").innerHTML = renderReadOnlyActive(p1State.active, setupLocked);
-  document.getElementById("spec-p2-active").innerHTML = renderReadOnlyActive(p2State.active, setupLocked);
+  document.getElementById("spec-p1-active").innerHTML = renderReadOnlyActive(p1State, setupLocked);
+  document.getElementById("spec-p2-active").innerHTML = renderReadOnlyActive(p2State, setupLocked);
   document.getElementById("spec-p1-bench").innerHTML = renderReadOnlyBench(p1State.bench, setupLocked);
   document.getElementById("spec-p2-bench").innerHTML = renderReadOnlyBench(p2State.bench, setupLocked);
+  // Re-wire zoom-in-lightbox (and any other view-only click handlers) for the
+  // cards just rendered — attachHandlers() re-queries the live DOM each call,
+  // so it's safe to reuse here even though most of its selectors only ever
+  // match the interactive player board, never this read-only one.
+  attachHandlers();
 }
 
-function renderReadOnlyActive(slot, revealed) {
+function renderReadOnlyActive(state, revealed) {
+  const slot = state && state.active;
+  const itemSlot = state && state.item_slot;
   if (!revealed) {
-    return `<div class="card-face active-size ${slot ? 'face-down' : 'empty'}" data-view-only="1"></div>`;
+    return `
+      <div class="card-face item-slot empty" data-view-only="1"></div>
+      <div class="card-face active-size ${slot ? 'face-down' : 'empty'}" data-view-only="1"></div>
+    `;
   }
   return `
+    <div class="card-face item-slot ${itemSlot ? '' : 'empty'}" data-view-only="1">
+      ${itemSlot ? cardHtml(itemSlot.card_id) : '<div class="label">Item<br>equipped</div>'}
+    </div>
     <div class="card-face active-size" data-view-only="1">
       ${slot ? `<div class="status-badges">${(slot.status || []).map(s => `<span class="status-badge">${s}</span>`).join('')}</div>${cardHtml(slot.card_id)}` : ''}
     </div>
