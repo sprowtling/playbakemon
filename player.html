@@ -213,6 +213,30 @@
   }
   #challenge-status { font-size: 12px; color: var(--text-muted); margin-top: 8px; min-height: 14px; }
 
+  #status-message-display {
+    text-align: center;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--accent-2, var(--accent));
+    margin: 0 0 14px;
+    overflow-wrap: anywhere;
+  }
+  #status-message-edit { max-width: 420px; margin: 0 auto 16px; }
+  #status-message-edit label { font-size: 12px; color: var(--text-muted); }
+  #status-message-input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+    box-sizing: border-box;
+    resize: vertical;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+  #status-message-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  #status-message-count { font-size: 11px; color: var(--text-muted); }
+  #status-message-status { font-size: 12px; color: var(--text-muted); margin-top: 4px; min-height: 14px; }
+
   /* Challenges addressed to you — stays here until you dismiss it, so the
      room code/message aren't lost the moment you look away from a
      one-time popup. */
@@ -274,6 +298,18 @@
 <div id="content">
   <h2 id="profile-heading">Loading…</h2>
   <div id="profile-subheading"></div>
+
+  <div id="status-message-display" style="display:none;"></div>
+  <div id="status-message-edit" style="display:none;">
+    <label for="status-message-input">Your status (shown here and in the player directory)</label>
+    <textarea id="status-message-input" maxlength="300" rows="2" placeholder="e.g. accepting challenges, usually free after 7pm!"></textarea>
+    <div id="status-message-row">
+      <span id="status-message-count"></span>
+      <button id="status-message-save-btn" class="small primary">Save</button>
+    </div>
+    <div id="status-message-status"></div>
+  </div>
+
   <div style="text-align:center; margin-bottom:14px;">
     <button id="challenge-btn" class="primary small" style="display:none;">Challenge to a Match</button>
   </div>
@@ -371,7 +407,7 @@ async function init() {
 
   const { data: found, error } = await supabaseClient
     .from("players")
-    .select("id, display_name, created_at")
+    .select("id, display_name, created_at, status_message")
     .eq("id", idToLoad)
     .maybeSingle();
 
@@ -388,6 +424,23 @@ async function init() {
     ? "This is your profile."
     : "";
   document.getElementById("challenge-btn").style.display = (loggedInPlayer && !isOwnProfile) ? "" : "none";
+
+  if (isOwnProfile) {
+    document.getElementById("status-message-display").style.display = "none";
+    document.getElementById("status-message-edit").style.display = "block";
+    const input = document.getElementById("status-message-input");
+    input.value = targetPlayer.status_message || "";
+    updateStatusMessageCount();
+  } else {
+    document.getElementById("status-message-edit").style.display = "none";
+    const displayEl = document.getElementById("status-message-display");
+    if (targetPlayer.status_message) {
+      displayEl.textContent = targetPlayer.status_message;
+      displayEl.style.display = "block";
+    } else {
+      displayEl.style.display = "none";
+    }
+  }
 
   const work = [loadMatchSnapshot(), loadFavorites(), loadTournamentHistory()];
   if (isOwnProfile) work.push(loadMyChallenges());
@@ -738,6 +791,29 @@ function closePicker() {
   document.getElementById("picker-backdrop").classList.remove("open");
   activeSlot = null;
 }
+
+// ---------- Status message ----------
+function updateStatusMessageCount() {
+  const input = document.getElementById("status-message-input");
+  document.getElementById("status-message-count").textContent = `${input.value.length} / 300`;
+}
+document.getElementById("status-message-input").addEventListener("input", updateStatusMessageCount);
+
+document.getElementById("status-message-save-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("status-message-status");
+  const value = document.getElementById("status-message-input").value.trim();
+
+  statusEl.textContent = "Saving...";
+  const { error } = await supabaseClient.rpc("set_player_status_message", {
+    p_player_id: loggedInPlayer.id,
+    p_message: value || null
+  });
+  if (error) { statusEl.textContent = "Couldn't save — try again."; return; }
+
+  targetPlayer.status_message = value || null;
+  statusEl.textContent = "Saved!";
+  setTimeout(() => { statusEl.textContent = ""; }, 1500);
+});
 
 // ---------- Challenge to a match ----------
 document.getElementById("challenge-btn").addEventListener("click", () => {
