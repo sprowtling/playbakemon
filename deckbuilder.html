@@ -213,6 +213,14 @@
         <option value="equip">Equippable</option>
         <option value="consumable">Consumable</option>
       </select>
+      <select id="collection-rarity-filter">
+        <option value="">All rarities</option>
+        <option value="1">Common</option>
+        <option value="2">Uncommon</option>
+        <option value="3">Rare</option>
+        <option value="4">Double Rare</option>
+        <option value="5">Ultra Rare</option>
+      </select>
       <select id="collection-owned-filter">
         <option value="all">All cards</option>
         <option value="owned">Owned only</option>
@@ -251,6 +259,18 @@
             <option value="">All items</option>
             <option value="equip">Equippable</option>
             <option value="consumable">Consumable</option>
+          </select>
+          <select id="rarity-filter">
+            <option value="">All rarities</option>
+            <option value="1">Common</option>
+            <option value="2">Uncommon</option>
+            <option value="3">Rare</option>
+            <option value="4">Double Rare</option>
+            <option value="5">Ultra Rare</option>
+          </select>
+          <select id="deck-membership-filter">
+            <option value="">All owned cards</option>
+            <option value="in-deck">In this deck only</option>
           </select>
         </div>
         <div id="no-cards-message" style="display:none; color:var(--text-muted); font-size:13px; padding:20px; text-align:center;">
@@ -357,6 +377,7 @@ document.getElementById("collection-type-filter").addEventListener("change", ren
 document.getElementById("collection-weakness-filter").addEventListener("change", renderCollectionGrid);
 document.getElementById("collection-stage-filter").addEventListener("change", renderCollectionGrid);
 document.getElementById("collection-item-kind-filter").addEventListener("change", renderCollectionGrid);
+document.getElementById("collection-rarity-filter").addEventListener("change", renderCollectionGrid);
 document.getElementById("collection-owned-filter").addEventListener("change", renderCollectionGrid);
 
 function renderCollectionGrid() {
@@ -365,6 +386,7 @@ function renderCollectionGrid() {
   const weaknessFilter = document.getElementById("collection-weakness-filter").value;
   const stageFilter = document.getElementById("collection-stage-filter").value;
   const itemKindFilter = document.getElementById("collection-item-kind-filter").value;
+  const rarityFilter = document.getElementById("collection-rarity-filter").value;
   const ownedFilter = document.getElementById("collection-owned-filter").value;
   const grid = document.getElementById("collection-grid");
   grid.innerHTML = "";
@@ -375,9 +397,10 @@ function renderCollectionGrid() {
     const matchesWeakness = !weaknessFilter || c.weakness_1 === weaknessFilter || c.weakness_2 === weaknessFilter;
     const matchesStage = !stageFilter || c.stage === stageFilter;
     const matchesItemKind = !itemKindFilter || c.item_kind === itemKindFilter;
+    const matchesRarity = !rarityFilter || String(c.rarity) === rarityFilter;
     const owned = playerCollection[c.id] || 0;
     const matchesOwned = ownedFilter === "all" || (ownedFilter === "owned" && owned > 0) || (ownedFilter === "unowned" && owned === 0);
-    return matchesSearch && matchesType && matchesWeakness && matchesStage && matchesItemKind && matchesOwned;
+    return matchesSearch && matchesType && matchesWeakness && matchesStage && matchesItemKind && matchesRarity && matchesOwned;
   });
 
   filtered.forEach(card => {
@@ -466,6 +489,8 @@ document.getElementById("type-filter").addEventListener("change", renderCardGrid
 document.getElementById("weakness-filter").addEventListener("change", renderCardGrid);
 document.getElementById("stage-filter").addEventListener("change", renderCardGrid);
 document.getElementById("item-kind-filter").addEventListener("change", renderCardGrid);
+document.getElementById("rarity-filter").addEventListener("change", renderCardGrid);
+document.getElementById("deck-membership-filter").addEventListener("change", renderCardGrid);
 
 function renderCardGrid() {
   const search = document.getElementById("search-input").value.toLowerCase();
@@ -473,6 +498,8 @@ function renderCardGrid() {
   const weaknessFilter = document.getElementById("weakness-filter").value;
   const stageFilter = document.getElementById("stage-filter").value;
   const itemKindFilter = document.getElementById("item-kind-filter").value;
+  const rarityFilter = document.getElementById("rarity-filter").value;
+  const deckOnly = document.getElementById("deck-membership-filter").value === "in-deck";
   const grid = document.getElementById("card-grid");
   grid.innerHTML = "";
 
@@ -484,7 +511,9 @@ function renderCardGrid() {
     const matchesWeakness = !weaknessFilter || c.weakness_1 === weaknessFilter || c.weakness_2 === weaknessFilter;
     const matchesStage = !stageFilter || c.stage === stageFilter;
     const matchesItemKind = !itemKindFilter || c.item_kind === itemKindFilter;
-    return matchesSearch && matchesType && matchesWeakness && matchesStage && matchesItemKind;
+    const matchesRarity = !rarityFilter || String(c.rarity) === rarityFilter;
+    const matchesDeckOnly = !deckOnly || (currentDeckCards[c.id] || 0) > 0;
+    return matchesSearch && matchesType && matchesWeakness && matchesStage && matchesItemKind && matchesRarity && matchesDeckOnly;
   });
 
   document.getElementById("no-cards-message").style.display = (allCards.some(c => (playerCollection[c.id] || 0) > 0)) ? "none" : "block";

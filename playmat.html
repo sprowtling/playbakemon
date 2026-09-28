@@ -460,22 +460,43 @@
         <div class="row-label" id="my-zone-counts"></div>
       </div>
     </div>
-    <!-- Spectator view: item slot, active, and bench for both players — everything a
-         player already sees of their opponent (energy, status, equipped item) — but
-         read-only and with no hand/deck/discard/score. Shown instead of #player-field-col
-         when the room code you entered already has two other players seated. -->
+    <!-- Spectator view: discard pile, item slot, active, bench, and points for both
+         players — everything a player already sees of their opponent (energy, status,
+         equipped item, discard, score) — but read-only and with no hand. Shown instead
+         of #player-field-col when the room code you entered already has two other
+         players seated. -->
     <div class="field-col" id="spectator-field-col" style="display:none;">
       <div class="field">
         <div style="text-align:left; margin-bottom:10px;">
           <button id="stop-watching-btn" class="small">Stop Watching</button>
         </div>
         <div class="row-label"><span id="spec-p2-name">Player 2</span></div>
+        <div class="opp-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:10px; flex-wrap:wrap;">
+          <div class="card-face" id="spec-p2-discard" data-view-only="1" style="border-style:dashed; flex-shrink:0;">
+            <div class="label">Discard</div>
+          </div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
+          <div class="bench-row" id="spec-p2-bench" style="margin:0;"></div>
+        </div>
         <div class="active-row" id="spec-p2-active"></div>
-        <div class="bench-row" id="spec-p2-bench" style="margin:8px 0 20px;"></div>
+        <div class="score-row" id="spec-p2-score-row">
+          <span class="score-label">Points</span>
+          <div class="score-orbs" id="spec-p2-score-orbs" data-view-only="1"></div>
+        </div>
         <div class="divider-line"></div>
         <div class="row-label" style="margin-top:16px;"><span id="spec-p1-name">Player 1</span></div>
+        <div class="opp-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:10px; flex-wrap:wrap;">
+          <div class="card-face" id="spec-p1-discard" data-view-only="1" style="border-style:dashed; flex-shrink:0;">
+            <div class="label">Discard</div>
+          </div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
+          <div class="bench-row" id="spec-p1-bench" style="margin:0;"></div>
+        </div>
         <div class="active-row" id="spec-p1-active"></div>
-        <div class="bench-row" id="spec-p1-bench" style="margin-top:8px;"></div>
+        <div class="score-row" id="spec-p1-score-row">
+          <span class="score-label">Points</span>
+          <div class="score-orbs" id="spec-p1-score-orbs" data-view-only="1"></div>
+        </div>
       </div>
     </div>
     <div class="chat-col">
@@ -1128,15 +1149,17 @@ function renderReadOnlySidePanel(slot) {
   `;
 }
 
-// Minimal read-only board for spectators: item slot, active, and bench for
-// both players — energy, status, everything a player already sees of their
-// opponent — respecting the same face-down-until-setup-locked rule the two
-// players see of each other. Just no hands; those stay private.
+// Read-only board for spectators: discard pile, item slot, active, bench,
+// and points for both players — energy, status, everything a player already
+// sees of their opponent — respecting the same face-down-until-setup-locked
+// rule the two players see of each other. Discard and score aren't gated by
+// that lock either, matching how the player board itself always shows both
+// regardless of setup state. Just no hands; those stay private.
 function renderSpectatorMat() {
   if (!tableState) return;
   const setupLocked = !!tableState.state.setup_locked;
-  const p1State = tableState.state.player_1 || { active: null, bench: [null, null, null], item_slot: null };
-  const p2State = tableState.state.player_2 || { active: null, bench: [null, null, null], item_slot: null };
+  const p1State = tableState.state.player_1 || { active: null, bench: [null, null, null], item_slot: null, discard: [], score: 0 };
+  const p2State = tableState.state.player_2 || { active: null, bench: [null, null, null], item_slot: null, discard: [], score: 0 };
 
   document.getElementById("spec-p1-name").textContent = spectatorNames.player_1 || "Player 1";
   document.getElementById("spec-p2-name").textContent = spectatorNames.player_2 || "Player 2";
@@ -1144,11 +1167,28 @@ function renderSpectatorMat() {
   document.getElementById("spec-p2-active").innerHTML = renderReadOnlyActive(p2State, setupLocked);
   document.getElementById("spec-p1-bench").innerHTML = renderReadOnlyBench(p1State.bench, setupLocked);
   document.getElementById("spec-p2-bench").innerHTML = renderReadOnlyBench(p2State.bench, setupLocked);
+  document.getElementById("spec-p1-discard").innerHTML = renderReadOnlyDiscard(p1State.discard);
+  document.getElementById("spec-p2-discard").innerHTML = renderReadOnlyDiscard(p2State.discard);
+
+  const WIN_SCORE = 4;
+  document.getElementById("spec-p1-score-orbs").innerHTML = Array.from({length: WIN_SCORE}, (_, i) => `
+    <div class="score-orb ${(p1State.score || 0) > i ? 'filled' : ''}"></div>
+  `).join("");
+  document.getElementById("spec-p2-score-orbs").innerHTML = Array.from({length: WIN_SCORE}, (_, i) => `
+    <div class="score-orb ${(p2State.score || 0) > i ? 'filled' : ''}"></div>
+  `).join("");
+
   // Re-wire zoom-in-lightbox (and any other view-only click handlers) for the
   // cards just rendered — attachHandlers() re-queries the live DOM each call,
   // so it's safe to reuse here even though most of its selectors only ever
   // match the interactive player board, never this read-only one.
   attachHandlers();
+}
+
+function renderReadOnlyDiscard(discard) {
+  return (discard && discard.length)
+    ? cardHtml(discard[discard.length - 1]) + `<div class="label" style="position:absolute; bottom:0; width:100%;">${discard.length} in discard</div>`
+    : `<div class="label">Discard<br>(empty)</div>`;
 }
 
 function renderReadOnlyActive(state, revealed) {
