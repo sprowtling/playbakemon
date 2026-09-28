@@ -36,7 +36,8 @@ overseeing:
   consumable items get "played" — there's no board effect to apply
   automatically, so read the item's `effect_text`, narrate it via
   `send_chat`, then discard it, same as the browser's drag-to-discard)
-- `move_card` — in-play movement: active↔bench swaps (or evolves if valid),
+- `move_card` — in-play movement: active↔bench swaps (never evolves — that
+  only happens via `play_card` when a card enters play from hand),
   any Bakemon → discard (whole chain goes), unequip an item to hand/discard
 
 **Board state**

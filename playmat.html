@@ -1527,26 +1527,24 @@ function moveSelectedCardTo(destZone, destIndex) {
     return;
   }
 
-  // Special case: moving between two in-play zones (active<->bench, bench<->bench) onto an occupied slot.
-  // If it's not a valid evolution, swap the two cards in place rather than bumping either to hand.
+  // Moving between two in-play zones (active<->bench, bench<->bench) onto an occupied slot:
+  // always a straight swap, never an evolution. A card already in play has already legally
+  // evolved as far as it's going to for this move — evolution only ever happens when a card
+  // is entering play fresh from hand (see enteringPlayFromHand below). Evaluating evolves_from
+  // here too used to let repositioning an already-evolved bench card onto its own pre-evolution
+  // active card "eat" that active card instead of swapping — the two are separate, already-real
+  // Bakemon, not a card evolving into another.
   const destIsInPlay = destZone === "active" || destZone === "bench";
   if (sourceIsInPlay && destIsInPlay && !(selection.zone === destZone && selection.index === destIndex)) {
     const sourceSlot = getSlot(myState, selection.zone, selection.index);
     const destSlot = getSlot(myState, destZone, destIndex);
     if (destSlot) {
-      const incomingCard = sourceSlot ? allCards[sourceSlot.card_id] : null;
-      const isValidEvolution = incomingCard && incomingCard.evolves_from && destSlot.card_id &&
-        allCards[destSlot.card_id] &&
-        incomingCard.evolves_from.toLowerCase() === allCards[destSlot.card_id].name.toLowerCase();
-      if (!isValidEvolution) {
-        // Straight swap: each card keeps its own damage/energy/status/evolution chain, just trades places
-        setSlot(myState, selection.zone, selection.index, destSlot);
-        setSlot(myState, destZone, destIndex, sourceSlot);
-        selection = null;
-        pushState(newState);
-        return;
-      }
-      // else: fall through to the evolution logic below, which already handles this case correctly
+      // Straight swap: each card keeps its own damage/energy/status/evolution chain, just trades places
+      setSlot(myState, selection.zone, selection.index, destSlot);
+      setSlot(myState, destZone, destIndex, sourceSlot);
+      selection = null;
+      pushState(newState);
+      return;
     }
   }
 

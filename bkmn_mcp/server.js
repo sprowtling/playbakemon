@@ -111,7 +111,7 @@ const TOOLS = [
   },
   {
     name: "move_card",
-    description: "Move a Bakemon that's already in play. active↔bench or bench↔bench: swaps the two if the destination is occupied (or evolves, if the moving card's evolves_from matches the destination card). Any in-play Bakemon → discard sends its whole evolution chain to discard. An equipped item (from item_slot) can go to hand or discard (unequip). A played Bakemon can never return to hand.",
+    description: "Move a Bakemon that's already in play. active↔bench or bench↔bench: swaps the two in place if the destination is occupied (never an evolution — evolving only happens via play_card, when a card enters play from hand). Any in-play Bakemon → discard sends its whole evolution chain to discard. An equipped item (from item_slot) can go to hand or discard (unequip). A played Bakemon can never return to hand.",
     inputSchema: {
       type: "object",
       properties: {
