@@ -7,17 +7,27 @@
 <script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
 <link rel="stylesheet" href="shared-styles.css">
 <style>
+  /* Everything about "who this profile belongs to" — name, status,
+     challenge/view-challenges action — grouped into one card instead of
+     floating separately on the bare page background, same visual language
+     (background/border/shadow) as #stat-summary below it. */
+  #profile-header-card {
+    background: var(--mat-green);
+    border: 0.5px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: var(--panel-shadow);
+    padding: 22px 20px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
   #profile-heading {
     color: var(--accent);
-    text-align: center;
-    margin-bottom: 4px;
+    margin: 0 0 4px;
     font-size: 26px;
   }
   #profile-subheading {
-    text-align: center;
     color: var(--text-muted);
     font-size: 13px;
-    margin-bottom: 20px;
   }
 
   #stat-summary {
@@ -214,14 +224,13 @@
   #challenge-status { font-size: 12px; color: var(--text-muted); margin-top: 8px; min-height: 14px; }
 
   #status-message-display {
-    text-align: center;
     font-size: 13px;
     font-style: italic;
     color: var(--accent-2, var(--accent));
-    margin: 0 0 14px;
+    margin: 10px 0 0;
     overflow-wrap: anywhere;
   }
-  #status-message-edit { max-width: 420px; margin: 0 auto 16px; }
+  #status-message-edit { max-width: 420px; margin: 12px auto 0; text-align: left; }
   #status-message-edit label { font-size: 12px; color: var(--text-muted); }
   #status-message-input {
     width: 100%;
@@ -237,23 +246,8 @@
   #status-message-count { font-size: 11px; color: var(--text-muted); }
   #status-message-status { font-size: 12px; color: var(--text-muted); margin-top: 4px; min-height: 14px; }
 
-  /* Challenges addressed to you — stays here until you dismiss it, so the
-     room code/message aren't lost the moment you look away from a
-     one-time popup. */
-  #my-challenges-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-  .challenge-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 12px;
-    background: var(--row-bg);
-    border-radius: var(--radius-base);
-    box-shadow: var(--panel-shadow);
-  }
-  .challenge-from { color: var(--accent); font-weight: 700; font-size: 13px; }
-  .challenge-message { color: var(--text-light); font-size: 12px; font-style: italic; }
-  .challenge-code { color: var(--text-light); font-size: 12px; }
-  .challenge-actions { display: flex; gap: 8px; margin-top: 4px; }
+  #profile-actions { margin-top: 14px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+
   #picker-list {
     overflow-y: auto;
     overflow-x: hidden;
@@ -296,27 +290,25 @@
 <div id="bakemon-shared-header-slot"></div>
 
 <div id="content">
-  <h2 id="profile-heading">Loading…</h2>
-  <div id="profile-subheading"></div>
+  <div id="profile-header-card">
+    <h2 id="profile-heading">Loading…</h2>
+    <div id="profile-subheading"></div>
 
-  <div id="status-message-display" style="display:none;"></div>
-  <div id="status-message-edit" style="display:none;">
-    <label for="status-message-input">Your status (shown here and in the player directory)</label>
-    <textarea id="status-message-input" maxlength="300" rows="2" placeholder="e.g. accepting challenges, usually free after 7pm!"></textarea>
-    <div id="status-message-row">
-      <span id="status-message-count"></span>
-      <button id="status-message-save-btn" class="small primary">Save</button>
+    <div id="status-message-display" style="display:none;"></div>
+    <div id="status-message-edit" style="display:none;">
+      <label for="status-message-input">Your status (shown here and in the player directory)</label>
+      <textarea id="status-message-input" maxlength="300" rows="2" placeholder="e.g. accepting challenges, usually free after 7pm!"></textarea>
+      <div id="status-message-row">
+        <span id="status-message-count"></span>
+        <button id="status-message-save-btn" class="small primary">Save</button>
+      </div>
+      <div id="status-message-status"></div>
     </div>
-    <div id="status-message-status"></div>
-  </div>
 
-  <div style="text-align:center; margin-bottom:14px;">
-    <button id="challenge-btn" class="primary small" style="display:none;">Challenge to a Match</button>
-  </div>
-
-  <div id="my-challenges-section" style="display:none;">
-    <div class="section-title">Challenges</div>
-    <div id="my-challenges-list"></div>
+    <div id="profile-actions">
+      <button id="challenge-btn" class="primary small" style="display:none;">Challenge to a Match</button>
+      <button id="view-challenges-btn" class="primary small" style="display:none;">View Challenges</button>
+    </div>
   </div>
 
   <div id="stat-summary">
@@ -424,6 +416,7 @@ async function init() {
     ? "This is your profile."
     : "";
   document.getElementById("challenge-btn").style.display = (loggedInPlayer && !isOwnProfile) ? "" : "none";
+  document.getElementById("view-challenges-btn").style.display = isOwnProfile ? "" : "none";
 
   if (isOwnProfile) {
     document.getElementById("status-message-display").style.display = "none";
@@ -442,59 +435,15 @@ async function init() {
     }
   }
 
-  const work = [loadMatchSnapshot(), loadFavorites(), loadTournamentHistory()];
-  if (isOwnProfile) work.push(loadMyChallenges());
-  await Promise.all(work);
+  await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory()]);
 }
 
-// Challenges addressed to you, still pending — stays here until you
-// dismiss it (or Join it), so the room code/message don't get lost the
-// moment you look away from wherever you first saw the notification.
-async function loadMyChallenges() {
-  const section = document.getElementById("my-challenges-section");
-  const listEl = document.getElementById("my-challenges-list");
-
-  const { data: challenges, error } = await supabaseClient
-    .from("challenges")
-    .select("id, from_player_id, room_code, message, created_at")
-    .eq("to_player_id", targetPlayer.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false });
-
-  if (error) { console.error("Failed to load challenges:", error); return; }
-  if (!challenges || challenges.length === 0) { section.style.display = "none"; return; }
-
-  section.style.display = "block";
-
-  const fromIds = [...new Set(challenges.map(c => c.from_player_id))];
-  const { data: fromPlayers } = await supabaseClient.from("players").select("id, display_name").in("id", fromIds);
-  const nameFor = (id) => (fromPlayers || []).find(p => p.id === id)?.display_name || "Someone";
-
-  listEl.innerHTML = challenges.map(c => `
-    <div class="challenge-item">
-      <div class="challenge-from">${escapeHtml(nameFor(c.from_player_id))} challenged you!</div>
-      ${c.message ? `<div class="challenge-message">"${escapeHtml(c.message)}"</div>` : ""}
-      <div class="challenge-code">Room code: <strong>${escapeHtml(c.room_code)}</strong></div>
-      <div class="challenge-actions">
-        <button type="button" class="small primary" data-join-challenge="${c.id}" data-room-code="${escapeHtml(c.room_code)}">Join</button>
-        <button type="button" class="small" data-dismiss-challenge="${c.id}">Dismiss</button>
-      </div>
-    </div>
-  `).join("");
-
-  listEl.querySelectorAll("[data-join-challenge]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      await supabaseClient.from("challenges").update({ status: "dismissed" }).eq("id", btn.dataset.joinChallenge);
-      location.href = `playmat.html?join=${encodeURIComponent(btn.dataset.roomCode)}`;
-    });
-  });
-  listEl.querySelectorAll("[data-dismiss-challenge]").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      await supabaseClient.from("challenges").update({ status: "dismissed" }).eq("id", btn.dataset.dismissChallenge);
-      loadMyChallenges();
-    });
-  });
-}
+// The actual challenge list (sent and received, with Accept/Reject/Join/
+// remove) lives in the header's Challenges drawer now — see
+// window.openChallengesDrawer(), exposed by shared-header.js.
+document.getElementById("view-challenges-btn").addEventListener("click", () => {
+  window.openChallengesDrawer?.();
+});
 
 async function loadTournamentHistory() {
   const listEl = document.getElementById("tournament-list");

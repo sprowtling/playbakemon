@@ -243,30 +243,190 @@ function waitForSupabaseLib(maxWaitMs = 3000) {
 const BAKEMON_SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
 const BAKEMON_SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 
-// A count only — just enough to notice something's waiting. The actual
-// challenge list (message, room code, Join/Dismiss) lives on the player's
-// own profile page now, not here, so it's still there to check back on
-// later instead of vanishing once a header dropdown gets closed.
+function bakemonEscapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+let bakemonChallengesSb = null; // one shared client, created once the CDN lib is ready
+let bakemonPlayer = null;
+
+// A count only — how many received challenges genuinely still need a
+// decision (no response yet, not hidden). The full list — sent and
+// received, with message/room code/response state, Join, Accept/Reject,
+// and a per-side "remove from my list" — lives in the Challenges drawer
+// (see wireChallengesDrawer), opened via window.openChallengesDrawer()
+// from the "View Challenges" button on your own profile page.
 async function updateChallengeBadge() {
   const player = getBakemonPlayer();
   if (!player) return;
+  bakemonPlayer = player;
 
   const badge = document.getElementById("bakemon-identity-badge");
   if (!badge) return;
 
   const ready = await waitForSupabaseLib();
   if (!ready) return; // a missed notification badge isn't worth failing the page over
+  bakemonChallengesSb = bakemonChallengesSb || window.supabase.createClient(BAKEMON_SUPABASE_URL, BAKEMON_SUPABASE_ANON_KEY);
 
-  const sb = window.supabase.createClient(BAKEMON_SUPABASE_URL, BAKEMON_SUPABASE_ANON_KEY);
-  const { count, error } = await sb
+  const { count, error } = await bakemonChallengesSb
     .from("challenges")
     .select("id", { count: "exact", head: true })
     .eq("to_player_id", player.id)
-    .eq("status", "pending");
+    .eq("hidden_by_recipient", false)
+    .is("response", null);
   if (error) { console.error("shared-header.js: failed to count challenges", error); return; }
 
   if (count > 0) {
     badge.textContent = String(count);
     badge.style.display = "inline-block";
   }
+
+  wireChallengesDrawer();
+}
+
+function wireChallengesDrawer() {
+  const drawer = document.getElementById("challenges-drawer");
+  const backdrop = document.getElementById("challenges-backdrop");
+  if (!drawer || !backdrop || drawer.dataset.wired) return;
+  drawer.dataset.wired = "1"; // updateChallengeBadge() could in principle re-run; only wire once
+
+  function open() {
+    loadChallengesDrawer();
+    drawer.classList.add("open");
+    backdrop.style.display = "block";
+  }
+  function close() {
+    drawer.classList.remove("open");
+    backdrop.style.display = "none";
+  }
+  window.openChallengesDrawer = open;
+
+  document.getElementById("challenges-close-btn").addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+  document.querySelectorAll(".challenges-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".challenges-tab").forEach(t => t.classList.remove("current"));
+      document.querySelectorAll(".challenges-tab-panel").forEach(p => p.classList.remove("current"));
+      tab.classList.add("current");
+      document.getElementById(`challenges-panel-${tab.dataset.tab}`).classList.add("current");
+    });
+  });
+}
+
+async function loadChallengesDrawer() {
+  if (!bakemonChallengesSb || !bakemonPlayer) return;
+  const sb = bakemonChallengesSb;
+  const player = bakemonPlayer;
+
+  const [{ data: received, error: recvErr }, { data: sent, error: sentErr }] = await Promise.all([
+    sb.from("challenges").select("id, from_player_id, room_code, message, response, created_at")
+      .eq("to_player_id", player.id).eq("hidden_by_recipient", false).order("created_at", { ascending: false }),
+    sb.from("challenges").select("id, to_player_id, room_code, message, response, created_at")
+      .eq("from_player_id", player.id).eq("hidden_by_sender", false).order("created_at", { ascending: false }),
+  ]);
+  if (recvErr || sentErr) { console.error("shared-header.js: failed to load challenges", recvErr || sentErr); return; }
+
+  const otherIds = [...new Set([...(received || []).map(c => c.from_player_id), ...(sent || []).map(c => c.to_player_id)])];
+  const { data: otherPlayers } = otherIds.length
+    ? await sb.from("players").select("id, display_name").in("id", otherIds)
+    : { data: [] };
+  const nameFor = (id) => (otherPlayers || []).find(p => p.id === id)?.display_name || "Someone";
+
+  renderReceivedPanel(received || [], nameFor);
+  renderSentPanel(sent || [], nameFor);
+}
+
+function bakemonResponseTag(response) {
+  if (response === "accepted") return `<span class="response-tag accepted">Accepted</span>`;
+  if (response === "rejected") return `<span class="response-tag rejected">Rejected</span>`;
+  return `<span class="response-tag pending">No response yet</span>`;
+}
+
+function renderReceivedPanel(challenges, nameFor) {
+  const panel = document.getElementById("challenges-panel-received");
+  if (challenges.length === 0) {
+    panel.innerHTML = `<div class="challenge-drawer-empty">No challenges received yet.</div>`;
+    return;
+  }
+  panel.innerHTML = challenges.map(c => `
+    <div class="challenge-drawer-item">
+      <button type="button" class="hide-btn" data-hide="${c.id}" title="Remove from this list">✕</button>
+      <div class="who">${bakemonEscapeHtml(nameFor(c.from_player_id))} challenged you!</div>
+      ${c.message ? `<div class="msg">"${bakemonEscapeHtml(c.message)}"</div>` : ""}
+      <div class="code">Room code: <strong>${bakemonEscapeHtml(c.room_code)}</strong></div>
+      ${bakemonResponseTag(c.response)}
+      <div class="challenge-drawer-actions">
+        ${!c.response ? `
+          <button type="button" class="small primary" data-accept="${c.id}">Accept</button>
+          <button type="button" class="small" data-reject="${c.id}">Reject</button>
+        ` : ""}
+        <button type="button" class="small primary" data-join="${c.id}" data-room-code="${bakemonEscapeHtml(c.room_code)}">Join</button>
+      </div>
+    </div>
+  `).join("");
+  wireDrawerItemButtons(panel, "recipient");
+}
+
+function renderSentPanel(challenges, nameFor) {
+  const panel = document.getElementById("challenges-panel-sent");
+  if (challenges.length === 0) {
+    panel.innerHTML = `<div class="challenge-drawer-empty">You haven't sent any challenges yet.</div>`;
+    return;
+  }
+  panel.innerHTML = challenges.map(c => `
+    <div class="challenge-drawer-item">
+      <button type="button" class="hide-btn" data-hide="${c.id}" title="Remove from this list">✕</button>
+      <div class="who">Challenged ${bakemonEscapeHtml(nameFor(c.to_player_id))}</div>
+      ${c.message ? `<div class="msg">"${bakemonEscapeHtml(c.message)}"</div>` : ""}
+      <div class="code">Room code: <strong>${bakemonEscapeHtml(c.room_code)}</strong></div>
+      ${bakemonResponseTag(c.response)}
+      <div class="challenge-drawer-actions">
+        <button type="button" class="small primary" data-join="${c.id}" data-room-code="${bakemonEscapeHtml(c.room_code)}">Join</button>
+      </div>
+    </div>
+  `).join("");
+  wireDrawerItemButtons(panel, "sender");
+}
+
+// side is "recipient" or "sender" — which half of the table (and which
+// hidden_by_* column) these buttons act on. Join only auto-accepts from the
+// recipient's own panel; a sender joining their own sent challenge isn't
+// "accepting" anything, there's no reply to record.
+function wireDrawerItemButtons(panel, side) {
+  panel.querySelectorAll("[data-accept]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await bakemonChallengesSb.from("challenges").update({ response: "accepted" }).eq("id", btn.dataset.accept);
+      loadChallengesDrawer();
+    });
+  });
+  panel.querySelectorAll("[data-reject]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      await bakemonChallengesSb.from("challenges").update({ response: "rejected" }).eq("id", btn.dataset.reject);
+      loadChallengesDrawer();
+    });
+  });
+  panel.querySelectorAll("[data-hide]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const field = side === "sender" ? "hidden_by_sender" : "hidden_by_recipient";
+      await bakemonChallengesSb.from("challenges").update({ [field]: true }).eq("id", btn.dataset.hide);
+      loadChallengesDrawer();
+      updateChallengeBadge();
+    });
+  });
+  panel.querySelectorAll("[data-join]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (side === "recipient") {
+        // Joining implies you're coming — counts as accepting even if you
+        // hadn't clicked Accept first (or had rejected, then changed your
+        // mind). Never touches hidden_by_* — joining should never make the
+        // challenge, and its room code, disappear from either list.
+        await bakemonChallengesSb.from("challenges").update({ response: "accepted" }).eq("id", btn.dataset.join);
+      }
+      location.href = `playmat.html?join=${encodeURIComponent(btn.dataset.roomCode)}`;
+    });
+  });
 }

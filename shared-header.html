@@ -154,9 +154,10 @@
   .bakemon-theme-option.current { color: var(--accent-2, var(--accent, #d8e04a)); }
 
   /* Match challenge count — hidden entirely (see updateChallengeBadge() in
-     shared-header.js) until there's actually a pending one. Sits right in
-     the "Playing as [name]" identity link, which already goes to your
-     profile — that's where the actual challenge list lives now. */
+     shared-header.js) until there's actually one needing a decision. Sits
+     right in the "Playing as [name]" identity link, which goes to your own
+     profile — that's where the "View Challenges" button lives that opens
+     the drawer below. */
   .bakemon-identity-badge {
     display: none;
     margin-left: 4px;
@@ -169,6 +170,98 @@
     padding: 2px 6px;
     vertical-align: middle;
   }
+
+  /* Challenges drawer — same shell mechanism as the Rules drawer (see
+     #rules-drawer below): slides in from the left, backdrop click or
+     Escape closes it. Opened via window.openChallengesDrawer(), exposed
+     by shared-header.js so any page (currently just player.html's own
+     profile) can trigger it without owning the drawer itself. */
+  #challenges-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(420px, 90vw);
+    background: var(--mat-green, #1d4d3a);
+    border-right: 2px solid var(--card-border, #d9b25c);
+    z-index: 151;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  #challenges-drawer.open { transform: translateX(0); }
+
+  .challenges-drawer-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .challenges-drawer-head h2 { color: var(--accent, #d8e04a); font-size: 18px; margin: 0; }
+
+  .challenges-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .challenges-tab {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    text-align: center;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light, #cfe8db);
+    background: rgba(255,255,255,0.05);
+  }
+  .challenges-tab.current { background: var(--accent, #d8e04a); color: var(--button-text, #2a2a10); }
+  .challenges-tab-panel { display: none; flex-direction: column; gap: 8px; }
+  .challenges-tab-panel.current { display: flex; }
+
+  .challenge-drawer-empty {
+    color: var(--text-muted, #9fc7ae);
+    font-size: 13px;
+    font-style: italic;
+    padding: 12px 4px;
+  }
+
+  .challenge-drawer-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 28px 10px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--card-border, #d9b25c);
+  }
+  .challenge-drawer-item .who { color: var(--accent, #d8e04a); font-weight: 700; font-size: 13px; }
+  .challenge-drawer-item .msg { color: var(--text-light, #cfe8db); font-size: 12px; font-style: italic; }
+  .challenge-drawer-item .code { color: var(--text-light, #cfe8db); font-size: 12px; }
+  .challenge-drawer-item .response-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 8px;
+    border-radius: 999px;
+    width: fit-content;
+  }
+  .challenge-drawer-item .response-tag.accepted { background: var(--success-bg, #4a9a5c); color: var(--success-text, #fff); }
+  .challenge-drawer-item .response-tag.rejected { background: #8a4040; color: #fff; }
+  .challenge-drawer-item .response-tag.pending { background: rgba(255,255,255,0.12); color: var(--text-muted, #9fc7ae); }
+  .challenge-drawer-actions { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+  .challenge-drawer-item .hide-btn {
+    all: unset;
+    cursor: pointer;
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    color: var(--text-muted, #9fc7ae);
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px;
+  }
+  .challenge-drawer-item .hide-btn:hover { color: var(--text-light, #cfe8db); }
 
   #rules-backdrop {
     display: none;
@@ -276,4 +369,18 @@
     <button id="rules-close-btn" class="small">✕</button>
   </div>
   <div id="rules-content-slot"></div>
+</aside>
+
+<div id="challenges-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:150;"></div>
+<aside id="challenges-drawer">
+  <div class="challenges-drawer-head">
+    <h2>Challenges</h2>
+    <button id="challenges-close-btn" class="small">✕</button>
+  </div>
+  <div class="challenges-tabs">
+    <button type="button" class="challenges-tab current" id="challenges-tab-received" data-tab="received">Received</button>
+    <button type="button" class="challenges-tab" id="challenges-tab-sent" data-tab="sent">Sent</button>
+  </div>
+  <div class="challenges-tab-panel current" id="challenges-panel-received"></div>
+  <div class="challenges-tab-panel" id="challenges-panel-sent"></div>
 </aside>
