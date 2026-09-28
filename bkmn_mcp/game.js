@@ -366,8 +366,8 @@ async function sendChat(sb, tableId, player, message) {
 //   - in-play Bakemon -> hand is refused (hand can't hold energy/damage state)
 //   - in-play Bakemon -> discard sends its whole evolved_from chain along too
 //   - active <-> bench, bench <-> bench: swaps the two in place if the
-//     destination is occupied (unless it's a valid evolution — not applicable
-//     for already-in-play cards, so always a swap), or moves into empty
+//     destination is occupied (never an evolution — a card already in play
+//     has already legally evolved as far as it's going to), or moves into empty
 //   - item_slot -> hand or discard: unequips (item is a bare {card_id})
 async function moveInPlayCard(sb, tableId, seat, fromZone, fromIndex, toZone, toIndex = 0) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
@@ -412,29 +412,12 @@ async function moveInPlayCard(sb, tableId, seat, fromZone, fromIndex, toZone, to
 
   const dest = getSlot(toZone, toIndex);
   if (dest) {
-    // Mirrors playmat.html: if moving onto an occupied slot IS a valid
-    // evolution (the moving card's evolves_from matches the destination
-    // card's name), stack it — otherwise, a straight swap.
-    const sourceCard = cards[source.card_id];
+    // Always a straight swap, never an evolution — a card already in play has already
+    // legally evolved as far as it's going to for this move. Evolution only ever happens
+    // when a card enters play fresh from hand (see playCardFromHand). This used to check
+    // evolves_from here too, which let repositioning an already-evolved bench card onto its
+    // own pre-evolution active card "eat" that active card instead of swapping.
     const destCard = cards[dest.card_id];
-    const isValidEvolution = sourceCard && sourceCard.evolves_from && destCard &&
-      sourceCard.evolves_from.toLowerCase() === destCard.name.toLowerCase();
-
-    if (isValidEvolution) {
-      const priorChain = dest.evolved_from || [];
-      setSlot(fromZone, fromIndex, null);
-      setSlot(toZone, toIndex, {
-        card_id: source.card_id,
-        evolved_from: [...priorChain, dest.card_id],
-        damage: dest.damage || 0,
-        energy: dest.energy || [],
-        status: dest.status || []
-      });
-      await pushState(sb, tableId, newState);
-      return { ok: true, moved: sourceName, from: fromZone, to: toZone, evolved: true, evolvedFrom: destCard.name };
-    }
-
-    // Straight swap — each keeps its own damage/energy/status/chain.
     setSlot(fromZone, fromIndex, dest);
     setSlot(toZone, toIndex, source);
     await pushState(sb, tableId, newState);
