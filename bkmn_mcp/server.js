@@ -18,7 +18,7 @@ const sb = game.client();
 // Session state: which player/table this server instance is currently
 // sitting at. One MCP server process = one seat at one table, matching
 // how a person only sits at one table at a time in the real UI.
-let session = { player: null, tableId: null, seat: null, oppSeat: null };
+let session = { player: null, tableId: null, seat: null, oppSeat: null, lastSeenChatAt: null };
 
 const server = new Server(
   { name: "bakemon", version: "1.0.0" },
@@ -57,7 +57,7 @@ const TOOLS = [
   },
   {
     name: "see_board",
-    description: "Get a full snapshot of the current board: your hand, active, bench, item slot, deck/discard counts, score, the opponent's visible state (face-down if setup isn't locked yet), and recent chat. Every card mentioned (hand, active, bench, item slot) comes with its full rules text — stats, weakness, retreat cost, and attack/ability/item-effect wording — so you don't need a separate lookup for cards already in those views. Call this whenever you need to check the state of the game.",
+    description: "Get a full snapshot of the current board: your hand, active, bench, item slot, deck/discard counts, score, the opponent's visible state (face-down if setup isn't locked yet), and recent chat. Every card mentioned (hand, active, bench, item slot) comes with its full rules text — stats, weakness, retreat cost, and attack/ability/item-effect wording — so you don't need a separate lookup for cards already in those views. recent_chat is never truncated to a fixed window: after your first call in a session it returns every message since your previous call, however many there are, so an opponent's attack announcement (and any energy/status effect it caused) can never scroll past unseen between your turns. Call this whenever you need to check the state of the game, and especially right before acting on your turn.",
     inputSchema: { type: "object", properties: {} }
   },
   {
@@ -138,7 +138,7 @@ const TOOLS = [
   },
   {
     name: "adjust_damage",
-    description: "Change damage on your active or a bench Bakemon. Positive = took damage, negative = healed. Damage is applied in the amount given (typically multiples of 10). HP can't go below 0 remaining or above max.",
+    description: "Change damage on YOUR OWN active or bench Bakemon only — there is no tool to damage the opponent's zone directly, by design (same trust-based rule as the browser UI). When your opponent's attack hits you, you are the one who calls this on your own Bakemon to apply it, after they've announced the attack in chat. Positive = took damage, negative = healed. Damage is applied in the amount given (typically multiples of 10). HP can't go below 0 remaining or above max.",
     inputSchema: {
       type: "object",
       properties: {
@@ -261,12 +261,15 @@ async function handleTool(name, args) {
       session.tableId = joined.tableId;
       session.seat = joined.seat;
       session.oppSeat = joined.oppSeat;
+      session.lastSeenChatAt = null; // fresh table (or rejoin) — start with recent context, not a stale cursor
       return { room_code: args.room_code, seat: joined.seat };
     }
 
     case "see_board": {
       requireTable();
-      return await game.seeBoard(sb, session.tableId, session.seat, session.oppSeat);
+      const board = await game.seeBoard(sb, session.tableId, session.seat, session.oppSeat, session.lastSeenChatAt);
+      session.lastSeenChatAt = board.chat_shown_through || session.lastSeenChatAt;
+      return board;
     }
 
     case "get_card": {
