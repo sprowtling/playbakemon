@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Card Maker</title>
+<script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
+<link rel="stylesheet" href="shared-styles.css">
+<style>
+  #main { padding: 16px 24px 60px; }
+  .layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  #canvas-col {
+    flex: 0 0 auto;
+    position: sticky;
+    top: 16px;
+  }
+  .canvas-wrap {
+    width: 380px;
+    max-width: 86vw;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--panel-shadow);
+    background-color: #fff;
+    background-image:
+      linear-gradient(45deg, #ccc 25%, transparent 25%),
+      linear-gradient(-45deg, #ccc 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #ccc 75%),
+      linear-gradient(-45deg, transparent 75%, #ccc 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  }
+  #card-canvas { width: 100%; height: auto; display: block; cursor: default; touch-action: none; }
+  .canvas-hint {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    max-width: 380px;
+  }
+  .canvas-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  #sidebar { flex: 1 1 420px; min-width: 320px; }
+  .panel {
+    background: var(--mat-green);
+    border-radius: 10px;
+    box-shadow: var(--panel-shadow);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 16px; color: var(--accent); }
+  .field-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 140px; }
+  .field.narrow { flex: 0 1 90px; }
+  .field label { font-size: 11px; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.03em; }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 44px; }
+  [data-mode] { display: none; }
+  [data-mode].mode-active { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  #load-card-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  #load-card-row select { flex: 1 1 200px; }
+  #reference-art { max-height: 70px; border-radius: 6px; display: none; }
+
+  .layer-row {
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,0.04);
+  }
+  .layer-row summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    list-style: none;
+  }
+  .layer-row summary::-webkit-details-marker { display: none; }
+  .layer-row summary .tag { opacity: 0.6; font-weight: 400; font-size: 11px; }
+  .layer-row summary .spacer { flex: 1; }
+  .layer-row summary button { padding: 2px 7px; font-size: 11px; }
+  .layer-row-body { padding: 4px 10px 10px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .layer-row-body .field { flex: 1 1 100px; }
+
+  #new-card-btn, #export-btn { font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="bakemon-shared-header-slot"></div>
+
+<div id="main">
+  <div class="layout">
+    <div id="canvas-col">
+      <div class="canvas-wrap">
+        <canvas id="card-canvas" width="750" height="1050"></canvas>
+      </div>
+      <div class="canvas-actions">
+        <button id="new-card-btn" class="primary">New Card</button>
+        <button id="export-btn" class="primary">Export PNG</button>
+        <button id="reset-layout-btn" class="small">Reset All Layout</button>
+      </div>
+      <div class="canvas-hint">
+        Click an element on the card to select it, then drag to move or drag its
+        bottom-right handle to resize. Arrow keys nudge the selected element
+        (hold Shift for bigger steps). Positions and styles are saved in this
+        browser automatically — card text and art are not, so export before
+        you close the tab.
+      </div>
+    </div>
+
+    <div id="sidebar">
+      <div class="panel">
+        <h2>Load From Collection</h2>
+        <div id="load-card-row">
+          <select id="load-card-select"><option value="">— pick an existing card to prefill text —</option></select>
+          <img id="reference-art" alt="reference art">
+        </div>
+        <div class="canvas-hint" style="margin-top:0;">
+          Only fills in the text fields (for re-making an existing card's layout).
+          The reference image is shown for you to look at, not loaded onto the
+          canvas — drag your own local art file into the Art slot below to
+          export.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Card Type</h2>
+        <div class="field-row">
+          <div class="field narrow">
+            <label>Type</label>
+            <select id="cd-card_type">
+              <option value="bakemon">Bakemon</option>
+              <option value="item">Item</option>
+            </select>
+          </div>
+          <div class="field narrow">
+            <label>Rarity</label>
+            <select id="cd-rarity">
+              <option value="1">Common</option>
+              <option value="2">Uncommon</option>
+              <option value="3">Rare</option>
+              <option value="4">Double Rare</option>
+              <option value="5">Ultra Rare</option>
+            </select>
+          </div>
+          <div class="field narrow">
+            <label>Card ID</label>
+            <input type="text" id="cd-card_number" placeholder="014">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Basic Info</h2>
+        <div class="field-row">
+          <div class="field" style="flex-basis:220px;">
+            <label>Name</label>
+            <input type="text" id="cd-name">
+          </div>
+          <div class="field narrow" data-mode="bakemon">
+            <label>HP</label>
+            <input type="number" id="cd-hp" min="0">
+          </div>
+        </div>
+        <div class="field-row" data-mode="bakemon">
+          <div class="field">
+            <label>Stage</label>
+            <select id="cd-stage">
+              <option value="">—</option>
+              <option value="basic">Basic</option>
+              <option value="stage one">Stage 1</option>
+              <option value="stage two">Stage 2</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Evolves From</label>
+            <input type="text" id="cd-evolves_from">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" data-mode="bakemon">
+        <h2>Type &amp; Weakness</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Type 1</label>
+            <select id="cd-type_1" class="type-select"><option value="">—</option></select>
+          </div>
+          <div class="field">
+            <label>Type 2</label>
+            <select id="cd-type_2" class="type-select"><option value="">—</option></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Weakness</label>
+            <select id="cd-weakness_1" class="type-select"><option value="">—</option></select>
+          </div>
+          <div class="field narrow">
+            <label>Retreat Cost</label>
+            <input type="number" id="cd-retreat_cost" min="0" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" data-mode="bakemon">
+        <h2>Ability 1</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Name</label>
+            <input type="text" id="cd-ability_1_name">
+          </div>
+          <div class="field narrow">
+            <label>Cost</label>
+            <input type="text" id="cd-ability_1_cost" placeholder="e.g. Fire, Fire">
+          </div>
+          <div class="field narrow">
+            <label>Damage</label>
+            <input type="number" id="cd-ability_1_damage" min="0">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex-basis:100%;">
+            <label>Rules Text</label>
+            <textarea id="cd-ability_1_text"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" data-mode="bakemon">
+        <h2>Ability 2</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Name</label>
+            <input type="text" id="cd-ability_2_name">
+          </div>
+          <div class="field narrow">
+            <label>Cost</label>
+            <input type="text" id="cd-ability_2_cost">
+          </div>
+          <div class="field narrow">
+            <label>Damage</label>
+            <input type="number" id="cd-ability_2_damage" min="0">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex-basis:100%;">
+            <label>Rules Text</label>
+            <textarea id="cd-ability_2_text"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" data-mode="item">
+        <h2>Item Details</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Item Kind</label>
+            <select id="cd-item_kind">
+              <option value="">—</option>
+              <option value="equip">Equippable</option>
+              <option value="consumable">Consumable</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field" style="flex-basis:100%;">
+            <label>Effect Text</label>
+            <textarea id="cd-effect_text"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Flavor Text</h2>
+        <textarea id="cd-flavor_text" style="width:100%;"></textarea>
+      </div>
+
+      <div class="panel">
+        <h2>Set &amp; Regulation</h2>
+        <div class="field-row">
+          <div class="field">
+            <label>Set Icon Text</label>
+            <input type="text" id="cd-set_icon_text" placeholder="SV2">
+          </div>
+          <div class="field narrow">
+            <label>Collection #</label>
+            <input type="text" id="cd-collection_number" placeholder="060">
+          </div>
+          <div class="field narrow">
+            <label>Of Total</label>
+            <input type="text" id="cd-collection_total" placeholder="090">
+          </div>
+          <div class="field narrow">
+            <label>Regulation Mark</label>
+            <input type="text" id="cd-regulation_text" placeholder="B" maxlength="2">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Layers &amp; Images</h2>
+        <div id="layers-panel"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared-header.js"></script>
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
+
+const CANVAS_W = 750, CANVAS_H = 1050;
+const ENERGY_TYPES = [
+  { key: "fighting", color: "#965d48" },
+  { key: "grass", color: "#97c267" },
+  { key: "fire", color: "#e0602d" },
+  { key: "water", color: "#63a6e6" },
+  { key: "dark", color: "#3c697a" },
+  { key: "psychic", color: "#a56dad" },
+  { key: "steel", color: "#aaa7ab" },
+  { key: "electric", color: "#e8d331" },
+  { key: "dragon", color: "#ad9142" },
+  { key: "fairy", color: "#eb90f0" }
+];
+const FONT_CHOICES = ["Baloo 2", "Fraunces", "Karla", "Mulish", "Syne", "IBM Plex Sans", "Georgia", "Arial"];
+const LAYOUT_KEY = "bakemon_card_maker_layout";
+const ASSETS_KEY = "bakemon_card_maker_assets";
+const DRAFT_KEY = "bakemon_card_maker_draft";
+const ASSET_LAYER_IDS = ["frame", "overlay", "type1Icon", "type2Icon", "weaknessIcon", "setIcon", "regulationIcon"];
+
+function defaultLayers() {
+  return [
+    { id: "frame", kind: "image", label: "Frame / Border", x: 0, y: 0, w: CANVAS_W, h: CANVAS_H, visible: true, mode: "all" },
+    { id: "art", kind: "image", label: "Character Art", x: 70, y: 120, w: 610, h: 420, visible: true, mode: "all" },
+    { id: "overlay", kind: "image", label: "Elemental Overlay", x: 70, y: 120, w: 610, h: 420, visible: true, mode: "all", opacity: 0.35, blend: "overlay", colorWashFor: "type_1" },
+    { id: "type1Icon", kind: "image", label: "Type 1 Icon", x: 650, y: 26, w: 56, h: 56, visible: true, mode: "bakemon", iconFor: "type_1" },
+    { id: "type2Icon", kind: "image", label: "Type 2 Icon", x: 650, y: 90, w: 56, h: 56, visible: true, mode: "bakemon", iconFor: "type_2" },
+    { id: "weaknessIcon", kind: "image", label: "Weakness Icon", x: 36, y: 846, w: 34, h: 34, visible: true, mode: "bakemon", iconFor: "weakness_1" },
+    { id: "setIcon", kind: "image", label: "Set Icon", x: 36, y: 984, w: 48, h: 48, visible: true, mode: "all" },
+    { id: "regulationIcon", kind: "image", label: "Regulation Mark Icon", x: 210, y: 990, w: 38, h: 38, visible: true, mode: "all" },
+
+    { id: "name", kind: "text", label: "Name", x: 36, y: 28, w: 500, h: 46, font: "Baloo 2", size: 34, weight: "700", color: "#1b1b1b", align: "left", italic: false, visible: true, mode: "all" },
+    { id: "hp", kind: "text", label: "HP", x: 560, y: 28, w: 150, h: 46, font: "Baloo 2", size: 30, weight: "700", color: "#1b1b1b", align: "right", italic: false, visible: true, mode: "bakemon" },
+    { id: "stageLine", kind: "text", label: "Stage / Evolves From", x: 36, y: 78, w: 460, h: 26, font: "Karla", size: 15, weight: "600", color: "#444444", align: "left", italic: true, visible: true, mode: "bakemon" },
+    { id: "abil1Header", kind: "text", label: "Ability 1 Header", x: 36, y: 600, w: 674, h: 32, font: "Karla", size: 20, weight: "700", color: "#1b1b1b", align: "left", italic: false, visible: true, mode: "bakemon" },
+    { id: "abil1Body", kind: "text", label: "Ability 1 Text", x: 36, y: 636, w: 674, h: 60, font: "Mulish", size: 15, weight: "400", color: "#2b2b2b", align: "left", italic: false, visible: true, mode: "bakemon" },
+    { id: "abil2Header", kind: "text", label: "Ability 2 Header", x: 36, y: 706, w: 674, h: 32, font: "Karla", size: 20, weight: "700", color: "#1b1b1b", align: "left", italic: false, visible: true, mode: "bakemon" },
+    { id: "abil2Body", kind: "text", label: "Ability 2 Text", x: 36, y: 742, w: 674, h: 60, font: "Mulish", size: 15, weight: "400", color: "#2b2b2b", align: "left", italic: false, visible: true, mode: "bakemon" },
+    { id: "weakRetreatLine", kind: "text", label: "Weakness / Retreat Line", x: 36, y: 850, w: 674, h: 28, font: "Karla", size: 15, weight: "600", color: "#333333", align: "left", italic: false, visible: true, mode: "bakemon" },
+    { id: "itemKindBadge", kind: "text", label: "Item Kind Badge", x: 36, y: 600, w: 400, h: 30, font: "Karla", size: 18, weight: "700", color: "#1b1b1b", align: "left", italic: false, visible: true, mode: "item" },
+    { id: "itemEffectText", kind: "text", label: "Item Effect Text", x: 36, y: 640, w: 674, h: 200, font: "Mulish", size: 16, weight: "400", color: "#2b2b2b", align: "left", italic: false, visible: true, mode: "item" },
+    { id: "flavorText", kind: "text", label: "Flavor Text", x: 36, y: 905, w: 674, h: 60, font: "Fraunces", size: 14, weight: "500", color: "#555555", align: "left", italic: true, visible: true, mode: "all" },
+    { id: "cardIdBadge", kind: "text", label: "Card ID Badge", x: 36, y: 1016, w: 120, h: 24, font: "Mulish", size: 12, weight: "600", color: "#777777", align: "left", italic: false, visible: true, mode: "all" },
+    { id: "setIconText", kind: "text", label: "Set Icon Text", x: 96, y: 995, w: 100, h: 36, font: "Karla", size: 14, weight: "700", color: "#1b1b1b", align: "left", italic: false, visible: true, mode: "all" },
+    { id: "regulationText", kind: "text", label: "Regulation Mark Text", x: 210, y: 994, w: 38, h: 30, font: "Karla", size: 16, weight: "800", color: "#ffffff", align: "center", italic: false, visible: true, mode: "all" },
+    { id: "collectionNumber", kind: "text", label: "Collection Number", x: 420, y: 998, w: 170, h: 30, font: "Mulish", size: 16, weight: "600", color: "#1b1b1b", align: "left", italic: false, visible: true, mode: "all" },
+    { id: "rarityStars", kind: "text", label: "Rarity Symbol", x: 610, y: 996, w: 110, h: 34, font: "Arial", size: 20, weight: "700", color: "#c9972e", align: "left", italic: false, visible: true, mode: "all" }
+  ];
+}
+
+let layers = defaultLayers();
+let images = {};
+let selectedLayerId = null;
+let dragState = null;
+
+let cardData = {
+  card_type: "bakemon", rarity: "1", card_number: "", name: "", hp: "", stage: "", evolves_from: "",
+  type_1: "", type_2: "", weakness_1: "", retreat_cost: "0",
+  ability_1_name: "", ability_1_cost: "", ability_1_damage: "", ability_1_text: "",
+  ability_2_name: "", ability_2_cost: "", ability_2_damage: "", ability_2_text: "",
+  item_kind: "", effect_text: "", flavor_text: "",
+  set_icon_text: "", collection_number: "", collection_total: "", regulation_text: ""
+};
+
+const canvas = document.getElementById("card-canvas");
+const ctx = canvas.getContext("2d");
+
+function stageLabel(s) {
+  if (s === "basic") return "Basic";
+  if (s === "stage one") return "Stage 1";
+  if (s === "stage two") return "Stage 2";
+  return s || "";
+}
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""; }
+function abilityHeader(name, cost, damage) {
+  if (!name) return "";
+  let s = name;
+  if (cost) s += `   [${cost}]`;
+  if (damage !== "" && damage != null) s += `   ${damage}`;
+  return s;
+}
+function textContentFor(id) {
+  const d = cardData;
+  switch (id) {
+    case "name": return d.name || "";
+    case "hp": return d.hp !== "" && d.hp != null ? `HP ${d.hp}` : "";
+    case "stageLine": {
+      const parts = [];
+      if (d.stage) parts.push(stageLabel(d.stage));
+      if (d.evolves_from) parts.push(`Evolves from ${d.evolves_from}`);
+      return parts.join("  ·  ");
+    }
+    case "abil1Header": return abilityHeader(d.ability_1_name, d.ability_1_cost, d.ability_1_damage);
+    case "abil1Body": return d.ability_1_text || "";
+    case "abil2Header": return abilityHeader(d.ability_2_name, d.ability_2_cost, d.ability_2_damage);
+    case "abil2Body": return d.ability_2_text || "";
+    case "weakRetreatLine": {
+      const parts = [];
+      if (d.weakness_1) parts.push(`Weakness: ${capitalize(d.weakness_1)}`);
+      parts.push(`Retreat: ${d.retreat_cost || 0}`);
+      return parts.join("     ");
+    }
+    case "itemKindBadge": return d.item_kind === "equip" ? "Equippable Item" : d.item_kind === "consumable" ? "Consumable Item" : "Item";
+    case "itemEffectText": return d.effect_text || "";
+    case "flavorText": return d.flavor_text || "";
+    case "cardIdBadge": return d.card_number ? `#${d.card_number}` : "";
+    case "setIconText": return d.set_icon_text || "";
+    case "regulationText": return d.regulation_text || "";
+    case "collectionNumber": return (d.collection_number || d.collection_total) ? `${d.collection_number || "?"}/${d.collection_total || "?"}` : "";
+    case "rarityStars": return "★".repeat(Math.max(0, Math.min(5, Number(d.rarity) || 0)));
+  }
+  return "";
+}
+
+function effectiveVisible(layer) {
+  if (!layer.visible) return false;
+  if (layer.mode && layer.mode !== "all" && layer.mode !== cardData.card_type) return false;
+  return true;
+}
+
+function drawWrappedText(c, text, layer) {
+  if (!text) return;
+  const weight = layer.weight || "400";
+  const style = layer.italic ? "italic " : "";
+  c.font = `${style}${weight} ${layer.size}px "${layer.font}", sans-serif`;
+  c.fillStyle = layer.color;
+  c.textBaseline = "top";
+  c.textAlign = layer.align === "center" ? "center" : layer.align === "right" ? "right" : "left";
+  const lineHeight = layer.size * 1.25;
+  const drawX = layer.align === "center" ? layer.x + layer.w / 2 : layer.align === "right" ? layer.x + layer.w : layer.x;
+  const paragraphs = String(text).split("\n");
+  let cy = layer.y;
+  for (const para of paragraphs) {
+    const words = para.split(/\s+/).filter(Boolean);
+    let line = "";
+    if (words.length === 0) { cy += lineHeight; continue; }
+    for (const word of words) {
+      const test = line ? line + " " + word : word;
+      if (line && c.measureText(test).width > layer.w) {
+        c.fillText(line, drawX, cy);
+        line = word;
+        cy += lineHeight;
+      } else {
+        line = test;
+      }
+    }
+    if (line) { c.fillText(line, drawX, cy); cy += lineHeight; }
+  }
+}
+
+function drawImageLayer(c, layer) {
+  const img = images[layer.id];
+  if (img) {
+    c.save();
+    c.globalCompositeOperation = layer.blend || "source-over";
+    c.globalAlpha = layer.opacity != null ? layer.opacity : 1;
+    c.drawImage(img, layer.x, layer.y, layer.w, layer.h);
+    c.restore();
+    return;
+  }
+  if (layer.iconFor) {
+    const typeKey = cardData[layer.iconFor];
+    const meta = ENERGY_TYPES.find(t => t.key === typeKey);
+    if (!meta) return;
+    const cx = layer.x + layer.w / 2, cy = layer.y + layer.h / 2, r = Math.min(layer.w, layer.h) / 2;
+    c.save();
+    c.fillStyle = meta.color;
+    c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#ffffff";
+    c.font = `700 ${Math.round(r)}px Karla, sans-serif`;
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillText(typeKey[0].toUpperCase(), cx, cy + 1);
+    c.restore();
+    return;
+  }
+  if (layer.colorWashFor) {
+    const typeKey = cardData[layer.colorWashFor];
+    const meta = ENERGY_TYPES.find(t => t.key === typeKey);
+    if (!meta) return;
+    c.save();
+    c.globalCompositeOperation = layer.blend || "source-over";
+    c.globalAlpha = layer.opacity != null ? layer.opacity : 1;
+    c.fillStyle = meta.color;
+    c.fillRect(layer.x, layer.y, layer.w, layer.h);
+    c.restore();
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  for (const layer of layers) {
+    if (!effectiveVisible(layer)) continue;
+    if (layer.kind === "image") drawImageLayer(ctx, layer);
+    else drawWrappedText(ctx, textContentFor(layer.id), layer);
+  }
+  const sel = layers.find(l => l.id === selectedLayerId);
+  if (sel && effectiveVisible(sel)) {
+    ctx.save();
+    ctx.strokeStyle = "#ff5fa2";
+    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sel.x, sel.y, sel.w, sel.h);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#ff5fa2";
+    ctx.fillRect(sel.x + sel.w - 10, sel.y + sel.h - 10, 20, 20);
+    ctx.restore();
+  }
+}
+
+function exportPNG() {
+  const off = document.createElement("canvas");
+  off.width = CANVAS_W; off.height = CANVAS_H;
+  const octx = off.getContext("2d");
+  for (const layer of layers) {
+    if (!effectiveVisible(layer)) continue;
+    if (layer.kind === "image") drawImageLayer(octx, layer);
+    else drawWrappedText(octx, textContentFor(layer.id), layer);
+  }
+  off.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const safeName = (cardData.name || "untitled").replace(/[^a-z0-9]+/gi, "_");
+    a.download = `${cardData.card_number || "card"}-${safeName}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, "image/png");
+}
+
+function canvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+}
+function nearHandle(l, pt) {
+  return Math.abs(pt.x - (l.x + l.w)) < 18 && Math.abs(pt.y - (l.y + l.h)) < 18;
+}
+
+canvas.addEventListener("pointerdown", e => {
+  const pt = canvasPoint(e);
+  const sel = layers.find(l => l.id === selectedLayerId);
+  if (sel && effectiveVisible(sel) && nearHandle(sel, pt)) {
+    dragState = { id: sel.id, mode: "resize", startX: pt.x, startY: pt.y, origW: sel.w, origH: sel.h };
+    canvas.setPointerCapture(e.pointerId);
+    return;
+  }
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const l = layers[i];
+    if (!effectiveVisible(l)) continue;
+    if (pt.x >= l.x && pt.x <= l.x + l.w && pt.y >= l.y && pt.y <= l.y + l.h) {
+      selectedLayerId = l.id;
+      dragState = { id: l.id, mode: "move", startX: pt.x, startY: pt.y, origX: l.x, origY: l.y };
+      canvas.setPointerCapture(e.pointerId);
+      render();
+      highlightSelectedInPanel();
+      return;
+    }
+  }
+  selectedLayerId = null;
+  render();
+  highlightSelectedInPanel();
+});
+canvas.addEventListener("pointermove", e => {
+  if (!dragState) return;
+  const pt = canvasPoint(e);
+  const l = layers.find(x => x.id === dragState.id);
+  if (!l) return;
+  if (dragState.mode === "move") {
+    l.x = Math.round(dragState.origX + (pt.x - dragState.startX));
+    l.y = Math.round(dragState.origY + (pt.y - dragState.startY));
+  } else {
+    l.w = Math.max(16, Math.round(dragState.origW + (pt.x - dragState.startX)));
+    l.h = Math.max(16, Math.round(dragState.origH + (pt.y - dragState.startY)));
+  }
+  render();
+  syncLayerInputs(l.id);
+});
+canvas.addEventListener("pointerup", () => { if (dragState) { dragState = null; saveLayout(); } });
+canvas.addEventListener("pointercancel", () => { dragState = null; });
+
+document.addEventListener("keydown", e => {
+  if (!selectedLayerId) return;
+  if (document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+  const l = layers.find(x => x.id === selectedLayerId);
+  if (!l) return;
+  const step = e.shiftKey ? 10 : 1;
+  let moved = true;
+  if (e.key === "ArrowUp") l.y -= step;
+  else if (e.key === "ArrowDown") l.y += step;
+  else if (e.key === "ArrowLeft") l.x -= step;
+  else if (e.key === "ArrowRight") l.x += step;
+  else moved = false;
+  if (moved) { e.preventDefault(); render(); syncLayerInputs(l.id); saveLayout(); }
+});
+
+function saveLayout() {
+  const layout = { __order: layers.map(l => l.id) };
+  for (const l of layers) {
+    layout[l.id] = { x: l.x, y: l.y, w: l.w, h: l.h, visible: l.visible };
+    if (l.kind === "text") Object.assign(layout[l.id], { font: l.font, size: l.size, color: l.color, weight: l.weight, align: l.align, italic: l.italic });
+    if (l.kind === "image" && l.opacity != null) layout[l.id].opacity = l.opacity;
+    if (l.kind === "image" && l.blend) layout[l.id].blend = l.blend;
+  }
+  try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
+}
+function loadLayout() {
+  try {
+    const raw = localStorage.getItem(LAYOUT_KEY);
+    if (!raw) return;
+    const layout = JSON.parse(raw);
+    for (const l of layers) {
+      const saved = layout[l.id];
+      if (saved) Object.assign(l, saved);
+    }
+    if (Array.isArray(layout.__order)) {
+      const byId = {};
+      for (const l of layers) byId[l.id] = l;
+      const ordered = layout.__order.map(id => byId[id]).filter(Boolean);
+      for (const l of layers) if (!ordered.includes(l)) ordered.push(l);
+      layers = ordered;
+    }
+  } catch (e) {}
+}
+
+function saveAssets() {
+  const assets = {};
+  for (const id of ASSET_LAYER_IDS) {
+    if (images[id]) assets[id] = images[id].src;
+  }
+  try { localStorage.setItem(ASSETS_KEY, JSON.stringify(assets)); } catch (e) { console.warn("card-maker: could not persist template images (likely too large for localStorage)", e); }
+}
+function loadAssets() {
+  try {
+    const raw = localStorage.getItem(ASSETS_KEY);
+    if (!raw) return;
+    const assets = JSON.parse(raw);
+    for (const [id, src] of Object.entries(assets)) {
+      const img = new Image();
+      img.onload = render;
+      img.src = src;
+      images[id] = img;
+    }
+  } catch (e) {}
+}
+
+function saveDraft() {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(cardData)); } catch (e) {}
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return;
+    Object.assign(cardData, JSON.parse(raw));
+  } catch (e) {}
+}
+
+function resetLayerPosition(id) {
+  const def = defaultLayers().find(l => l.id === id);
+  const l = layers.find(x => x.id === id);
+  Object.assign(l, { x: def.x, y: def.y, w: def.w, h: def.h });
+  render();
+  syncLayerInputs(id);
+  saveLayout();
+}
+function resetAllLayout() {
+  if (!confirm("Reset all layer positions and styles to default? This won't clear your card text or uploaded images.")) return;
+  const order = defaultLayers().map(l => l.id);
+  const byId = {};
+  for (const l of defaultLayers()) byId[l.id] = l;
+  layers = order.map(id => byId[id]);
+  try { localStorage.removeItem(LAYOUT_KEY); } catch (e) {}
+  selectedLayerId = null;
+  render();
+  buildLayersPanel();
+}
+
+function moveLayer(id, dir) {
+  const idx = layers.findIndex(l => l.id === id);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= layers.length) return;
+  [layers[idx], layers[newIdx]] = [layers[newIdx], layers[idx]];
+  render();
+  buildLayersPanel();
+  saveLayout();
+}
+
+function handleFileUpload(layerId, file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => { render(); if (ASSET_LAYER_IDS.includes(layerId)) saveAssets(); };
+    img.src = reader.result;
+    images[layerId] = img;
+  };
+  reader.readAsDataURL(file);
+}
+
+function buildLayersPanel() {
+  const panel = document.getElementById("layers-panel");
+  panel.innerHTML = "";
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const l = layers[i];
+    const details = document.createElement("details");
+    details.className = "layer-row";
+    details.dataset.layerId = l.id;
+
+    const summary = document.createElement("summary");
+    const visCb = document.createElement("input");
+    visCb.type = "checkbox";
+    visCb.checked = l.visible;
+    visCb.addEventListener("click", e => e.stopPropagation());
+    visCb.addEventListener("change", () => { l.visible = visCb.checked; render(); saveLayout(); });
+    summary.appendChild(visCb);
+
+    const label = document.createElement("span");
+    label.textContent = l.label;
+    summary.appendChild(label);
+
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = l.kind === "image" ? "image" : "text";
+    summary.appendChild(tag);
+
+    const spacer = document.createElement("span");
+    spacer.className = "spacer";
+    summary.appendChild(spacer);
+
+    const upBtn = document.createElement("button");
+    upBtn.type = "button"; upBtn.className = "small"; upBtn.textContent = "↑";
+    upBtn.title = "Bring forward";
+    upBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); moveLayer(l.id, 1); });
+    summary.appendChild(upBtn);
+
+    const downBtn = document.createElement("button");
+    downBtn.type = "button"; downBtn.className = "small"; downBtn.textContent = "↓";
+    downBtn.title = "Send backward";
+    downBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); moveLayer(l.id, -1); });
+    summary.appendChild(downBtn);
+
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button"; resetBtn.className = "small"; resetBtn.textContent = "Reset";
+    resetBtn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); resetLayerPosition(l.id); });
+    summary.appendChild(resetBtn);
+
+    details.appendChild(summary);
+
+    const body = document.createElement("div");
+    body.className = "layer-row-body";
+
+    if (l.kind === "image") {
+      const uploadField = document.createElement("div");
+      uploadField.className = "field";
+      uploadField.innerHTML = `<label>Upload</label>`;
+      const fileInput = document.createElement("input");
+      fileInput.type = "file"; fileInput.accept = "image/*";
+      fileInput.addEventListener("change", () => handleFileUpload(l.id, fileInput.files[0]));
+      uploadField.appendChild(fileInput);
+      body.appendChild(uploadField);
+
+      if (l.opacity != null) {
+        const opField = document.createElement("div");
+        opField.className = "field narrow";
+        opField.innerHTML = `<label>Opacity</label>`;
+        const opInput = document.createElement("input");
+        opInput.type = "range"; opInput.min = "0"; opInput.max = "1"; opInput.step = "0.05"; opInput.value = l.opacity;
+        opInput.addEventListener("input", () => { l.opacity = Number(opInput.value); render(); });
+        opInput.addEventListener("change", saveLayout);
+        opField.appendChild(opInput);
+        body.appendChild(opField);
+      }
+      if (l.blend) {
+        const blendField = document.createElement("div");
+        blendField.className = "field narrow";
+        blendField.innerHTML = `<label>Blend</label>`;
+        const blendSelect = document.createElement("select");
+        ["source-over", "multiply", "overlay", "screen", "soft-light", "color"].forEach(mode => {
+          const opt = document.createElement("option");
+          opt.value = mode; opt.textContent = mode;
+          if (mode === l.blend) opt.selected = true;
+          blendSelect.appendChild(opt);
+        });
+        blendSelect.addEventListener("change", () => { l.blend = blendSelect.value; render(); saveLayout(); });
+        blendField.appendChild(blendSelect);
+        body.appendChild(blendField);
+      }
+    } else {
+      const fontField = document.createElement("div");
+      fontField.className = "field";
+      fontField.innerHTML = `<label>Font</label>`;
+      const fontSelect = document.createElement("select");
+      FONT_CHOICES.forEach(f => {
+        const opt = document.createElement("option");
+        opt.value = f; opt.textContent = f;
+        if (f === l.font) opt.selected = true;
+        fontSelect.appendChild(opt);
+      });
+      fontSelect.addEventListener("change", () => { l.font = fontSelect.value; render(); saveLayout(); });
+      fontField.appendChild(fontSelect);
+      body.appendChild(fontField);
+
+      const sizeField = document.createElement("div");
+      sizeField.className = "field narrow";
+      sizeField.innerHTML = `<label>Size</label>`;
+      const sizeInput = document.createElement("input");
+      sizeInput.type = "number"; sizeInput.min = "6"; sizeInput.max = "100"; sizeInput.value = l.size;
+      sizeInput.addEventListener("input", () => { l.size = Number(sizeInput.value); render(); });
+      sizeInput.addEventListener("change", saveLayout);
+      sizeField.appendChild(sizeInput);
+      body.appendChild(sizeField);
+
+      const colorField = document.createElement("div");
+      colorField.className = "field narrow";
+      colorField.innerHTML = `<label>Color</label>`;
+      const colorInput = document.createElement("input");
+      colorInput.type = "color"; colorInput.value = l.color;
+      colorInput.addEventListener("input", () => { l.color = colorInput.value; render(); });
+      colorInput.addEventListener("change", saveLayout);
+      colorField.appendChild(colorInput);
+      body.appendChild(colorField);
+
+      const weightField = document.createElement("div");
+      weightField.className = "field narrow";
+      weightField.innerHTML = `<label>Weight</label>`;
+      const weightSelect = document.createElement("select");
+      ["400", "600", "700", "800"].forEach(w => {
+        const opt = document.createElement("option");
+        opt.value = w; opt.textContent = w;
+        if (w === l.weight) opt.selected = true;
+        weightSelect.appendChild(opt);
+      });
+      weightSelect.addEventListener("change", () => { l.weight = weightSelect.value; render(); saveLayout(); });
+      weightField.appendChild(weightSelect);
+      body.appendChild(weightField);
+
+      const alignField = document.createElement("div");
+      alignField.className = "field narrow";
+      alignField.innerHTML = `<label>Align</label>`;
+      const alignSelect = document.createElement("select");
+      ["left", "center", "right"].forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a; opt.textContent = a;
+        if (a === l.align) opt.selected = true;
+        alignSelect.appendChild(opt);
+      });
+      alignSelect.addEventListener("change", () => { l.align = alignSelect.value; render(); saveLayout(); });
+      alignField.appendChild(alignSelect);
+      body.appendChild(alignField);
+
+      const italicField = document.createElement("div");
+      italicField.className = "field narrow";
+      italicField.innerHTML = `<label>Italic</label>`;
+      const italicInput = document.createElement("input");
+      italicInput.type = "checkbox"; italicInput.checked = !!l.italic;
+      italicInput.addEventListener("change", () => { l.italic = italicInput.checked; render(); saveLayout(); });
+      italicField.appendChild(italicInput);
+      body.appendChild(italicField);
+    }
+
+    ["x", "y", "w", "h"].forEach(key => {
+      const f = document.createElement("div");
+      f.className = "field narrow";
+      f.innerHTML = `<label>${key.toUpperCase()}</label>`;
+      const input = document.createElement("input");
+      input.type = "number"; input.value = l[key]; input.dataset.posKey = key;
+      input.addEventListener("input", () => { l[key] = Number(input.value); render(); });
+      input.addEventListener("change", saveLayout);
+      f.appendChild(input);
+      body.appendChild(f);
+    });
+
+    details.appendChild(body);
+    panel.appendChild(details);
+  }
+}
+
+function syncLayerInputs(layerId) {
+  const details = document.querySelector(`.layer-row[data-layer-id="${layerId}"]`);
+  if (!details) return;
+  const l = layers.find(x => x.id === layerId);
+  if (!l) return;
+  details.querySelectorAll("input[data-pos-key]").forEach(input => {
+    input.value = l[input.dataset.posKey];
+  });
+}
+function highlightSelectedInPanel() {
+  document.querySelectorAll(".layer-row").forEach(d => d.style.borderColor = "");
+  if (!selectedLayerId) return;
+  const details = document.querySelector(`.layer-row[data-layer-id="${selectedLayerId}"]`);
+  if (details) { details.open = true; details.style.borderColor = "#ff5fa2"; }
+}
+
+function populateTypeSelects() {
+  document.querySelectorAll(".type-select").forEach(select => {
+    ENERGY_TYPES.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.key; opt.textContent = capitalize(t.key);
+      select.appendChild(opt);
+    });
+  });
+}
+
+const CD_FIELD_IDS = Object.keys(cardData);
+function wireCardDataFields() {
+  for (const key of CD_FIELD_IDS) {
+    const el = document.getElementById(`cd-${key}`);
+    if (!el) continue;
+    el.value = cardData[key];
+    el.addEventListener("input", () => { cardData[key] = el.value; render(); saveDraft(); updateModeVisibility(); });
+  }
+}
+function updateModeVisibility() {
+  const mode = cardData.card_type;
+  document.querySelectorAll("[data-mode]").forEach(el => {
+    el.classList.toggle("mode-active", el.dataset.mode === mode);
+  });
+}
+
+function newCard() {
+  if (!confirm("Clear the current card's text and art? Your frame, overlay and icon images stay loaded.")) return;
+  cardData = {
+    card_type: "bakemon", rarity: "1", card_number: "", name: "", hp: "", stage: "", evolves_from: "",
+    type_1: "", type_2: "", weakness_1: "", retreat_cost: "0",
+    ability_1_name: "", ability_1_cost: "", ability_1_damage: "", ability_1_text: "",
+    ability_2_name: "", ability_2_cost: "", ability_2_damage: "", ability_2_text: "",
+    item_kind: "", effect_text: "", flavor_text: "",
+    set_icon_text: "", collection_number: "", collection_total: "", regulation_text: ""
+  };
+  delete images["art"];
+  for (const key of CD_FIELD_IDS) {
+    const el = document.getElementById(`cd-${key}`);
+    if (el) el.value = cardData[key];
+  }
+  document.getElementById("reference-art").style.display = "none";
+  document.getElementById("load-card-select").value = "";
+  updateModeVisibility();
+  render();
+  saveDraft();
+}
+
+async function populateLoadCardDropdown() {
+  const { data, error } = await supabaseClient.from("cards").select("*").order("card_number");
+  if (error || !data) { console.error("card-maker: could not load cards", error); return; }
+  const select = document.getElementById("load-card-select");
+  for (const card of data) {
+    const opt = document.createElement("option");
+    opt.value = card.id;
+    opt.textContent = `#${card.card_number} — ${card.name}`;
+    opt.dataset.card = JSON.stringify(card);
+    select.appendChild(opt);
+  }
+  select.addEventListener("change", () => {
+    const opt = select.selectedOptions[0];
+    if (!opt || !opt.dataset.card) {
+      document.getElementById("reference-art").style.display = "none";
+      return;
+    }
+    const card = JSON.parse(opt.dataset.card);
+    for (const key of CD_FIELD_IDS) {
+      if (key in card && card[key] != null) cardData[key] = String(card[key]);
+    }
+    for (const key of CD_FIELD_IDS) {
+      const el = document.getElementById(`cd-${key}`);
+      if (el) el.value = cardData[key];
+    }
+    updateModeVisibility();
+    render();
+    saveDraft();
+    const refImg = document.getElementById("reference-art");
+    if (card.image_filename) {
+      refImg.src = CARD_IMAGE_BASE + card.image_filename;
+      refImg.style.display = "inline-block";
+    } else {
+      refImg.style.display = "none";
+    }
+  });
+}
+
+document.getElementById("new-card-btn").addEventListener("click", newCard);
+document.getElementById("export-btn").addEventListener("click", exportPNG);
+document.getElementById("reset-layout-btn").addEventListener("click", resetAllLayout);
+
+document.querySelectorAll(".layer-row-body").forEach(() => {});
+
+loadAssets();
+loadLayout();
+loadDraft();
+populateTypeSelects();
+wireCardDataFields();
+updateModeVisibility();
+buildLayersPanel();
+populateLoadCardDropdown();
+render();
+</script>
+
+</body>
+</html>
