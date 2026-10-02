@@ -23,7 +23,11 @@ overseeing:
   counts, score, opponent's visible state (face-down until setup locks),
   recent chat. Every card in those views comes with its full rules text —
   stats, weakness, retreat cost, and attack/ability/item-effect wording —
-  not just its name. Call this often — it's how you "look at the table."
+  not just its name. `recent_chat` isn't a fixed-size window — after your
+  first call it returns everything since your *previous* call, so a fast
+  back-and-forth can't scroll an opponent's attack announcement out of
+  view. Call this often — it's how you "look at the table," and always
+  call it again before acting on your turn.
 - `get_card` — look up any card by name for its full rules text. For
   anything not currently in a `see_board` view (something in your discard
   pile, a card mentioned in chat). Doesn't require being logged in.

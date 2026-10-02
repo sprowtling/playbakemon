@@ -175,7 +175,15 @@ async function findCardByName(sb, name) {
 // ---------- Reading the board ----------
 // Returns a clean summary of everything the calling player is entitled to
 // see — respecting the same setup_locked face-down rule the UI honors.
-async function seeBoard(sb, tableId, seat, oppSeat) {
+//
+// sinceChatAt (optional ISO timestamp): when given, recent_chat returns
+// EVERY message strictly after that time, however many there are — this is
+// how a Claude playing a full turn's worth of back-and-forth never loses an
+// attack announcement to a fixed-size window. Pass the previous call's
+// chat_shown_through back in as sinceChatAt on the next call to keep
+// picking up exactly where you left off. Without it (e.g. the first call
+// of a session), this returns the most recent 30 messages for context.
+async function seeBoard(sb, tableId, seat, oppSeat, sinceChatAt) {
   const { data: table, error } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   if (error || !table) throw new Error("Couldn't load table.");
   const cards = await getAllCards(sb);
@@ -203,7 +211,17 @@ async function seeBoard(sb, tableId, seat, oppSeat) {
     ? { active: describeSlot(opp.active), bench: (opp.bench || []).map(describeSlot), item_slot: opp.item_slot ? cardInfo(cards[opp.item_slot.card_id]) : null }
     : { active: "face down (setup not started)", bench: (opp.bench || []).map(s => s ? "face down" : null), item_slot: "face down (setup not started)" };
 
-  const { data: chat } = await sb.from("table_chat_messages").select("*").eq("table_id", tableId).order("created_at", { ascending: true }).limit(20);
+  let chat;
+  if (sinceChatAt) {
+    const { data } = await sb.from("table_chat_messages").select("*").eq("table_id", tableId).gt("created_at", sinceChatAt).order("created_at", { ascending: true });
+    chat = data || [];
+  } else {
+    // First call this session: most recent messages, newest-first from the
+    // query, flipped back to chronological order for display.
+    const { data } = await sb.from("table_chat_messages").select("*").eq("table_id", tableId).order("created_at", { ascending: false }).limit(30);
+    chat = (data || []).slice().reverse();
+  }
+  const chatShownThrough = chat.length ? chat[chat.length - 1].created_at : (sinceChatAt || null);
 
   return {
     room_code: table.room_code,
@@ -217,7 +235,8 @@ async function seeBoard(sb, tableId, seat, oppSeat) {
     my_score: my.score || 0,
     opponent: oppView,
     opponent_score: opp.score || 0,
-    recent_chat: (chat || []).map(m => `${m.sender_name}: ${m.message}`)
+    recent_chat: chat.map(m => `${m.sender_name}: ${m.message}`),
+    chat_shown_through: chatShownThrough
   };
 }
 

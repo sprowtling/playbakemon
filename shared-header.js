@@ -112,6 +112,8 @@ function highlightCurrentNavLink() {
     }
   } else if (path === "players.html") {
     markCurrent("nav-link-directory");
+  } else if (path === "card-maker.html") {
+    markCurrent("nav-link-cardmaker", "nav-group-cards");
   }
 }
 
