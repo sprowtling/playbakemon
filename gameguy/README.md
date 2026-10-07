@@ -234,8 +234,8 @@ a card. It reads the same files the game does, so it is never out of date. In th
 and at the table, a card with an unwired or simplified effect says so under its picture.
 
 Cards with no effect text just do their damage and aren't counted. At the time of writing,
-everything is wired except two items (Humidifier and Notepad), and a handful of cards are
-simplified; each one says how, in its `approx` note.
+every card with effect text is wired, and a handful are simplified; each one says how, in its
+`approx` note.
 
 ### The three test tools (Node, no install)
 

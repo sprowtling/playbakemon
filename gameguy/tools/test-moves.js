@@ -301,11 +301,13 @@ await test('Celestial Bodies: heads boosts fire etc. by 20', async () => {
 });
 
 /* ================= later turns ================= */
-await test('Levitate Stone: stones fall next turn on every Bakemon', async () => {
+await test('Levitate Stone: 20 per stone, each on a random opposing Bakemon', async () => {
   const G = game({ active: 'Rosrock' }, { active: 'Raizado', bench: ['Poteplant'], big: ['Raizado', 'Poteplant'] });
   rig(d(6, 3)); await attack(G, 0, 'Levitate Stone');
+  eq(act(G, 1).hp, act(G, 1).maxHp, 'nothing falls yet');
   G.turnNumber = 12; await ctx.startTurn(G, G.players[0]);
-  eq(act(G, 1).maxHp - act(G, 1).hp, 60, 'active'); eq(bn(G, 1).maxHp - bn(G, 1).hp, 60, 'bench');
+  const taken = (act(G, 1).maxHp - act(G, 1).hp) + (bn(G, 1).maxHp - bn(G, 1).hp);
+  eq(taken, 60, 'three stones, 20 each, somewhere on their side');
 });
 await test('Spore Bloom: only Bakemon that have not moved take 60', async () => {
   const G = game({ active: 'Iveldyr' }, { active: 'Raizado', bench: ['Poteplant', 'Leapod'] });
@@ -443,11 +445,49 @@ await test('Reorganise: swaps an orb between two enemy Bakemon', async () => {
   await attack(G, 0, 'Reorganise');
   eq(act(G, 1).energy.join(), 'grass', 'active'); eq(bn(G, 1).energy.join(), 'fire', 'bench');
 });
-await test('Purify: a status becomes energy', async () => {
+await test('Purify: a status becomes its energy (poison -> dark)', async () => {
   const G = game({ active: 'Ionodyr', bench: ['Poteplant'] }, { active: 'Raizado' });
-  act(G, 0).status.burned = true;
+  act(G, 0).status.poisoned = true;
   await ability(G, 0, act(G, 0), 'Purify');
-  ok(!act(G, 0).status.burned, 'cleansed'); eq(E.zone(G.players[0]).reduce((n, m) => n + m.energy.filter(e => e === 'fire').length, 0) + E.zone(G.players[1]).reduce((n, m) => n + m.energy.filter(e => e === 'fire').length, 0), 1, 'one fire energy appeared');
+  ok(!act(G, 0).status.poisoned, 'cleansed');
+  const all = E.zone(G.players[0]).concat(E.zone(G.players[1])).flatMap(m => m.energy);
+  eq(all.join(), 'dark', 'one dark energy appeared');
+});
+await test('Purify: confusion becomes a random energy', async () => {
+  const G = game({ active: 'Ionodyr' }, { active: 'Raizado' });
+  act(G, 0).status.confused = true;
+  await ability(G, 0, act(G, 0), 'Purify');
+  eq(E.zone(G.players[0]).concat(E.zone(G.players[1])).flatMap(m => m.energy).length, 1, 'one energy of some type');
+});
+await test('Humidifier: every attack counts as having one more water energy', async () => {
+  const cost = { types: { water: 2 }, any: 0, total: 2 };
+  let G = game({ active: 'Poteplant', energy: { Poteplant: ['water'] } }, { active: 'Raizado' });
+  eq(E.canPay(act(G, 0), cost), false, 'one water is not enough');
+  G = game({ active: 'Poteplant', energy: { Poteplant: ['water'] } }, { active: 'Raizado', equip: { Raizado: '111' } });
+  eq(E.canPay(act(G, 0), cost), true, 'with a Humidifier anywhere, one water is enough');
+  // ...and weakness counts the extra water symbol: Draquaduct-style check against a water-weak target.
+  const weakToWater = E.CARDS.find(c => c.kind === 'bakemon' && c.weak.includes('water'));
+  const hit = { name: 'Plain', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  const A = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: weakToWater.name, big: [weakToWater.name], equip: { [weakToWater.name]: '111' } });
+  await ctx.resolveAttack(A, A.players[0], act(A, 0), hit);
+  eq(act(A, 1).maxHp - act(A, 1).hp, 40, 'plain attack gets +10 against a water-weak target while a Humidifier is out');
+});
+await test('Notepad: copy a move, use it for the same NUMBER of energy, then it is used up', async () => {
+  const G = game({ active: 'Poteplant', energy: { Poteplant: ['grass', 'grass'] }, hand: ['112'] }, { active: 'Lemurk', big: ['Lemurk'] });
+  await ctx.perform(G, G.players[0], { type: 'item', handIndex: 0, cardId: '112' });
+  const mine = act(G, 0);
+  ok(mine.notepad && mine.notepad.name === 'Tail Slap', 'copied the enemy move: ' + (mine.notepad && mine.notepad.name));
+  const options = ctx.legalActions(G, G.players[0]).filter(a => a.notepad);
+  eq(options.length, 1, 'a Notepad attack is offered');
+  eq(options[0].move.cost.total, 2, 'it costs 2 energy, of any kind');
+  rig(d(6, 3)); await ctx.perform(G, G.players[0], options[0]);
+  eq(act(G, 1).maxHp - act(G, 1).hp, 30, 'Tail Slap rolled a 3');
+  eq(mine.equip, null, 'the Notepad is discarded'); ok(G.players[0].discard.includes('112'), 'in the discard pile');
+});
+await test('Notepad: needs the energy', async () => {
+  const G = game({ active: 'Poteplant', energy: { Poteplant: ['grass'] }, hand: ['112'] }, { active: 'Lemurk' });
+  await ctx.perform(G, G.players[0], { type: 'item', handIndex: 0, cardId: '112' });
+  eq(ctx.legalActions(G, G.players[0]).filter(a => a.notepad).length, 0, 'one energy is not enough for a 2-energy move');
 });
 await test('Eclidyr cannot evolve without five kinds of energy', async () => {
   const G = game({ active: 'Eclidyr', energy: { Eclidyr: ['fire', 'water', 'grass', 'dark'] } }, { active: 'Raizado' });

@@ -51,7 +51,10 @@ function cardMoves(card) {
   return movesCache[card.id];
 }
 
-const costIncludes = (move, type) => !!(move && move.cost.types[type]);
+// Humidifier: while anyone wears one, every attack in play counts as having one more water energy.
+const humidifierOn = G => !!G && G.players.some(Q => zone(Q).some(m => equipTag(m) === 'humidifier'));
+const costCount    = (move, type) => (move.cost.types[type] || 0) + (type === 'water' && humidifierOn(ACTIVE_G) ? 1 : 0);
+const costIncludes = (move, type) => !!(move && costCount(move, type));
 
 // The battle being played right now. Only used by rules that reach across the whole
 // table without being handed G (Heat Lightning's "interchangeable" energy).
@@ -59,8 +62,10 @@ let ACTIVE_G = null;
 
 function canPay(mon, cost) {
   const pool = {};
+  let extra = 0;
   for (const e of mon.energy) pool[e] = (pool[e] || 0) + 1;
   // Thundazolt's Heat Lightning: while it's in play, fire and electric energy are interchangeable.
+  if (humidifierOn(ACTIVE_G)) { pool.water = (pool.water || 0) + 1; extra = 1; }      // the extra water energy pays for the attack too
   const mixed = ACTIVE_G && tagCount(ACTIVE_G, 'heatLightning') > 0;
   if (mixed) {
     const both = (pool.fire || 0) + (pool.electric || 0), need = (cost.types.fire || 0) + (cost.types.electric || 0);
@@ -69,7 +74,7 @@ function canPay(mon, cost) {
   } else {
     for (const [type, n] of Object.entries(cost.types)) if ((pool[type] || 0) < n) return false;
   }
-  return mon.energy.length >= cost.total;       // whatever's left over covers the "any" part
+  return mon.energy.length + extra >= cost.total;       // whatever's left over covers the "any" part
 }
 
 const hasTag   = (mon, tag) => cardMoves(mon.card).some(m => m.fx.tag === tag);
@@ -317,6 +322,7 @@ function legalActions(G, P) {
       const item = ITEMS[id] || {};
       let ok = !G.t.lockTurn && !item.todo && (item.equip || item.ops);
       if (ok && item.equip) ok = zone(P).some(m => !m.equip);
+      if (ok && item.equip === 'notepad') ok = notepadChoices(other(G, P)).length > 0;
       if (ok && item.ops) ok = item.ops.every(op => itemOpPossible(G, P, op));
       if (ok) actions.push({ type: 'item', handIndex, cardId: id, label: 'Use ' + card.name });
     }
@@ -342,8 +348,37 @@ function legalActions(G, P) {
     if (!move.isAbility && canPay(a, move.cost)) actions.push({ type: 'attack', move, label: move.name + (move.damage ? '   ' + move.damage : '') });
   }
 
+  // Notepad: the wearer may use the move it copied, paying the same NUMBER of energy (any kind). Then the Notepad is used up.
+  for (const mon of zone(P)) if (mon.notepad && equipTag(mon) === 'notepad' && !G.t.lockTurn) {
+    const mv = mon.notepad;
+    if (!mv.isAbility) {
+      if (mon === a && enemy.active && G.t.canAttack && mon.energy.length >= mv.cost.total)
+        actions.push({ type: 'attack', notepad: mon, move: Object.assign({}, mv, { name: mv.name + ' (Notepad)', cost: { types: {}, any: mv.cost.total, total: mv.cost.total } }),
+                       label: mv.name + ' (Notepad)' + (mv.damage ? '   ' + mv.damage : '') });
+    } else if (mv.ops.every(op => abilityOpPossible(G, P, mon, op))) actions.push({ type: 'ability', notepad: mon, mon, move: mv, label: mon.card.name + ': ' + mv.name + ' (Notepad)' });
+  }
+
   actions.push({ type: 'endTurn', label: 'End turn' });
   return actions;
+}
+
+// What a Notepad could copy: any attack or usable ability on the other side of the table.
+function notepadChoices(foe) {
+  const list = [];
+  for (const m of zone(foe)) for (const mv of cardMoves(m.card)) if (!mv.isAbility || mv.fx.ability === 'activated') list.push({ mon: m, move: mv });
+  return list;
+}
+async function copyIntoNotepad(G, P, holder) {
+  const options = notepadChoices(other(G, P)).map(c => ({ label: c.mon.card.name + ': ' + c.move.name + (c.move.damage ? '  ' + c.move.damage : ''), value: c.move }));
+  if (!options.length) return;
+  const mv = await P.controller.ask(G, P, { kind: 'option', purpose: 'copyMove', prompt: 'Copy which move into the Notepad?', options });
+  holder.notepad = mv;
+  await say2(G, holder.card.name + ' copies down ' + mv.name + '.', { mon: holder });
+}
+async function useUpNotepad(G, P, mon) {
+  if (mon.hp <= 0 || equipTag(mon) !== 'notepad') return;
+  P.discard.push(mon.equip); mon.equip = null; mon.notepad = null;
+  await say2(G, 'The Notepad is used up.', { mon });
 }
 
 // Is there anything for this op to act on? (Stops you wasting a Band-aid on nobody.)
@@ -420,6 +455,7 @@ async function perform(G, P, action) {
       if (item.equip) {
         const mon = await pick(G, P, zone(P).filter(m => !m.equip), 'equipTo', 'Equip ' + card.name + ' to which Bakemon?');
         mon.equip = id;
+        if (item.equip === 'notepad') await copyIntoNotepad(G, P, mon);
         if (item.equip === 'blocksWeakness' && mon.card.weak.length) {
           mon.helmet = mon.card.weak.length === 1 ? mon.card.weak[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'generic',
             prompt: 'Protect against which weakness?', options: mon.card.weak.map(w => ({ label: w, value: w, energy: w })) });
@@ -433,9 +469,10 @@ async function perform(G, P, action) {
     }
 
     case 'ability': {
-      G.t.abilityUsed[action.mon.uid + ':' + action.move.index] = true;
+      G.t.abilityUsed[(action.notepad ? 'np:' : '') + action.mon.uid + ':' + action.move.index] = true;
       await say2(G, action.mon.card.name + ' uses ' + action.move.name + '.', { mon: action.mon });
       await runOps(G, { P, self: action.mon, target: enemy.active, move: action.move }, action.move.ops);
+      if (action.notepad) await useUpNotepad(G, P, action.mon);
       await checkKOs(G);
       break;
     }
@@ -450,6 +487,7 @@ async function perform(G, P, action) {
 
     case 'attack':
       await resolveAttack(G, P, P.active, action.move);
+      if (action.notepad) await useUpNotepad(G, P, action.notepad);
       G.t.over = true;                       // attacking ends your turn
       break;
 
@@ -481,7 +519,7 @@ async function switchActive(G, P, incoming) {
     outgoing.status = {}; outgoing.poisonDoubling = 0; outgoing.sleepHeal = 0;
     outgoing.effects = outgoing.effects.filter(e => e.kind !== 'cantRetreat');
     outgoing.auras = [];
-    if (outgoing.equip) { P.discard.push(outgoing.equip); outgoing.equip = null; outgoing.helmet = null; }
+    if (outgoing.equip) { P.discard.push(outgoing.equip); outgoing.equip = null; outgoing.helmet = null; outgoing.notepad = null; }
   }
   P.bench[slot] = outgoing || null;
   P.active = incoming;
@@ -591,7 +629,7 @@ async function dealDamage(G, source, victim, amount, o) {
     }
     if (weatherIs(G, 'hydrosurge') && costIncludes(move, 'water')) amount += 20;                              // Draquaduct's weather
     // Weakness: +10 for every matching energy symbol in the attack's cost. (Not on the bench: the rules page.)
-    if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) amount += (move.cost.types[ENERGY_ALIASES[w] || w] || 0) * G.rules.weaknessBonus;
+    if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) amount += costCount(move, ENERGY_ALIASES[w] || w) * G.rules.weaknessBonus;
 
     if (victim.status.enraged) amount -= G.rules.enragedBonus;
     if (hasTag(victim, 'plateArmor')) amount -= victim.armor || 0;
@@ -1030,7 +1068,8 @@ async function runOps(G, ctx, ops) {
       if (!options.length) continue;
       const c = await P.controller.ask(G, P, { kind: 'option', purpose: 'purify', prompt: 'Cleanse which status?', options });
       delete c.mon.status[c.status]; if (c.status === 'poisoned') c.mon.poisonDoubling = 0;
-      const type = PURIFY_ENERGY[c.status];
+      let type = PURIFY_ENERGY[c.status];
+      if (type === 'random') type = Object.keys(ENERGY_COLORS)[Math.floor(Math.random() * Object.keys(ENERGY_COLORS).length)];
       await say2(G, c.mon.card.name + ' is cleansed. The ' + c.status + ' becomes ' + type + ' energy.', { mon: c.mon });
       const to = await pick(G, P, zone(P).concat(zone(enemy)), 'energyTo', 'Attach the ' + type + ' energy to which Bakemon?');
       if (to) await attachEnergy(G, to, type);
@@ -1169,7 +1208,11 @@ async function runDelayed(G, P) {
     }
     else if (d.kind === 'stones') {
       await say2(G, d.n + ' stone' + (d.n === 1 ? '' : 's') + ' crash down!');
-      for (const m of zone(foe)) await dealDamage(G, null, m, d.each * d.n, { why: 'the falling stones' });
+      for (let i = 0; i < d.n; i++) {                       // each stone picks a random Bakemon, active or benched
+        const targets = zone(foe).filter(m => m.hp > 0);
+        if (!targets.length) break;
+        await dealDamage(G, null, targets[Math.floor(Math.random() * targets.length)], d.each, { why: 'a falling stone' });
+      }
     }
     else if (d.kind === 'tongue') {
       if (d.mon.hp > 0 && slotOf(G, d.mon) === d.slot) { await say2(G, 'The tongue lashes out!'); await dealDamage(G, null, d.mon, d.damage, { why: 'Black Tongue' }); }

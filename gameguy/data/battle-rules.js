@@ -48,11 +48,11 @@ const ENERGY_COLORS = {
   ground: '#61463B', ice: '#A8F7F7',
 };
 
-// Ionodyr's Purify: a cleansed status "mutates into its corresponding energy". ASSUMED — the
-// rules page doesn't say which energy each status becomes. A status missing here can't be purified.
+// Ionodyr's Purify: a cleansed status "mutates into its corresponding energy". 'random' means
+// a random type of energy (confusion).
 const PURIFY_ENERGY = {
-  burned: 'fire', frozen: 'ice', paralyzed: 'electric', quaked: 'ground', confused: 'psychic',
-  poisoned: 'grass', asleep: 'psychic', haunted: 'dark', enraged: 'fighting', taunted: 'steel',
+  burned: 'fire', frozen: 'ice', paralyzed: 'electric', quaked: 'ground', confused: 'random',
+  poisoned: 'dark', asleep: 'fairy', haunted: 'psychic', enraged: 'dragon', taunted: 'fighting',
 };
 
 // Spellings in the card database that mean the same thing.
