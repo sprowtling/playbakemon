@@ -64,6 +64,7 @@ function makeAI(style) {
         if (op.cure && zone(P).some(m => Object.keys(m.status).length)) return a;
         if (op.newHand && P.hand.length <= 1)             return a;
         if (op.digForEvolution && P.hand.length <= 3)     return a;
+        if (op.drawUntilBasic && P.hand.length <= 3 && P.bench.includes(null)) return a;
         if (op.freeRetreat && P.active.hp <= 20)          return a;
       }
 
@@ -72,8 +73,11 @@ function makeAI(style) {
       if (of('energy').length && (wantsOut(P) || zone(P).some(neededType))) return of('energy')[0];
 
       for (const a of of('ability')) {
-        const op = a.move.ops[0] || {};
-        if (op.moveEnergy || op.convertEnergy) continue;                   // too easy to fiddle forever
+        const ops = a.move.ops, op = ops[0] || {};
+        if (ops.some(o => o.hydraulic || o.swapPartner || o.cling || o.convertEnergy)) continue;   // too easy to fiddle forever, or never worth it
+        if (op.moveEnergy && a.move.fx.oncePerTurn === false) continue;                              // ...same
+        if (ops.some(o => o.lockTurn) && (of('attack').length || a.mon.hp > a.mon.maxHp * 0.5)) continue;   // Brumate costs the whole turn
+        if (ops.some(o => o.purify) && !zone(P).some(m => Object.keys(m.status).length)) continue;
         if (op.heal && !zone(P).concat(zone(enemy)).some(m => m.hp < m.maxHp)) continue;
         if (op.status && enemy.active && enemy.active.status[op.status]) continue;
         return a;
@@ -113,8 +117,24 @@ function makeAI(style) {
           const want = req.mon && neededType(req.mon);
           return (opts.find(o => o.value === want) || opts.find(o => req.mon && req.mon.card.types.includes(o.value)) || rand(opts)).value;
         }
-        case 'energyFrom':  return opts.slice().sort((a, b) => b.energy.length - a.energy.length)[0];
-        case 'optional':    return true;
+        case 'energyFrom': {                                                          // take from the other side when we can
+          const theirs = opts.filter(m => !mine(m));
+          return (theirs.length ? theirs : opts).slice().sort((a, b) => b.energy.length - a.energy.length)[0];
+        }
+        case 'redirect': {                                                            // Lightning Rod: only if someone sturdier can take it
+          const best = opts.filter(o => o.value).sort((a, b) => b.value.hp - a.value.hp)[0];
+          return best && best.value.hp > req.target.hp + 20 ? best.value : null;
+        }
+        case 'copyMove':    return opts.slice().sort((a, b) => b.value.damage - a.value.damage)[0].value;
+        case 'disable': {                                                             // the active Bakemon's hardest hit
+          const aim = opts.filter(o => o.value.mon === other(G, P).active && !o.value.move.isAbility);
+          return (aim.length ? aim : opts).slice().sort((a, b) => b.value.move.damage - a.value.move.damage)[0].value;
+        }
+        case 'delusionAmount': return opts[opts.length - 1].value;                    // hand back as much as allowed
+        case 'delusionOwn': return opts.slice().sort((a, b) => b.hp - a.hp)[0];
+        case 'purify': return (opts.filter(o => mine(o.value.mon))[0] || opts[0]).value;
+        case 'optional':                                                              // "Return to the bench?" only when it's hurting
+          return /bench\?/.test(req.prompt) ? !!P.active && P.active.hp <= P.active.maxHp * 0.5 : true;
         case 'whoseHand': case 'whoseDiscard': return P.index;
         case 'chooseDamage': {
           const safe = opts.filter(o => o.value < req.self.hp);                        // never dive to your own death
