@@ -14,6 +14,7 @@
      - matches that hit the turn limit (usually an engine loop)
      - ops the engine doesn't recognise
      - which cards never got played at all
+     - rule checks that fail (an item on a benched Bakemon)
    ============================================================ */
 
 const fs = require('fs'), vm = require('vm'), path = require('path');
@@ -40,6 +41,7 @@ const played = new Set();
 const harness = `
   (function () {
     const ids = CARDS.map(c => c.id);
+    const benchEquips = [];
     const pick = list => list[Math.floor(Math.random() * list.length)];
     function randomDeck() {
       const size = 12 + Math.floor(Math.random() * 21);          // 12..32
@@ -54,7 +56,11 @@ const harness = `
       return deck;
     }
     async function oneMatch(seen) {
-      const io = { show: async (G, e) => { if (e.cardId) seen.add(e.cardId); if (e.mon) seen.add(e.mon.card.id); } };
+      const io = { show: async (G, e) => {
+        if (e.cardId) seen.add(e.cardId); if (e.mon) seen.add(e.mon.card.id);
+        // Rules check: only the active Bakemon may wear an item.
+        for (const P of G.players) for (const m of bench(P)) if (m.equip) benchEquips.push(m.card.name + ' on the bench wearing ' + CARD_BY_ID[m.equip].name + ' (after: ' + e.text + ')');
+      } };
       const a = randomDeck(), b = randomDeck();
       const G = newBattle([
         { name: 'A', deck: a, controller: makeAI({ mistakes: 0.1 }) },
@@ -64,9 +70,9 @@ const harness = `
       try { await runBattle(G); } catch (err) { return { error: err, G, decks: [a, b] }; }
       return { G, decks: [a, b] };
     }
-    return { oneMatch };
+    return { oneMatch, benchEquips };
   })()`;
-const { oneMatch } = vm.runInContext(harness, ctx);
+const { oneMatch, benchEquips } = vm.runInContext(harness, ctx);
 
 (async () => {
   const stats = { ok: 0, draw: 0, crashed: 0, turns: 0 };
@@ -86,6 +92,7 @@ const { oneMatch } = vm.runInContext(harness, ctx);
   }
   console.log(`${N} matches: ${stats.ok} finished, ${stats.draw} hit the turn limit, ${stats.crashed} crashed. Average ${(stats.turns / N).toFixed(1)} turns.`);
   for (const [k, v] of crashes) console.log(`\nCRASH x${v.count}: ${k}\n  just before: ${v.last}`);
+  if (benchEquips.length) console.log(`\nRULE BROKEN ${benchEquips.length}x, e.g. ${benchEquips[0]}`);
   if (warnings.size) { console.log('\nWarnings:'); for (const [k, v] of warnings) console.log(`  x${v}  ${k}`); }
   const never = vm.runInContext('CARDS', ctx).filter(c => !played.has(c.id)).map(c => c.id + ' ' + c.name);
   if (never.length) console.log(`\nNever seen in play (${never.length}): ${never.join(', ')}`);

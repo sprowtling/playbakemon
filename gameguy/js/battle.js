@@ -321,7 +321,7 @@ function legalActions(G, P) {
     } else {
       const item = ITEMS[id] || {};
       let ok = !G.t.lockTurn && !item.todo && (item.equip || item.ops);
-      if (ok && item.equip) ok = zone(P).some(m => !m.equip);
+      if (ok && item.equip) ok = !!P.active && !P.active.equip;      // only the active Bakemon can wear an item (rules page)
       if (ok && item.equip === 'notepad') ok = notepadChoices(other(G, P)).length > 0;
       if (ok && item.ops) ok = item.ops.every(op => itemOpPossible(G, P, op));
       if (ok) actions.push({ type: 'item', handIndex, cardId: id, label: 'Use ' + card.name });
@@ -453,7 +453,7 @@ async function perform(G, P, action) {
       const id = P.hand.splice(action.handIndex, 1)[0], card = CARD_BY_ID[id], item = ITEMS[id];
       await say2(G, subj(P, 'uses') + ' ' + card.name + '.', { cardId: id });
       if (item.equip) {
-        const mon = await pick(G, P, zone(P).filter(m => !m.equip), 'equipTo', 'Equip ' + card.name + ' to which Bakemon?');
+        const mon = P.active;
         mon.equip = id;
         if (item.equip === 'notepad') await copyIntoNotepad(G, P, mon);
         if (item.equip === 'blocksWeakness' && mon.card.weak.length) {
@@ -1183,7 +1183,7 @@ async function runOps(G, ctx, ops) {
     }
     else if (op.stealEquip) {
       const t = ctx.target;
-      if (!t || !t.equip || me.equip || t === me) continue;
+      if (!t || !t.equip || me.equip || t === me || P.active !== me) continue;
       if (!(await flip(G, 'Rascal'))) { me.equip = t.equip; me.borrowedFrom = t; t.equip = null; t.helmet = null; await say2(G, me.card.name + ' swipes ' + CARD_BY_ID[me.equip].name + '!', { mon: me }); }
     }
     else if (op.delusion)    me.effects.push({ kind: 'delusion', expires: until(1) });

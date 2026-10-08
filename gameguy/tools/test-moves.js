@@ -515,6 +515,19 @@ await test('Secret Frequency: both draw, and the opponent shows theirs', async (
 });
 
 /* ================= items ================= */
+await test('Equipping: only the active Bakemon, and retreating discards it', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['105'] }, { active: 'Raizado' });
+  const P = G.players[0];
+  ok(ctx.legalActions(G, P).some(a => a.type === 'item'), 'an item can be played with a free active');
+  await ctx.perform(G, P, { type: 'item', handIndex: 0, cardId: '105' });
+  eq(act(G, 0).equip, '105', 'the active wears it'); eq(bn(G, 0).equip, null, 'the bench does not');
+  P.hand = ['109'];
+  eq(ctx.legalActions(G, P).some(a => a.type === 'item'), false, 'a second equip has nowhere to go (bench is not allowed)');
+  const wearer = act(G, 0);
+  await ctx.switchActive(G, P, bn(G, 0));
+  eq(wearer.equip, null, 'retreating discards the item'); ok(P.discard.includes('105'), 'into the discard pile');
+});
+
 await test('Lyza: draws to a basic, discarding items on the way', async () => {
   const G = game({ active: 'Poteplant' }, { active: 'Raizado' });
   const P = G.players[0]; P.deck = [idOf('Poteplant'), '101', '102', idOf('Vasflor')];      // top of the deck is the END of the list
