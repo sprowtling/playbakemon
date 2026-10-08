@@ -36,10 +36,10 @@ const PRACTICE_BOTS = [
     name: 'Pip',
     difficulty: 'Easy',
     mistakes: 0.45,
-    blurb: 'A gentle garden deck. Slow, sturdy, and easily distracted.',
-    hello: "Oh! Hi! I just learned how to play. Be nice?",
-    ifYouWin: "Good game! Can we play again? I'll water my plants first.",
-    ifYouLose: "I WON? Wait, really? Can I tell everyone?",
+    blurb: 'Garden variety Bakemon. Slow, sturdy, and easily distracted.',
+    hello: "Oh, hi! I just learned how to play. Be nice?",
+    ifYouWin: "Good game! Can we play again after I water my plants?",
+    ifYouLose: "I WON??!",
     cards: {
       '001': 3,  // Poteplant
       '002': 3,  // Vasflor
@@ -62,9 +62,9 @@ const PRACTICE_BOTS = [
     name: 'Cinder',
     difficulty: 'Medium',
     mistakes: 0.2,
-    blurb: 'All fire, all the time. Hits hard early and burns what it can.',
-    hello: "Hope you brought water. Not that it'll help.",
-    ifYouWin: "Tch. Next time I'm not holding back.",
+    blurb: 'All fire, all the time. Burninating the whole town.',
+    hello: "Hope you brought water... for your sake. You know, in case you get thirsty.",
+    ifYouWin: "Erm... uhh... I let you win!",
     ifYouLose: "Burned to a crisp. Better luck next time!",
     cards: {
       '017': 3,  // Kidding
@@ -89,11 +89,11 @@ const PRACTICE_BOTS = [
     id: 'brine',
     name: 'Brine',
     difficulty: 'Medium',
-    mistakes: 0.2,
-    blurb: 'Water and ice. Patient, slippery, and fond of freezing things.',
-    hello: "The tide always comes in. Shall we?",
-    ifYouWin: "Well played. The current was with you today.",
-    ifYouLose: "Washed away. It happens to everyone eventually.",
+    mistakes: 0.25,
+    blurb: 'Water and ice. Wait, ice is also water, isn't it?',
+    hello: "Ready for the tide to come in?",
+    ifYouWin: "Well played. The tide was with you today.",
+    ifYouLose: "Washed away. Happens to everyone.",
     cards: {
       '004': 3,  // Leapod
       '005': 2,  // Leapol
@@ -118,10 +118,10 @@ const PRACTICE_BOTS = [
     name: 'Nyx',
     difficulty: 'Hard',
     mistakes: 0,
-    blurb: 'Dark and psychic, with a legend in reserve. Never misplays.',
-    hello: "...",
-    ifYouWin: "Interesting. I'll remember that.",
-    ifYouLose: "As expected.",
+    blurb: 'A powerful dark and psychic challenge.',
+    hello: "glhf i guess.",
+    ifYouWin: "...bkmn diff.",
+    ifYouLose: "hahahaha ggz",
     cards: {
       '013': 3,  // Shadopillar
       '014': 3,  // Phantoplume
@@ -154,7 +154,7 @@ const BORROW_DECKS = [
 
   {
     id: 'spark',
-    name: 'Spark & Steel',
+    name: "Sparky's Pack",
     blurb: 'Electric attackers that power each other up.',
     cards: {
       '010': 3,  // Paravolt
