@@ -498,6 +498,22 @@ await test('Eclidyr cannot evolve without five kinds of energy', async () => {
   eq(E.canEvolveOnto(G, G.players[0], act(G, 0), ionodyr), true, 'five kinds');
 });
 
+await test('Hungry Ghost: 10 less max HP per psychic energy, and it comes back', async () => {
+  const G = game({ active: 'Necrozoa' }, { active: 'Raizado' });
+  const n = act(G, 0), full = n.maxHp;
+  await ctx.dealDamage(G, null, n, 30, {});
+  await ctx.attachEnergy(G, n, 'psychic'); await ctx.attachEnergy(G, n, 'psychic');
+  eq(n.maxHp, full - 20, 'max HP after two psychic'); eq(n.hp, full - 30 - 20, 'HP keeps the same damage');
+  await ctx.attachEnergy(G, n, 'fire'); eq(n.maxHp, full - 20, 'other energy does nothing');
+  n.energy.splice(n.energy.indexOf('psychic'), 1); await ctx.checkKOs(G);
+  eq(n.maxHp, full - 10, 'one psychic gone'); eq(n.hp, full - 30 - 10, 'HP comes back with it');
+});
+await test('Secret Frequency: both draw, and the opponent shows theirs', async () => {
+  const G = game({ active: 'Octovox' }, { active: 'Raizado' });
+  await ability(G, 0, act(G, 0), 'Secret Frequency');
+  ok(/shows Poteplant/.test(log(G)), 'the drawn card is named: ' + log(G));
+});
+
 /* ================= items ================= */
 await test('Lyza: draws to a basic, discarding items on the way', async () => {
   const G = game({ active: 'Poteplant' }, { active: 'Raizado' });

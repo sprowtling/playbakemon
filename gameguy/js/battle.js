@@ -434,7 +434,7 @@ async function perform(G, P, action) {
       // it to block evolving again the same turn. Resetting it on every evolution let a
       // Bakemon evolve twice in one turn (e.g. Sparkeet->Amptiel then, in the same turn,
       // straight into whatever Amptiel evolves into), which is illegal.
-      mon.auras = []; mon.sleepHeal = 0;
+      mon.auras = []; mon.sleepHeal = 0; mon.hunger = 0;
       if (G.rules.evolveClearsStatus) { mon.status = {}; mon.poisonDoubling = 0; }
       await enterPlay(G, P, mon);
       break;
@@ -505,7 +505,7 @@ async function enterPlay(G, P, mon) {
 async function attachEnergy(G, mon, type) {
   mon.energy.push(type);
   await say2(G, mon.card.name + ' gains ' + type + ' energy.', { mon, kind: 'energy' });
-  if (hasTag(mon, 'hurtByEnergy')) { await dealDamage(G, null, mon, 10, { why: 'its hunger' }); await checkKOs(G); }
+  if (hasTag(mon, 'hungerShrink')) await checkKOs(G);          // Necrozoa: let its max HP catch up
 }
 
 // Going to the bench: statuses fall away and equipment is discarded (rules page).
@@ -743,8 +743,21 @@ async function discardEnergyFrom(G, P, mon, type) {
 
 /* ---------------- knock-outs and winning ---------------- */
 
+// Necrozoa's Hungry Ghost: 10 less max HP for every psychic energy on it. The damage it has
+// taken stays the same, so its HP moves with its max HP, and both come back when the energy goes.
+async function syncHunger(G) {
+  for (const Q of G.players) for (const m of zone(Q)) {
+    const want = hasTag(m, 'hungerShrink') ? 10 * m.energy.filter(e => e === 'psychic').length : 0;
+    const change = want - (m.hunger || 0);
+    if (!change) continue;
+    m.maxHp -= change; m.hp -= change; m.hunger = want;
+    await say2(G, m.card.name + (change > 0 ? ' withers. Max HP ' : ' recovers. Max HP ') + m.maxHp + '.', { mon: m });
+  }
+}
+
 async function checkKOs(G) {
   if (G.winner) return;
+  await syncHunger(G);
   const hadWeather = currentWeather(G);
   for (const P of G.players) {
     for (const mon of zone(P)) if (mon.hp <= 0) {
@@ -972,7 +985,12 @@ async function runOps(G, ctx, ops) {
     }
 
     else if (op.draw)     await say2(G, subj(P, 'draws') + ' ' + (await drawCards(G, P, op.draw)) + '.');
-    else if (op.bothDraw) { await drawCards(G, P, op.bothDraw); await drawCards(G, enemy, op.bothDraw); await say2(G, 'Both players draw a card.'); }
+    else if (op.bothDraw) {
+      await drawCards(G, P, op.bothDraw);
+      const got = await drawCards(G, enemy, op.bothDraw);
+      const shown = enemy.hand.slice(enemy.hand.length - got);                // the opponent must show theirs
+      await say2(G, 'Both players draw. ' + subj(enemy, 'shows') + ' ' + (shown.map(id => CARD_BY_ID[id].name).join(', ') || 'nothing') + '.', shown[0] ? { cardId: shown[0] } : {});
+    }
     else if (op.opponentDiscards) for (let i = 0; i < op.opponentDiscards && enemy.hand.length; i++) {
       const id = enemy.hand.splice(Math.floor(Math.random() * enemy.hand.length), 1)[0];
       enemy.discard.push(id); await say2(G, subj(enemy, 'discards') + ' ' + CARD_BY_ID[id].name + '.', { cardId: id });
@@ -1187,7 +1205,7 @@ const fluttershineBonus = (P, move) => (P.active && hasTag(P.active, 'fluttershi
 // Energy that MOVES (rather than being freshly attached) still feeds Necrozoa's hunger.
 async function attachEnergySilently(G, mon, type) {
   mon.energy.push(type);
-  if (hasTag(mon, 'hurtByEnergy')) await dealDamage(G, null, mon, 10, { why: 'its hunger' });
+
 }
 
 
@@ -1208,10 +1226,11 @@ async function runDelayed(G, P) {
     }
     else if (d.kind === 'stones') {
       await say2(G, d.n + ' stone' + (d.n === 1 ? '' : 's') + ' crash down!');
-      for (let i = 0; i < d.n; i++) {                       // each stone picks a random Bakemon, active or benched
+      for (let i = 0; i < d.n; i++) {                       // the caster aims each stone, active or benched
         const targets = zone(foe).filter(m => m.hp > 0);
         if (!targets.length) break;
-        await dealDamage(G, null, targets[Math.floor(Math.random() * targets.length)], d.each, { why: 'a falling stone' });
+        const hit = await pick(G, caster, targets, 'hurt', 'Where does stone ' + (i + 1) + ' of ' + d.n + ' land?');
+        await dealDamage(G, null, hit, d.each, { why: 'a falling stone' });
       }
     }
     else if (d.kind === 'tongue') {
