@@ -289,6 +289,7 @@ let botEntry = null;            // the PRACTICE_BOTS entry we're playing
 let lastSetup = null;           // { botId, deckValue } for "rematch"
 let pending = null;             // what the engine is waiting on from you: { kind: 'action' | 'ask', ... , resolve }
 let subPick = null;             // after clicking an evolution card: the actions you can choose between by clicking a Bakemon
+let uiPick = null;              // choosing a Bakemon for energy or retreat BEFORE committing (so it can be cancelled): { prompt, mons, onPick }
 let skipping = false;           // "skip to my turn"
 let botDelay = 550;
 
@@ -463,7 +464,7 @@ function addLog(text, cls) {
 
 function answer(value) {
   const p = pending;
-  pending = null; subPick = null;
+  pending = null; subPick = null; uiPick = null;
   hideChoices();
   if (p) p.resolve(value);
   renderAll();
@@ -500,6 +501,7 @@ function effectBadges(mon) {
 function monClasses(mon) {
   if (pending && pending.kind === "ask" && pending.req.kind === "mon" && pending.req.options.includes(mon)) return "pickable";
   if (subPick && subPick.some(a => a.mon === mon)) return "pickable";
+  if (uiPick && uiPick.mons.includes(mon)) return "pickable";
   return "";
 }
 
@@ -609,8 +611,8 @@ function renderActionBar() {
     <button class="small" id="end-turn-btn">End Turn</button>
     <button class="small" id="give-up-btn" style="margin-top:6px; opacity:0.8;">Give Up</button>`;
   document.getElementById("attack-btn").onclick = () => openMonMenu(me.active);
-  if (energy) document.getElementById("energy-btn").onclick = () => answer(energy);
-  if (retreat) document.getElementById("retreat-btn").onclick = () => answer(retreat);
+  if (energy) document.getElementById("energy-btn").onclick = () => startEnergy(energy);
+  if (retreat) document.getElementById("retreat-btn").onclick = () => startRetreat(retreat);
   document.getElementById("end-turn-btn").onclick = () => answer(of("endTurn")[0]);
   document.getElementById("give-up-btn").onclick = () => {
     if (!confirm("Give up this practice match?")) return;
@@ -623,6 +625,7 @@ function renderHint() {
   const hint = document.getElementById("selection-hint");
   if (!G || G.winner || G.draw) { hint.textContent = ""; return; }
   if (pending && pending.kind === "ask" && pending.req.kind === "mon") hint.textContent = pending.req.prompt || "Choose a Bakemon.";
+  else if (uiPick) hint.textContent = uiPick.prompt;
   else if (subPick) hint.textContent = "Click the Bakemon to evolve (it's outlined). Click the card in your hand again to cancel.";
   else if (pending && pending.kind === "action") hint.textContent = "Your turn. Play outlined cards from your hand, or click one of your Bakemon to use its moves.";
   else if (pending && pending.kind === "ask") hint.textContent = "";
@@ -655,7 +658,7 @@ function openMonMenu(mon) {
     }
     for (const a of usable.filter(x => x.notepad)) items.push({ html: moveButtonHtml(a.move, "From the Notepad"), run: () => answer(a) });
     const retreat = acts.find(a => a.type === "retreat");
-    if (retreat) items.push({ html: `<span class="choice-top">${escapeHtml(retreat.label)}</span>`, run: () => answer(retreat) });
+    if (retreat) items.push({ html: `<span class="choice-top">${escapeHtml(retreat.label)}</span>`, run: () => startRetreat(retreat) });
   }
   if (!items.length) { flashHint(`${mon.card.name} has nothing it can do right now.`); return; }
   showChoices(mon.card.name, items, true);
@@ -680,7 +683,7 @@ function showChoices(title, items, cancellable) {
   panel.style.display = "flex";
   panel.querySelectorAll("[data-choice]").forEach(btn => btn.onclick = () => { const it = items[+btn.dataset.choice]; if (it.run) { hideChoices(); it.run(); } });
   const cancel = document.getElementById("choice-cancel");
-  if (cancel) cancel.onclick = hideChoices;
+  if (cancel) cancel.onclick = () => { hideChoices(); if (uiPick) { uiPick = null; renderAll(); } };
 }
 function hideChoices() { const p = document.getElementById("choice-panel"); p.style.display = "none"; p.innerHTML = ""; }
 
@@ -690,6 +693,34 @@ function flashHint(text) {
   hint.textContent = text;
   clearTimeout(flashTimer);
   flashTimer = setTimeout(renderHint, 2500);
+}
+
+// Attach Energy: pick a Bakemon, then a type. Nothing happens until both are chosen, so Cancel is always safe.
+function startEnergy(action) {
+  const targets = energyTargets(G, me);
+  const chooseType = mon => {
+    uiPick = null;
+    showChoices("Which type of energy for " + mon.card.name + "?", Object.keys(ENERGY_COLORS).map(t => ({
+      html: `<span class="choice-top"><span class="energy-dot" style="background:${ENERGY_COLORS[t]}"></span>${escapeHtml(t)}</span>`,
+      run: () => answer(Object.assign({}, action, { mon, energyType: t })),
+    })), true);
+    renderAll();
+  };
+  if (targets.length === 1) return chooseType(targets[0]);
+  uiPick = { prompt: "Attach energy to which Bakemon? Click one on the table, or Cancel.", mons: targets, onPick: chooseType };
+  showChoices("Attach energy to which Bakemon?", targets.map(m => ({ html: `<span class="choice-top">${escapeHtml(m.card.name)} · ${Math.max(0, m.hp)}/${m.maxHp}</span>`, run: () => chooseType(m) })), true);
+  renderAll();
+}
+
+// Retreat: pick who steps up first, so you can change your mind before any energy is spent.
+function startRetreat(action) {
+  const options = me.bench.filter(Boolean);
+  const cost = me.active.card.retreat;
+  const go = mon => answer(Object.assign({}, action, { promote: mon }));
+  uiPick = { prompt: "Retreat " + me.active.card.name + ": who takes its place? Click one, or Cancel.", mons: options, onPick: go };
+  showChoices("Retreat " + me.active.card.name + (cost ? " (costs " + cost + " energy)" : " (free)") + ". Who takes its place?",
+    options.map(m => ({ html: `<span class="choice-top">${escapeHtml(m.card.name)} · ${Math.max(0, m.hp)}/${m.maxHp}</span>`, run: () => go(m) })), true);
+  renderAll();
 }
 
 /* ---------------- clicking ---------------- */
@@ -711,6 +742,7 @@ document.getElementById("lightbox-overlay").addEventListener("click", () => { do
 
 function clickMon(mon) {
   if (!mon || !pending) return;
+  if (uiPick) { if (uiPick.mons.includes(mon)) uiPick.onPick(mon); return; }
   if (pending.kind === "ask" && pending.req.kind === "mon") {
     if (pending.req.options.includes(mon)) answer(mon);
     return;
@@ -725,6 +757,7 @@ function clickMon(mon) {
 
 function clickHand(i) {
   if (!pending || pending.kind !== "action") return;
+  if (uiPick) { uiPick = null; hideChoices(); }
   if (subPick && subPick[0].handIndex === i) { subPick = null; renderAll(); return; }
   const acts = pending.actions.filter(a => a.handIndex === i);
   const card = CARD_BY_ID[me.hand[i]];

@@ -292,7 +292,7 @@ const ITEMS = {
   '115': { ops: [{ evolveFreelyThisTurn: true }] },
   '116': { ops: [{ transmute: true }] },
   '117': { ops: [{ removeEnemyEquip: true }] },
-  '118': { ops: [{ digForEvolution: { penaltyOver: 6, discard: 5 } }], approx: 'the five discards are chosen at random' },
+  '118': { ops: [{ digForEvolution: { penaltyOver: 6, discard: 5 } }] },
   '119': { ops: [{ cure: 'all', who: 'any', activeOnly: true, withStatus: 'any' }] },
   '120': { ops: [{ drawUntilBasic: true }] },
 };
