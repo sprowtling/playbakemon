@@ -287,6 +287,7 @@ async function endTurn(G, P) {
 
 function canEvolveOnto(G, P, mon, card) {
   if (card.kind !== 'bakemon' || card.stage === 'basic' || card.from !== mon.card.name) return false;
+  if (mon.evolvedTurn === G.turnNumber) return false;          // a Bakemon evolves at most once a turn (stage one -> two waits)
   const sameTurn = mon.playedTurn === G.turnNumber;
   const lifeCycle = P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass');
   if (sameTurn && !G.t.evolveFreely && !lifeCycle) return false;
@@ -429,11 +430,9 @@ async function perform(G, P, action) {
       const damageTaken = mon.maxHp - mon.hp;
       mon.card = card; mon.stack.push(card.id);
       mon.maxHp = card.hp; mon.hp = Math.max(10, card.hp - damageTaken);       // damage carries over
-      // NOTE: playedTurn is NOT touched here. It marks when this Bakemon (the physical
-      // card stack) first entered play, not when it last evolved — canEvolveOnto() uses
-      // it to block evolving again the same turn. Resetting it on every evolution let a
-      // Bakemon evolve twice in one turn (e.g. Sparkeet->Amptiel then, in the same turn,
-      // straight into whatever Amptiel evolves into), which is illegal.
+      // playedTurn stays as it was (when this card stack first entered play: Birthday Boy and
+      // Life Cycle bend THAT rule). evolvedTurn is what stops a second evolution this turn.
+      mon.evolvedTurn = G.turnNumber;
       mon.auras = []; mon.sleepHeal = 0; mon.hunger = 0;
       if (G.rules.evolveClearsStatus) { mon.status = {}; mon.poisonDoubling = 0; }
       await enterPlay(G, P, mon);
@@ -441,8 +440,10 @@ async function perform(G, P, action) {
     }
 
     case 'energy': {
-      const mon = await pick(G, P, energyTargets(G, P), 'energyTo', 'Attach energy to which Bakemon?');
-      const type = await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon, prompt: 'Which type of energy?',
+      // The screen may have asked already (so you could cancel); otherwise ask now.
+      const targets = energyTargets(G, P);
+      const mon = targets.includes(action.mon) ? action.mon : await pick(G, P, targets, 'energyTo', 'Attach energy to which Bakemon?');
+      const type = ENERGY_COLORS[action.energyType] ? action.energyType : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon, prompt: 'Which type of energy?',
         options: Object.keys(ENERGY_COLORS).map(t => ({ label: t, value: t, energy: t })) });
       if (G.t.energyUsed < G.rules.energyPerTurn) G.t.energyUsed += 1; else G.t.cableUsed[mon.uid] = true;
       await attachEnergy(G, mon, type);
@@ -479,9 +480,10 @@ async function perform(G, P, action) {
 
     case 'retreat': {
       const a = P.active;
+      const incoming = bench(P).includes(action.promote) ? action.promote : null;
       for (let i = 0; i < a.card.retreat; i++) await discardEnergyFrom(G, P, a, null);
       G.t.retreats += 1;
-      await switchActive(G, P, await pick(G, P, bench(P), 'promote', 'Who takes its place?'));
+      await switchActive(G, P, incoming || await pick(G, P, bench(P), 'promote', 'Who takes its place?'));
       break;
     }
 
@@ -907,7 +909,8 @@ async function runOps(G, ctx, ops) {
     else if (op.debuffTarget || op.targetMisses || op.targetMustFlip || op.cantRetreat || op.noEnergy) {
       const mon = await selectMon(G, ctx, op.on || 'target', op, 'hurt', '');
       if (!mon) continue;
-      if (op.debuffTarget)   mon.effects.push({ kind: 'dmgDebuff', amount: op.debuffTarget, expires: until(2 * op.turns - 1) });
+      const theirTurnNow = G.players[G.turn] === ownerOf(G, mon);         // e.g. Contact Zap fires while they're attacking
+      if (op.debuffTarget)   mon.effects.push({ kind: 'dmgDebuff', amount: op.debuffTarget, expires: until(2 * op.turns - (theirTurnNow ? 0 : 1)) });
       if (op.targetMisses)   mon.effects.push({ kind: 'missNext', expires: until(1) });
       if (op.targetMustFlip) mon.effects.push({ kind: 'mustFlip', expires: until(1) });
       if (op.cantRetreat)    mon.effects.push({ kind: 'cantRetreat', expires: until(1) });
@@ -1018,8 +1021,17 @@ async function runOps(G, ctx, ops) {
       let drawn = 0;
       while (P.deck.length) { const id = P.deck.pop(); P.hand.push(id); drawn++; if (wanted(id)) break; }
       await say2(G, subj(P, 'draws') + ' ' + drawn + ' card' + (drawn === 1 ? '' : 's') + '.');
-      if (drawn > op.digForEvolution.penaltyOver) for (let i = 0; i < op.digForEvolution.discard && P.hand.length; i++)
-        P.discard.push(P.hand.splice(Math.floor(Math.random() * P.hand.length), 1)[0]);
+      if (drawn > op.digForEvolution.penaltyOver) {
+        const n = Math.min(op.digForEvolution.discard, P.hand.length);
+        await say2(G, 'That was more than ' + op.digForEvolution.penaltyOver + ' cards, so ' + (P.isHuman ? 'you' : P.name) + ' must discard ' + n + '.');
+        for (let i = 0; i < n; i++) {
+          const idx = P.hand.length === 1 ? 0 : await P.controller.ask(G, P, { kind: 'option', purpose: 'discardFromHand', prompt: 'Discard a card from your hand (' + (i + 1) + ' of ' + n + ')',
+            options: P.hand.map((id, handIndex) => ({ label: CARD_BY_ID[id].name, value: handIndex, cardId: id })) });
+          const id = P.hand.splice(idx, 1)[0];
+          P.discard.push(id);
+          await say2(G, subj(P, 'discards') + ' ' + CARD_BY_ID[id].name + '.', { cardId: id });
+        }
+      }
     }
     else if (op.evolveFreelyThisTurn) G.t.evolveFreely = true;
     else if (op.freeRetreat) { if (bench(P).length) await switchActive(G, P, await pick(G, P, bench(P), 'promote', 'Who comes out instead?')); }

@@ -514,7 +514,49 @@ await test('Secret Frequency: both draw, and the opponent shows theirs', async (
   ok(/shows Poteplant/.test(log(G)), 'the drawn card is named: ' + log(G));
 });
 
+await test('Evolving: stage one to stage two must wait a turn', async () => {
+  const G = game({ active: 'Poteplant', hand: [idOf('Vasflor'), idOf('Raizado')] }, { active: 'Leapod' });
+  const P = G.players[0], mon = act(G, 0);
+  mon.playedTurn = 2;                                                 // it has been in play for a while
+  const evo = () => ctx.legalActions(G, P).filter(a => a.type === 'evolve');
+  eq(evo().length, 1, 'Poteplant can become Vasflor');
+  await ctx.perform(G, P, evo()[0]);
+  eq(mon.card.name, 'Vasflor', 'evolved');
+  eq(evo().length, 0, 'Raizado is NOT offered the same turn');
+  G.turnNumber += 2;
+  eq(evo().length, 1, 'next turn it is');
+});
+await test('Contact Zap: the attacker does no damage on its NEXT turn', async () => {
+  const G = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: 'Torshock', big: ['Torshock'] });
+  G.turn = 0;
+  const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  rig(HEADS); await ctx.resolveAttack(G, G.players[0], act(G, 0), hit);
+  ok(act(G, 0).status.paralyzed, 'paralyzed');
+  await ctx.endTurn(G, G.players[0]);                                 // my turn ends
+  G.turnNumber = 11; G.turn = 1; await ctx.endTurn(G, G.players[1]);  // Torshock's turn ends
+  G.turnNumber = 12; G.turn = 0;                                      // my next turn
+  ok(act(G, 0).effects.some(e => e.kind === 'dmgDebuff' && e.amount >= 999), 'still unable to do damage on my next turn');
+  const hp = act(G, 1).hp; await ctx.resolveAttack(G, G.players[0], act(G, 0), hit);
+  eq(act(G, 1).hp, hp, 'no damage');
+});
+
 /* ================= items ================= */
+await test('Moira: you choose the five discards, and they are named', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['102'] }, { active: 'Raizado' }, [{ discardFromHand: (G, P, req) => req.options[0].value }]);
+  const P = G.players[0];
+  P.deck = [idOf('Leapol')].concat(Array(7).fill('101'));            // the evolution is 8 cards down (top of deck = end of list)
+  await ctx.runOps(G, { P, self: act(G, 0), target: act(G, 1) }, [{ digForEvolution: { penaltyOver: 6, discard: 5 } }]);
+  eq(P.discard.length, 5, 'five discarded'); ok(P.hand.includes(idOf('Leapol')), 'kept the card it was digging for');
+  ok(/discards Bill/.test(log(G)) && /discards Band-aid/.test(log(G)), 'each discard is named');
+});
+await test('Energy and retreat accept a choice made in advance', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Leapod', 'Musherus'], energy: { Poteplant: ['grass'] } }, { active: 'Raizado' });
+  const P = G.players[0], leapod = bn(G, 0, 0), musherus = bn(G, 0, 1);
+  await ctx.perform(G, P, { type: 'energy', mon: leapod, energyType: 'water' });
+  eq(leapod.energy.join(), 'water', 'attached where and what we said');
+  await ctx.perform(G, P, { type: 'retreat', promote: musherus });
+  eq(act(G, 0), musherus, 'the chosen Bakemon stepped up');
+});
 await test('Equipping: only the active Bakemon, and retreating discards it', async () => {
   const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['105'] }, { active: 'Raizado' });
   const P = G.players[0];

@@ -133,6 +133,14 @@ function makeAI(style) {
         case 'delusionAmount': return opts[opts.length - 1].value;                    // hand back as much as allowed
         case 'delusionOwn': return opts.slice().sort((a, b) => b.hp - a.hp)[0];
         case 'purify': return (opts.filter(o => mine(o.value.mon))[0] || opts[0]).value;
+        case 'discardFromHand': {                                                     // Moira: let go of what's least useful
+          const inPlay = new Set(zone(P).map(m => m.card.name));
+          const worth = o => { const c = CARD_BY_ID[o.cardId];
+            if (c.kind === 'item') return 1;
+            if (c.stage === 'basic') return 3;
+            return inPlay.has(c.from) ? 4 : 0; };                                   // an evolution with nothing to evolve is dead weight
+          return opts.slice().sort((a, b) => worth(a) - worth(b))[0].value;
+        }
         case 'optional':                                                              // "Return to the bench?" only when it's hurting
           return /bench\?/.test(req.prompt) ? !!P.active && P.active.hp <= P.active.maxHp * 0.5 : true;
         case 'whoseHand': case 'whoseDiscard': return P.index;
