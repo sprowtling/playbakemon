@@ -14,6 +14,11 @@
    Energy isn't a card here (the playmat doesn't use energy cards
    either), so a deck is just Bakemon and items.
 
+   TEXT IN QUOTES: if a line has an apostrophe in it (isn't, I'll),
+   wrap it in "double quotes", like the hello lines below. Inside
+   'single quotes' the apostrophe ends the text early and the whole
+   file stops working.
+
    If a deck breaks a rule or names a card that doesn't exist, the
    practice page still loads, but it lists the problem in yellow on
    the setup screen so you can fix it.
@@ -90,7 +95,7 @@ const PRACTICE_BOTS = [
     name: 'Brine',
     difficulty: 'Medium',
     mistakes: 0.25,
-    blurb: 'Water and ice. Wait, ice is also water, isn't it?',
+    blurb: "Water and ice. Wait, ice is also water, isn't it?",
     hello: "Ready for the tide to come in?",
     ifYouWin: "Well played. The tide was with you today.",
     ifYouLose: "Washed away. Happens to everyone.",
