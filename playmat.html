@@ -556,8 +556,8 @@ const ENERGY_TYPES = [
 ];
 const STATUS_TYPES = ["poisoned", "burned", "sleeping", "paralyzed", "frozen", "quaked", "haunted", "taunted", "confused", "enraged"];
 // Lasting effects from attacks and abilities (the same words the Practice Mat uses). Shown in teal, beside statuses.
-const BUFF_TYPES = ["guarded", "powered up", "weakened", "can't retreat", "flinching", "will miss", "must flip", "no energy",
-  "move disabled", "retaliates", "reflects", "thorns", "barbed", "focused", "delusion"];
+const BUFF_TYPES = ["guarded", "powered up", "must flip", "no energy",
+  "move disabled", "retaliates", "reflects", "barbed", "focused"];
 // Read-only buff badges, for the opponent's and spectators' view.
 const buffBadges = slot => (slot && slot.buffs || []).map(b => `<span class="buff-badge">${b}</span>`).join("");
 const HELP_TEXT = "Chat commands (only you can see this):\n"
