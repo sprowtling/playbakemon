@@ -338,6 +338,13 @@ async function initSetup() {
   currentPlayer = window.getBakemonPlayer();
   if (!currentPlayer) { location.href = "index.html"; return; }
   const status = document.getElementById("setup-status");
+  if (typeof PRACTICE_BOTS === "undefined" || typeof BORROW_DECKS === "undefined") {
+    // practice-bots.js didn't load: almost always a typo in it (the browser console names the line).
+    document.getElementById("bot-list").innerHTML = "";
+    document.getElementById("setup-warnings").innerHTML = "<strong>practice-bots.js has a typo, so the bots couldn't load.</strong><br>"
+      + "The most common one is an apostrophe inside 'single quotes'. The browser console (F12) names the line.";
+    return;
+  }
   status.textContent = "Loading cards...";
 
   const { data: rows, error } = await supabaseClient.from("cards").select("*").order("card_number");
@@ -415,7 +422,7 @@ async function startMatch(botId, deckValue) {
   let deck;
   try { deck = await loadChosenDeck(deckValue); } catch (err) { console.error(err); status.textContent = "Couldn't load that deck. Try again."; return; }
   if (!deck.cards.some(isBasic)) { status.textContent = "That deck has no basic Bakemon, so it can't start a match."; return; }
-  lastSetup = { botId, deckValue };
+  lastSetup = { botId, deckValue, deckName: deck.name, borrowed: deckValue.startsWith("borrow:") };
 
   const human = {
     chooseAction: (G, P, actions) => new Promise(resolve => { skipping = false; subPick = null; pending = { kind: "action", actions, resolve }; renderAll(); }),
@@ -769,6 +776,23 @@ function clickHand(i) {
 
 /* ---------------- the end ---------------- */
 
+// Practice results go to their own table (practice_matches), never match_history,
+// so they show on the profile under "Recent Practice Matches" and never touch rank.
+async function savePracticeResult(result) {
+  const { error } = await supabaseClient.from("practice_matches").insert({
+    player_id: currentPlayer.id,
+    bot_id: botEntry.id,
+    bot_name: botEntry.name,
+    bot_difficulty: botEntry.difficulty || null,
+    deck_name: lastSetup.deckName,
+    borrowed: lastSetup.borrowed,
+    result,
+    turns: G.turnNumber,
+  });
+  if (error) { console.error("Couldn't save the practice result:", error); return false; }
+  return true;
+}
+
 function showResult(result) {
   pending = null; subPick = null; hideChoices();
   renderAll();
@@ -778,7 +802,7 @@ function showResult(result) {
     <h2>${escapeHtml(words)}</h2>
     ${line ? `<p><em>${escapeHtml(bot.name)}: “${escapeHtml(line)}”</em></p>` : ""}
     ${result === "broken" ? "<p>A card effect hit a bug. If you can, tell Claude which cards were in play (the details are in the browser console).</p>" : ""}
-    <p style="font-size:11px; color:var(--text-muted);">Practice matches don't count toward your rank.</p>
+    <p style="font-size:11px; color:var(--text-muted);" id="save-note">Practice matches don't count toward your rank.</p>
     <div class="buttons">
       <button class="primary" id="rematch-btn">Rematch</button>
       <button id="change-btn">Change opponent or deck</button>
@@ -793,6 +817,14 @@ function showResult(result) {
     G = null;
   };
   document.getElementById("look-btn").onclick = () => { document.getElementById("result-panel").style.display = "none"; };
+
+  if (result !== "broken") {                  // a match a bug broke isn't anyone's win or loss
+    const note = document.getElementById("save-note");
+    savePracticeResult(result).then(saved => {
+      note.textContent = saved ? "Saved to your profile's practice record. Practice matches don't count toward your rank."
+                               : "Couldn't save this result to your profile (it doesn't affect your rank either way).";
+    });
+  }
 }
 
 document.getElementById("speed-select").addEventListener("change", e => { botDelay = +e.target.value; });

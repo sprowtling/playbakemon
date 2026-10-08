@@ -53,6 +53,8 @@
     margin-bottom: 20px;
   }
   #best-deck strong { color: var(--accent); }
+  #practice-record { font-size: 12px; color: var(--text-muted); margin: -4px 0 8px; }
+  #practice-record strong { color: var(--text-light); }
 
   .section-title {
     color: var(--accent);
@@ -325,10 +327,15 @@
   <div id="tournament-list"></div>
   <div id="tournament-empty" style="display:none; color:var(--text-muted); font-size:13px; padding:8px 0;"></div>
 
-  <div class="section-title">Recent Matches</div>
+  <div class="section-title">Recent Ranked Matches</div>
   <div id="match-list"></div>
   <div id="empty-message" style="display:none;"></div>
   <a id="see-all-link" href="#" style="display:none;">See full match history →</a>
+
+  <div class="section-title">Recent Practice Matches</div>
+  <div id="practice-record"></div>
+  <div id="practice-list"></div>
+  <div id="practice-empty" style="display:none; color:var(--text-muted); font-size:13px; padding:8px 0;"></div>
 </div>
 
 <div id="picker-backdrop">
@@ -435,7 +442,7 @@ async function init() {
     }
   }
 
-  await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory()]);
+  await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory(), loadPracticeSnapshot()]);
 }
 
 // The actual challenge list (sent and received, with Accept/Reject/Join/
@@ -617,6 +624,51 @@ async function loadMatchSnapshot() {
   const seeAll = document.getElementById("see-all-link");
   seeAll.href = `history.html?player=${targetPlayer.id}`;
   seeAll.style.display = "block";
+}
+
+// Practice matches against bots (practice.html). They live in their own table and
+// never count toward the ranked stats above.
+async function loadPracticeSnapshot() {
+  const { data, error } = await supabaseClient
+    .from("practice_matches")
+    .select("created_at, bot_name, bot_difficulty, deck_name, borrowed, result")
+    .eq("player_id", targetPlayer.id)
+    .order("created_at", { ascending: false });
+  const emptyEl = document.getElementById("practice-empty");
+  if (error) {
+    console.error("Failed to load practice matches:", error);
+    emptyEl.textContent = "Couldn't load practice matches — try refreshing.";
+    emptyEl.style.display = "block";
+    return;
+  }
+  const all = data || [];
+  if (!all.length) {
+    emptyEl.innerHTML = isOwnProfile
+      ? 'No practice matches yet — <a href="practice.html">try one against a bot</a>!'
+      : "No practice matches yet.";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  const wins = all.filter(m => m.result === "win").length;
+  const losses = all.filter(m => m.result === "loss").length;
+  const decided = wins + losses;
+  document.getElementById("practice-record").innerHTML =
+    `Record vs bots: <strong>${wins}</strong> won · <strong>${losses}</strong> lost` +
+    (all.length > decided ? ` · ${all.length - decided} drawn` : "") +
+    (decided ? ` · <strong>${Math.round((wins / decided) * 100)}%</strong> win rate` : "");
+
+  const label = { win: "Victory", loss: "Defeat", draw: "Draw" };
+  const cls = { win: "victory", loss: "defeat", draw: "no-decision" };
+  document.getElementById("practice-list").innerHTML = all.slice(0, 5).map(m => `
+      <div class="match-row ${cls[m.result]}">
+        <div class="match-info">
+          <div class="match-opponent">vs ${escapeHtml(m.bot_name)}${m.bot_difficulty ? ` <span style="font-weight:400; font-size:12px; color:var(--text-muted);">(${escapeHtml(m.bot_difficulty)})</span>` : ""}</div>
+          <div class="match-meta">${formatDate(m.created_at)} · ${m.borrowed ? "borrowed" : "played"} ${escapeHtml(m.deck_name || "a deck")}</div>
+        </div>
+        <div class="match-outcome ${cls[m.result]}">${label[m.result]}</div>
+      </div>
+    `).join("");
 }
 
 async function loadFavorites() {
