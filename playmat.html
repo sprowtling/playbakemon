@@ -963,13 +963,44 @@ function handleMatchEndedByOpponent() {
   setTimeout(() => { location.reload(); }, 2500);
 }
 
-async function pushState(newState) {
+// ---------- Undo ----------
+// Before every change to YOUR side of the table, the old version of your side is saved, so
+// "Undo Last Action" can put it back. Only your seat is ever rewound: the other side is your
+// opponent's, and a chat line tells them whenever you take something back.
+let undoHistory = [];
+const UNDO_LIMIT = 30;
+
+async function pushState(newState, opts = {}) {
+  if (!opts.isUndo && !isSpectator && mySeat && tableState && tableState.state) {
+    const before = JSON.stringify(tableState.state[mySeat] || null);
+    if (before !== "null" && before !== JSON.stringify(newState[mySeat] || null)) {
+      undoHistory.push(before);
+      if (undoHistory.length > UNDO_LIMIT) undoHistory.shift();
+    }
+  }
   tableState = { ...tableState, state: newState };
   const { error } = await supabaseClient.from("battle_tables")
     .update({ state: newState, updated_at: new Date().toISOString() })
     .eq("id", tableId);
   if (error) console.error("Failed to save state:", error);
   renderMat();
+}
+
+async function undoLastAction() {
+  if (!undoHistory.length || isSpectator) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  newState[mySeat] = JSON.parse(undoHistory.pop());
+  await pushState(newState, { isUndo: true });
+  const { error } = await supabaseClient.from("table_chat_messages").insert({
+    table_id: tableId, player_id: currentPlayer.id, sender_name: currentPlayer.display_name,
+    message: "↶ undid their last action",
+  });
+  if (error) console.error("Failed to post the undo notice:", error);
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById("undo-btn");
+  if (btn) btn.disabled = !undoHistory.length;
 }
 
 // ---------- Rendering ----------
@@ -1071,10 +1102,12 @@ function buildActionBar() {
     <button id="draw-btn" class="small">Draw Card</button>
     <button id="shuffle-hand-btn" class="small">Shuffle Hand<br>Into Deck</button>
     <button id="reshuffle-discard-btn" class="small">Reshuffle Discard<br>Into Deck</button>
+    <button id="undo-btn" class="small" disabled title="Take back your last change to your side of the table">Undo Last<br>Action</button>
   `;
   document.getElementById("draw-btn").addEventListener("click", drawCard);
   document.getElementById("shuffle-hand-btn").addEventListener("click", shuffleHandIntoDeck);
   document.getElementById("reshuffle-discard-btn").addEventListener("click", reshuffleDiscardIntoDeck);
+  document.getElementById("undo-btn").addEventListener("click", undoLastAction);
   document.getElementById("end-match-btn").addEventListener("click", handleEndMatch);
   document.getElementById("leave-table-btn").addEventListener("click", leaveTable);
   document.getElementById("start-match-btn").addEventListener("click", handleStartMatch);
@@ -1354,6 +1387,7 @@ function renderMat() {
     : `<div class="label">Discard<br>(empty)</div>`;
 
   updateSelectionHint();
+  updateUndoButton();
   attachHandlers();
 }
 
@@ -1852,6 +1886,20 @@ document.getElementById("lightbox-overlay").addEventListener("click", () => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
 });
+
+// For the Feedback drawer (shared-header.js): what's on the table, so a report can be tracked down.
+window.getBakemonFeedbackContext = () => {
+  if (!tableState || !tableState.state) return null;
+  const name = id => (allCards[id] && allCards[id].name) || "?";
+  const mon = m => m && m.card_id ? { card: name(m.card_id), damage: m.damage || 0, energy: (m.energy || []).join(" "), status: (m.status || []).join(" "), buffs: (m.buffs || []).join(" ") } : null;
+  const side = st => st ? { score: st.score || 0, active: mon(st.active), item: st.item_slot ? name(st.item_slot.card_id) : null,
+    bench: (st.bench || []).filter(Boolean).map(mon), deck: (st.deck || []).length, discard: (st.discard || []).length } : null;
+  return {
+    mat: "playmat", room: roomCode, spectator: isSpectator,
+    you: isSpectator ? null : side(tableState.state[mySeat]), opponent: isSpectator ? null : side(tableState.state[oppSeat]),
+    chat: (typeof chatMessages !== "undefined" ? chatMessages : []).slice(-15).map(m => (m.sender_name ? m.sender_name + ": " : "") + m.message),
+  };
+};
 
 initSetupScreen();
 </script>

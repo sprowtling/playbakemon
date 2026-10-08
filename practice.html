@@ -290,6 +290,8 @@ let lastSetup = null;           // { botId, deckValue } for "rematch"
 let pending = null;             // what the engine is waiting on from you: { kind: 'action' | 'ask', ... , resolve }
 let subPick = null;             // after clicking an evolution card: the actions you can choose between by clicking a Bakemon
 let uiPick = null;              // choosing a Bakemon for energy or retreat BEFORE committing (so it can be cancelled): { prompt, mons, onPick }
+let undoStack = [];             // snapshots of the game, one before each of your actions this turn (the last one is "now")
+let undoTurn = -1;              // which turn undoStack belongs to
 let skipping = false;           // "skip to my turn"
 let botDelay = 550;
 
@@ -425,7 +427,13 @@ async function startMatch(botId, deckValue) {
   lastSetup = { botId, deckValue, deckName: deck.name, borrowed: deckValue.startsWith("borrow:") };
 
   const human = {
-    chooseAction: (G, P, actions) => new Promise(resolve => { skipping = false; subPick = null; pending = { kind: "action", actions, resolve }; renderAll(); }),
+    chooseAction: (G, P, actions) => new Promise(resolve => {
+      skipping = false; subPick = null;
+      if (undoTurn !== G.turnNumber) { undoStack = []; undoTurn = G.turnNumber; }      // undo never reaches back past the start of your turn
+      undoStack.push(snapshotGame(G));
+      pending = { kind: "action", actions, resolve };
+      renderAll();
+    }),
     ask: (G, P, req) => new Promise(resolve => { skipping = false; pending = { kind: "ask", req, resolve }; renderAll(); }),
   };
   G = newBattle([
@@ -433,7 +441,7 @@ async function startMatch(botId, deckValue) {
     { name: botEntry.name, deck: deckList(botEntry.cards), controller: makeAI({ mistakes: botEntry.mistakes }) },
   ], { rules: { pointsToWin: 4, reshuffleNeedsEmptyHand: true }, io: { show: showEvent } });
   me = G.players[0]; bot = G.players[1];
-  pending = null; subPick = null; skipping = false;
+  pending = null; subPick = null; skipping = false; undoStack = []; undoTurn = -1;
 
   document.getElementById("log-messages").innerHTML = "";
   document.getElementById("result-panel").style.display = "none";
@@ -582,10 +590,13 @@ function renderAll() {
   // Hand: cards you can play right now are outlined
   const playableIdx = new Set(pending && pending.kind === "action" ? pending.actions.filter(a => a.handIndex !== undefined).map(a => a.handIndex) : []);
   document.getElementById("hand-count").textContent = `${me.hand.length} cards`;
-  document.getElementById("hand-list").innerHTML = me.hand.map((id, i) => `
+  const handList = document.getElementById("hand-list");
+  const handScroll = handList.scrollLeft;                 // keep your place in a long hand when the board redraws
+  handList.innerHTML = me.hand.map((id, i) => `
     <div class="card-face hand-card ${pending && pending.kind === "action" ? (playableIdx.has(i) ? "playable" : "unplayable") : ""}" data-hand-index="${i}">
       ${cardImage(CARD_BY_ID[id])}
     </div>`).join("");
+  handList.scrollLeft = handScroll;
 
   renderActionBar();
   renderHint();
@@ -616,11 +627,13 @@ function renderActionBar() {
     <button class="small" id="energy-btn" ${energy ? "" : "disabled"}>Attach Energy</button>
     <button class="small" id="retreat-btn" ${retreat ? "" : "disabled"} title="${retreat ? escapeHtml(retreat.label) : "Can't retreat right now"}">Retreat${me.active && me.active.card.retreat ? ` (${me.active.card.retreat})` : ""}</button>
     <button class="small" id="end-turn-btn">End Turn</button>
+    <button class="small" id="undo-btn" ${undoStack.length > 1 ? "" : "disabled"} title="Take back your last action this turn">Undo last action</button>
     <button class="small" id="give-up-btn" style="margin-top:6px; opacity:0.8;">Give Up</button>`;
   document.getElementById("attack-btn").onclick = () => openMonMenu(me.active);
   if (energy) document.getElementById("energy-btn").onclick = () => startEnergy(energy);
   if (retreat) document.getElementById("retreat-btn").onclick = () => startRetreat(retreat);
   document.getElementById("end-turn-btn").onclick = () => answer(of("endTurn")[0]);
+  document.getElementById("undo-btn").onclick = undoLastAction;
   document.getElementById("give-up-btn").onclick = () => {
     if (!confirm("Give up this practice match?")) return;
     G.winner = bot; G.t.over = true;
@@ -637,6 +650,31 @@ function renderHint() {
   else if (pending && pending.kind === "action") hint.textContent = "Your turn. Play outlined cards from your hand, or click one of your Bakemon to use its moves.";
   else if (pending && pending.kind === "ask") hint.textContent = "";
   else hint.textContent = `${bot.name}'s turn.`;
+}
+
+/* ---------------- undo ---------------- */
+
+// A full copy of the game, minus the parts that aren't data (the controllers and the screen hook).
+function snapshotGame(game) {
+  const controllers = game.players.map(P => P.controller), io = game.io;
+  game.players.forEach(P => { P.controller = null; }); game.io = null;
+  try { return structuredClone(game); }
+  finally { game.players.forEach((P, i) => { P.controller = controllers[i]; }); game.io = io; }
+}
+// Put a snapshot back INTO the live game objects (the engine is holding references to them).
+function restoreGame(game, snap) {
+  const copy = structuredClone(snap);
+  for (const k of Object.keys(copy)) if (k !== "players" && k !== "io" && k !== "rules") game[k] = copy[k];
+  copy.players.forEach((p, i) => { for (const k of Object.keys(p)) if (k !== "controller") game.players[i][k] = p[k]; });
+}
+
+function undoLastAction() {
+  if (!pending || pending.kind !== "action" || undoStack.length < 2) return;
+  undoStack.pop();                                 // the state right now
+  const before = undoStack.pop();                  // the state before your last action (chooseAction saves it again)
+  restoreGame(G, before);
+  addLog("You took back your last action.", "bot-says");
+  answer({ type: "noop" });                        // the engine carries on from the restored state and asks again
 }
 
 /* ---------------- choices ---------------- */
@@ -762,13 +800,30 @@ function clickMon(mon) {
   if (pending.kind === "action" && (mon === me.active || me.bench.includes(mon))) openMonMenu(mon);
 }
 
+// Why a card in your hand can't be played right now, in plain words.
+function whyCantPlay(card) {
+  if (G.t.lockTurn) return `Nothing else can be played this turn.`;
+  if (card.kind === "item") {
+    const item = ITEMS[card.id] || {};
+    if (item.equip) return me.active && me.active.equip ? `${me.active.card.name} is already wearing an item. Only your active Bakemon can wear one.` : `You can't equip ${card.name} right now.`;
+    return `${card.name} wouldn't do anything right now.`;
+  }
+  if (card.stage === "basic") return `Your bench is full.`;
+  const bases = [me.active, ...me.bench].filter(m => m && m.card.name === card.from);
+  if (!bases.length) return `You need ${card.from} in play to evolve it into ${card.name}.`;
+  const base = bases[0];
+  if (base.evolvedTurn === G.turnNumber) return `${base.card.name} already evolved this turn, so ${card.name} has to wait until your next turn (or a Birthday Boy).`;
+  if (base.playedTurn === G.turnNumber) return `${base.card.name} was played this turn, so it can't evolve until your next turn (or a Birthday Boy).`;
+  return `${base.card.name} can't evolve into ${card.name} right now.`;
+}
+
 function clickHand(i) {
   if (!pending || pending.kind !== "action") return;
   if (uiPick) { uiPick = null; hideChoices(); }
   if (subPick && subPick[0].handIndex === i) { subPick = null; renderAll(); return; }
   const acts = pending.actions.filter(a => a.handIndex === i);
   const card = CARD_BY_ID[me.hand[i]];
-  if (!acts.length) { flashHint(`You can't play ${card.name} right now.`); return; }
+  if (!acts.length) { flashHint(whyCantPlay(card)); return; }
   if (acts.length === 1) { answer(acts[0]); return; }
   subPick = acts;                       // one evolution card, several Bakemon it could evolve
   renderAll();
@@ -826,6 +881,21 @@ function showResult(result) {
     });
   }
 }
+
+// For the Feedback drawer (shared-header.js): what's going on in this match, so a report can be tracked down.
+window.getBakemonFeedbackContext = () => {
+  if (!G) return null;
+  const mon = m => m && { card: m.card.name, hp: Math.max(0, m.hp) + "/" + m.maxHp, energy: m.energy.join(" "),
+    status: Object.keys(m.status).join(" "), effects: m.effects.map(e => e.kind).join(" "), item: m.equip ? CARD_BY_ID[m.equip].name : undefined };
+  const side = P => ({ points: P.points, active: mon(P.active), bench: P.bench.filter(Boolean).map(mon), deck: P.deck.length, discard: P.discard.length });
+  return {
+    mat: "practice", bot: botEntry && botEntry.name, difficulty: botEntry && botEntry.difficulty, deck: lastSetup && lastSetup.deckName,
+    turn: G.turnNumber, whoseTurn: G.players[G.turn] && G.players[G.turn].name, over: !!(G.winner || G.draw),
+    weather: currentWeather(G) ? currentWeather(G).name : null,
+    you: Object.assign(side(me), { hand: me.hand.map(id => CARD_BY_ID[id].name) }), bot_side: side(bot),
+    log: [...document.querySelectorAll("#log-messages .chat-message")].slice(-25).map(d => d.textContent),
+  };
+};
 
 document.getElementById("speed-select").addEventListener("change", e => { botDelay = +e.target.value; });
 window.addEventListener("beforeunload", e => { if (G && !G.winner && !G.draw) { e.preventDefault(); e.returnValue = ""; } });

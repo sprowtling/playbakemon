@@ -41,7 +41,7 @@ const played = new Set();
 const harness = `
   (function () {
     const ids = CARDS.map(c => c.id);
-    const benchEquips = [];
+    const benchEquips = [], lostCards = [];
     const pick = list => list[Math.floor(Math.random() * list.length)];
     function randomDeck() {
       const size = 12 + Math.floor(Math.random() * 21);          // 12..32
@@ -58,6 +58,14 @@ const harness = `
     async function oneMatch(seen) {
       const io = { show: async (G, e) => {
         if (e.cardId) seen.add(e.cardId); if (e.mon) seen.add(e.mon.card.id);
+        // Books check: every card is somewhere (deck, hand, discard, in play, worn). None appear or vanish.
+        // Counted at the start of each turn, when no card is mid-way between two places.
+        if (e.kind === 'turn') {
+        const count = G.players.reduce((n, P) => n + P.deck.length + P.hand.length + P.discard.length
+          + zone(P).reduce((k, m) => k + m.stack.length + (m.equip ? 1 : 0), 0), 0);
+        if (G.__cards === undefined) G.__cards = count;
+        else if (count !== G.__cards) { lostCards.push((count < G.__cards ? 'LOST ' : 'GAINED ') + Math.abs(count - G.__cards) + ' card(s) at: ' + e.text + '  | before that: ' + G.log.slice(-4, -1).join(' / ')); G.__cards = count; }
+        }
         // Rules check: only the active Bakemon may wear an item.
         for (const P of G.players) for (const m of bench(P)) if (m.equip) benchEquips.push(m.card.name + ' on the bench wearing ' + CARD_BY_ID[m.equip].name + ' (after: ' + e.text + ')');
       } };
@@ -70,9 +78,9 @@ const harness = `
       try { await runBattle(G); } catch (err) { return { error: err, G, decks: [a, b] }; }
       return { G, decks: [a, b] };
     }
-    return { oneMatch, benchEquips };
+    return { oneMatch, benchEquips, lostCards };
   })()`;
-const { oneMatch, benchEquips } = vm.runInContext(harness, ctx);
+const { oneMatch, benchEquips, lostCards } = vm.runInContext(harness, ctx);
 
 (async () => {
   const stats = { ok: 0, draw: 0, crashed: 0, turns: 0 };
@@ -92,6 +100,8 @@ const { oneMatch, benchEquips } = vm.runInContext(harness, ctx);
   }
   console.log(`${N} matches: ${stats.ok} finished, ${stats.draw} hit the turn limit, ${stats.crashed} crashed. Average ${(stats.turns / N).toFixed(1)} turns.`);
   for (const [k, v] of crashes) console.log(`\nCRASH x${v.count}: ${k}\n  just before: ${v.last}`);
+  if (lostCards.length) { const seen = new Map(); for (const l of lostCards) { const k = l.split('  |')[0].replace(/[A-Z][a-z]+ /g, '').slice(0, 60); if (!seen.has(k)) seen.set(k, l); }
+    console.log(`\nCARDS APPEARED OR VANISHED ${lostCards.length}x. Examples:\n  ` + [...seen.values()].slice(0, 12).join('\n  ')); }
   if (benchEquips.length) console.log(`\nRULE BROKEN ${benchEquips.length}x, e.g. ${benchEquips[0]}`);
   if (warnings.size) { console.log('\nWarnings:'); for (const [k, v] of warnings) console.log(`  x${v}  ${k}`); }
   const never = vm.runInContext('CARDS', ctx).filter(c => !played.has(c.id)).map(c => c.id + ' ' + c.name);

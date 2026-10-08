@@ -224,7 +224,7 @@ async function runBattle(G) {
 
 async function startTurn(G, P) {
   G.turnNumber += 1;
-  G.t = { over: false, energyUsed: 0, cableUsed: {}, retreats: 0, abilityUsed: {}, canAttack: true, evolveFreely: false,
+  G.t = { over: false, energyUsed: 0, cableUsed: {}, retreats: 0, abilityUsed: {}, canAttack: true, freeEvolves: 0,
           lockTurn: false, noEnergy: false, attacked: false, amp: null };
   await say2(G, '— ' + poss(P) + ' turn —', { kind: 'turn' });
   await drawCards(G, P, 1, true);
@@ -287,16 +287,19 @@ async function endTurn(G, P) {
 
 function canEvolveOnto(G, P, mon, card) {
   if (card.kind !== 'bakemon' || card.stage === 'basic' || card.from !== mon.card.name) return false;
-  if (mon.evolvedTurn === G.turnNumber) return false;          // a Bakemon evolves at most once a turn (stage one -> two waits)
-  const sameTurn = mon.playedTurn === G.turnNumber;
-  const lifeCycle = P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass');
-  if (sameTurn && !G.t.evolveFreely && !lifeCycle) return false;
+  // Normally a Bakemon can't evolve on the turn it was played, or a second time in one turn.
+  // Birthday Boy lifts that once per card played; Grupix's Life Cycle lifts it for grass-types.
+  if (needsSameTurnPass(G, mon) && !lifeCycleCovers(P, mon) && !(G.t.freeEvolves > 0)) return false;
   // Mugini: needs an energy of the type it's evolving INTO.
   if (hasTag(mon, 'evolveNeedsMatchingEnergy') && !card.types.some(t => mon.energy.includes(t))) return false;
   // Eclidyr: needs five different kinds of energy before it can evolve.
   if (hasTag(mon, 'fiveTypesToEvolve') && new Set(mon.energy).size < 5) return false;
   return true;
 }
+
+const needsSameTurnPass = (G, mon) => mon.playedTurn === G.turnNumber || mon.evolvedTurn === G.turnNumber;
+// Grupix's Life Cycle is an ability, so like any ability it works once a turn.
+const lifeCycleCovers = (P, mon) => !!P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
 
 function energyTargets(G, P) {
   if (G.t.lockTurn || G.t.noEnergy) return [];
@@ -426,6 +429,9 @@ async function perform(G, P, action) {
 
     case 'evolve': {
       const mon = action.mon, card = CARD_BY_ID[P.hand.splice(action.handIndex, 1)[0]];
+      if (needsSameTurnPass(G, mon)) {                                   // this evolution needed help: Life Cycle first, else a Birthday Boy
+        if (lifeCycleCovers(P, mon)) G.t.lifeCycleUsed = true; else G.t.freeEvolves -= 1;
+      }
       await say2(G, mon.card.name + ' evolves into ' + card.name + '!', { mon, kind: 'evolve' });
       const damageTaken = mon.maxHp - mon.hp;
       mon.card = card; mon.stack.push(card.id);
@@ -495,6 +501,9 @@ async function perform(G, P, action) {
 
     case 'endTurn':
       G.t.over = true;
+      break;
+
+    case 'noop':                             // the screen rewound the game (Undo) and just wants to be asked again
       break;
   }
 }
@@ -950,7 +959,9 @@ async function runOps(G, ctx, ops) {
       const from = op.from === 'self' ? me : await pick(G, P, candidates(G, P, me, op.from, op).filter(hasIt), 'energyFrom', 'Take energy from which Bakemon?');
       const to = op.to === 'target' ? ctx.target : op.to === 'self' ? me : await pick(G, P, candidates(G, P, me, op.to, {}).filter(m => m !== from), 'energyTo', 'Move it to which Bakemon?');
       if (!from || !to || !hasIt(from) || to.hp <= 0) continue;
-      const type = op.type || from.energy[from.energy.length - 1];
+      const kinds = [...new Set(from.energy)];
+      const type = op.type || (kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon: to,
+        prompt: 'Take which energy from ' + from.card.name + '?', options: kinds.map(k => ({ label: k, value: k, energy: k })) }));
       from.energy.splice(from.energy.indexOf(type), 1);
       await say2(G, 'One ' + type + ' energy moves from ' + from.card.name + ' to ' + to.card.name + '.');
       await attachEnergySilently(G, to, type);
@@ -1033,7 +1044,7 @@ async function runOps(G, ctx, ops) {
         }
       }
     }
-    else if (op.evolveFreelyThisTurn) G.t.evolveFreely = true;
+    else if (op.evolveFreelyThisTurn) { G.t.freeEvolves = (G.t.freeEvolves || 0) + 1; await say2(G, subj(P, 'may') + ' evolve a Bakemon played this turn.'); }
     else if (op.freeRetreat) { if (bench(P).length) await switchActive(G, P, await pick(G, P, bench(P), 'promote', 'Who comes out instead?')); }
     else if (op.removeEnemyEquip) {
       const mon = await pick(G, P, zone(enemy).filter(m => m.equip), 'hurt', 'Wash the item off which Bakemon?');
