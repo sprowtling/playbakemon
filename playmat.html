@@ -1887,6 +1887,20 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") document.getElementById("lightbox-overlay").style.display = "none";
 });
 
+// For the Feedback drawer (shared-header.js): what's on the table, so a report can be tracked down.
+window.getBakemonFeedbackContext = () => {
+  if (!tableState || !tableState.state) return null;
+  const name = id => (allCards[id] && allCards[id].name) || "?";
+  const mon = m => m && m.card_id ? { card: name(m.card_id), damage: m.damage || 0, energy: (m.energy || []).join(" "), status: (m.status || []).join(" "), buffs: (m.buffs || []).join(" ") } : null;
+  const side = st => st ? { score: st.score || 0, active: mon(st.active), item: st.item_slot ? name(st.item_slot.card_id) : null,
+    bench: (st.bench || []).filter(Boolean).map(mon), deck: (st.deck || []).length, discard: (st.discard || []).length } : null;
+  return {
+    mat: "playmat", room: roomCode, spectator: isSpectator,
+    you: isSpectator ? null : side(tableState.state[mySeat]), opponent: isSpectator ? null : side(tableState.state[oppSeat]),
+    chat: (typeof chatMessages !== "undefined" ? chatMessages : []).slice(-15).map(m => (m.sender_name ? m.sender_name + ": " : "") + m.message),
+  };
+};
+
 initSetupScreen();
 </script>
 

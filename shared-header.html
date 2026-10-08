@@ -320,6 +320,27 @@
     color: var(--text-light, #cfe8db);
     font-size: 14px;
   }
+  /* Feedback drawer — same shell as the Rules drawer: slides in from the left,
+     backdrop click, ✕ or Escape closes it. The form is wired in shared-header.js. */
+  #feedback-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 150; }
+  #feedback-backdrop.open { display: block; }
+  #feedback-drawer {
+    position: fixed; top: 0; left: 0; bottom: 0; width: min(360px, 85vw);
+    background: var(--mat-green, #1d4d3a); border-right: 2px solid var(--card-border, #d9b25c);
+    z-index: 151; transform: translateX(-100%); transition: transform 0.25s ease;
+    overflow-y: auto; padding: 16px; box-sizing: border-box;
+  }
+  #feedback-drawer.open { transform: translateX(0); }
+  #feedback-drawer .intro { color: var(--text-light, #cfe8db); font-size: 13px; margin: 0 0 14px; line-height: 1.4; }
+  #feedback-form { display: flex; flex-direction: column; gap: 12px; }
+  #feedback-form label { display: block; color: var(--text-light, #cfe8db); font-size: 12px; margin-bottom: 4px; }
+  #feedback-form select, #feedback-form input[type=text], #feedback-form textarea { width: 100%; box-sizing: border-box; }
+  #feedback-form textarea { min-height: 130px; resize: vertical; font-family: inherit; }
+  #feedback-form .context-row { display: flex; gap: 8px; align-items: flex-start; color: var(--text-muted, #9fc7ae); font-size: 12px; }
+  #feedback-form .context-row input { margin-top: 2px; }
+  #feedback-status { font-size: 12px; color: var(--text-muted, #9fc7ae); min-height: 16px; }
+  #feedback-thanks { display: none; color: var(--text-light, #cfe8db); font-size: 14px; text-align: center; padding: 24px 6px; line-height: 1.5; }
+
   .rules-placeholder {
     color: var(--text-muted, #9fc7ae);
     font-size: 13px;
@@ -349,6 +370,7 @@
     </div>
     <a href="players.html" id="nav-link-directory">Directory</a>   
     <a href="#" id="rules-toggle-btn">Rules</a>
+    <a href="#" id="feedback-toggle-btn">Feedback</a>
   </nav>
   <div class="bakemon-header-right">
     <div class="bakemon-identity" id="bakemon-identity-slot"></div>
@@ -370,6 +392,41 @@
     <button id="rules-close-btn" class="small">✕</button>
   </div>
   <div id="rules-content-slot"></div>
+</aside>
+
+<div id="feedback-backdrop"></div>
+<aside id="feedback-drawer">
+  <div class="rules-drawer-head">
+    <h2>Send Feedback</h2>
+    <button id="feedback-close-btn" class="small">✕</button>
+  </div>
+  <p class="intro">Found something that isn't working right, or have an idea? Jot it down here. Every note gets read.</p>
+  <form id="feedback-form">
+    <div>
+      <label for="feedback-kind">What kind of feedback?</label>
+      <select id="feedback-kind">
+        <option value="bug">Something isn't working</option>
+        <option value="card">A card doesn't do what it says</option>
+        <option value="idea">An idea or request</option>
+        <option value="other">Something else</option>
+      </select>
+    </div>
+    <div>
+      <label for="feedback-card">Which card? (optional)</label>
+      <input type="text" id="feedback-card" maxlength="80" placeholder="e.g. Gossiary">
+    </div>
+    <div>
+      <label for="feedback-message">What happened?</label>
+      <textarea id="feedback-message" maxlength="4000" placeholder="What you did, what you expected, and what happened instead."></textarea>
+    </div>
+    <label class="context-row" id="feedback-context-row" style="display:none;">
+      <input type="checkbox" id="feedback-include-context" checked>
+      <span>Include details about this match (the board and the last few lines of the log), to help track it down.</span>
+    </label>
+    <button type="submit" class="primary" id="feedback-send-btn">Send</button>
+    <div id="feedback-status"></div>
+  </form>
+  <div id="feedback-thanks">Thank you! Your feedback was sent.<br><br><button type="button" class="small" id="feedback-another-btn">Send another</button></div>
 </aside>
 
 <div id="challenges-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:150;"></div>

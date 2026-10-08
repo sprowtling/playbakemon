@@ -66,6 +66,7 @@ window.clearBakemonPlayer = clearBakemonPlayer;
   highlightCurrentNavLink();
   renderIdentity();
   wireRulesDrawer();
+  wireFeedbackDrawer();
   wireNavDropdowns();
   wireThemeSwitch();
   updateChallengeBadge();
@@ -226,6 +227,68 @@ function wireRulesDrawer() {
   document.getElementById("rules-backdrop").addEventListener("click", closeRulesDrawer);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeRulesDrawer();
+  });
+}
+
+// ---------- Feedback ----------
+// The drawer's form writes to the `feedback` table. Anyone can add a row; nobody can
+// read the table through the site (read it in the Supabase dashboard).
+// A page can attach extra details by defining window.getBakemonFeedbackContext(),
+// returning a small object (or null) — the practice mat and playmat describe the match.
+function wireFeedbackDrawer() {
+  const drawer = document.getElementById("feedback-drawer");
+  const backdrop = document.getElementById("feedback-backdrop");
+  const form = document.getElementById("feedback-form");
+  const thanks = document.getElementById("feedback-thanks");
+  const status = document.getElementById("feedback-status");
+  if (!drawer || !form) return;
+
+  const pageContext = () => {
+    try { return typeof window.getBakemonFeedbackContext === "function" ? window.getBakemonFeedbackContext() : null; }
+    catch (err) { console.error("feedback: couldn't describe the page", err); return null; }
+  };
+  function open() {
+    form.style.display = ""; thanks.style.display = "none"; status.textContent = "";
+    document.getElementById("feedback-context-row").style.display = pageContext() ? "" : "none";
+    drawer.classList.add("open"); backdrop.classList.add("open");
+    setTimeout(() => document.getElementById("feedback-message").focus(), 260);
+  }
+  function close() { drawer.classList.remove("open"); backdrop.classList.remove("open"); }
+  window.openFeedbackDrawer = open;
+
+  document.getElementById("feedback-toggle-btn").addEventListener("click", e => { e.preventDefault(); open(); });
+  document.getElementById("feedback-close-btn").addEventListener("click", close);
+  backdrop.addEventListener("click", close);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+  document.getElementById("feedback-another-btn").addEventListener("click", open);
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const message = document.getElementById("feedback-message").value.trim();
+    if (!message) { status.textContent = "Write a few words first."; return; }
+    const sendBtn = document.getElementById("feedback-send-btn");
+    sendBtn.disabled = true; status.textContent = "Sending...";
+
+    const ready = await waitForSupabaseLib();
+    if (!ready) { status.textContent = "Couldn't reach the server. Try again in a moment."; sendBtn.disabled = false; return; }
+    bakemonChallengesSb = bakemonChallengesSb || window.supabase.createClient(BAKEMON_SUPABASE_URL, BAKEMON_SUPABASE_ANON_KEY);
+    const player = getBakemonPlayer();
+    const includeContext = document.getElementById("feedback-context-row").style.display !== "none"
+      && document.getElementById("feedback-include-context").checked;
+    const { error } = await bakemonChallengesSb.from("feedback").insert({
+      player_id: player ? player.id : null,
+      player_name: player ? player.display_name : null,
+      page: (location.pathname.split("/").pop() || "index.html") + location.search,
+      kind: document.getElementById("feedback-kind").value,
+      card: document.getElementById("feedback-card").value.trim() || null,
+      message,
+      context: includeContext ? pageContext() : null,
+    });
+    sendBtn.disabled = false;
+    if (error) { console.error("feedback: send failed", error); status.textContent = "That didn't send. Try again in a moment."; return; }
+    document.getElementById("feedback-message").value = "";
+    document.getElementById("feedback-card").value = "";
+    form.style.display = "none"; thanks.style.display = "block";
   });
 }
 

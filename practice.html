@@ -882,6 +882,21 @@ function showResult(result) {
   }
 }
 
+// For the Feedback drawer (shared-header.js): what's going on in this match, so a report can be tracked down.
+window.getBakemonFeedbackContext = () => {
+  if (!G) return null;
+  const mon = m => m && { card: m.card.name, hp: Math.max(0, m.hp) + "/" + m.maxHp, energy: m.energy.join(" "),
+    status: Object.keys(m.status).join(" "), effects: m.effects.map(e => e.kind).join(" "), item: m.equip ? CARD_BY_ID[m.equip].name : undefined };
+  const side = P => ({ points: P.points, active: mon(P.active), bench: P.bench.filter(Boolean).map(mon), deck: P.deck.length, discard: P.discard.length });
+  return {
+    mat: "practice", bot: botEntry && botEntry.name, difficulty: botEntry && botEntry.difficulty, deck: lastSetup && lastSetup.deckName,
+    turn: G.turnNumber, whoseTurn: G.players[G.turn] && G.players[G.turn].name, over: !!(G.winner || G.draw),
+    weather: currentWeather(G) ? currentWeather(G).name : null,
+    you: Object.assign(side(me), { hand: me.hand.map(id => CARD_BY_ID[id].name) }), bot_side: side(bot),
+    log: [...document.querySelectorAll("#log-messages .chat-message")].slice(-25).map(d => d.textContent),
+  };
+};
+
 document.getElementById("speed-select").addEventListener("change", e => { botDelay = +e.target.value; });
 window.addEventListener("beforeunload", e => { if (G && !G.winner && !G.draw) { e.preventDefault(); e.returnValue = ""; } });
 
