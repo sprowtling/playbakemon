@@ -590,10 +590,13 @@ function renderAll() {
   // Hand: cards you can play right now are outlined
   const playableIdx = new Set(pending && pending.kind === "action" ? pending.actions.filter(a => a.handIndex !== undefined).map(a => a.handIndex) : []);
   document.getElementById("hand-count").textContent = `${me.hand.length} cards`;
-  document.getElementById("hand-list").innerHTML = me.hand.map((id, i) => `
+  const handList = document.getElementById("hand-list");
+  const handScroll = handList.scrollLeft;                 // keep your place in a long hand when the board redraws
+  handList.innerHTML = me.hand.map((id, i) => `
     <div class="card-face hand-card ${pending && pending.kind === "action" ? (playableIdx.has(i) ? "playable" : "unplayable") : ""}" data-hand-index="${i}">
       ${cardImage(CARD_BY_ID[id])}
     </div>`).join("");
+  handList.scrollLeft = handScroll;
 
   renderActionBar();
   renderHint();
@@ -797,13 +800,30 @@ function clickMon(mon) {
   if (pending.kind === "action" && (mon === me.active || me.bench.includes(mon))) openMonMenu(mon);
 }
 
+// Why a card in your hand can't be played right now, in plain words.
+function whyCantPlay(card) {
+  if (G.t.lockTurn) return `Nothing else can be played this turn.`;
+  if (card.kind === "item") {
+    const item = ITEMS[card.id] || {};
+    if (item.equip) return me.active && me.active.equip ? `${me.active.card.name} is already wearing an item. Only your active Bakemon can wear one.` : `You can't equip ${card.name} right now.`;
+    return `${card.name} wouldn't do anything right now.`;
+  }
+  if (card.stage === "basic") return `Your bench is full.`;
+  const bases = [me.active, ...me.bench].filter(m => m && m.card.name === card.from);
+  if (!bases.length) return `You need ${card.from} in play to evolve it into ${card.name}.`;
+  const base = bases[0];
+  if (base.evolvedTurn === G.turnNumber) return `${base.card.name} already evolved this turn, so ${card.name} has to wait until your next turn (or a Birthday Boy).`;
+  if (base.playedTurn === G.turnNumber) return `${base.card.name} was played this turn, so it can't evolve until your next turn (or a Birthday Boy).`;
+  return `${base.card.name} can't evolve into ${card.name} right now.`;
+}
+
 function clickHand(i) {
   if (!pending || pending.kind !== "action") return;
   if (uiPick) { uiPick = null; hideChoices(); }
   if (subPick && subPick[0].handIndex === i) { subPick = null; renderAll(); return; }
   const acts = pending.actions.filter(a => a.handIndex === i);
   const card = CARD_BY_ID[me.hand[i]];
-  if (!acts.length) { flashHint(`You can't play ${card.name} right now.`); return; }
+  if (!acts.length) { flashHint(whyCantPlay(card)); return; }
   if (acts.length === 1) { answer(acts[0]); return; }
   subPick = acts;                       // one evolution card, several Bakemon it could evolve
   renderAll();

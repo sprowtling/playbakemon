@@ -557,6 +557,17 @@ await test('Co-opt: Mushmutt chooses which energy to take', async () => {
   eq(act(G, 0).energy.join(), 'water', 'took the one we chose'); eq(act(G, 1).energy.join(), 'grass,grass', 'the rest stays');
 });
 
+await test('Life Cycle: once a turn, like any ability', async () => {
+  const G = game({ active: 'Grupix', hand: [idOf('Envelawn'), idOf('Constricturf'), idOf('Poteplant'), idOf('Vasflor')] }, { active: 'Raizado' });
+  const P = G.players[0];
+  const doIt = async (type, text) => { const a = ctx.legalActions(G, P).find(x => x.type === type && (!text || x.label.includes(text))); ok(a, type + ' ' + (text || '') + ' should be offered'); await ctx.perform(G, P, a); };
+  await doIt('playBasic', 'Envelawn'); await doIt('playBasic', 'Poteplant');
+  await doIt('evolve', 'Constricturf');
+  eq(ctx.legalActions(G, P).some(a => a.type === 'evolve'), false, 'Life Cycle already used this turn, so Poteplant (also grass) waits');
+  G.turnNumber += 2; G.t.lifeCycleUsed = false;
+  ok(ctx.legalActions(G, P).some(a => a.type === 'evolve' && a.label.includes('Vasflor')), 'next turn it works again');
+});
+
 /* ================= items ================= */
 await test('Moira: you choose the five discards, and they are named', async () => {
   const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['102'] }, { active: 'Raizado' }, [{ discardFromHand: (G, P, req) => req.options[0].value }]);

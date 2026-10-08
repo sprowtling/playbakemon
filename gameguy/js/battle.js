@@ -298,7 +298,8 @@ function canEvolveOnto(G, P, mon, card) {
 }
 
 const needsSameTurnPass = (G, mon) => mon.playedTurn === G.turnNumber || mon.evolvedTurn === G.turnNumber;
-const lifeCycleCovers = (P, mon) => !!P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass');
+// Grupix's Life Cycle is an ability, so like any ability it works once a turn.
+const lifeCycleCovers = (P, mon) => !!P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
 
 function energyTargets(G, P) {
   if (G.t.lockTurn || G.t.noEnergy) return [];
@@ -428,7 +429,9 @@ async function perform(G, P, action) {
 
     case 'evolve': {
       const mon = action.mon, card = CARD_BY_ID[P.hand.splice(action.handIndex, 1)[0]];
-      if (needsSameTurnPass(G, mon) && !lifeCycleCovers(P, mon)) G.t.freeEvolves -= 1;     // this one used up a Birthday Boy
+      if (needsSameTurnPass(G, mon)) {                                   // this evolution needed help: Life Cycle first, else a Birthday Boy
+        if (lifeCycleCovers(P, mon)) G.t.lifeCycleUsed = true; else G.t.freeEvolves -= 1;
+      }
       await say2(G, mon.card.name + ' evolves into ' + card.name + '!', { mon, kind: 'evolve' });
       const damageTaken = mon.maxHp - mon.hp;
       mon.card = card; mon.stack.push(card.id);
