@@ -43,7 +43,7 @@ function game(s1, s2, overrides) {
     { name: 'Two', deck: deck.slice(), controller: ai(overrides && overrides[1]) },
   ], { io: { show: async () => {} } });
   G.turnNumber = 10; G.turn = 0;
-  G.t = { over: false, energyUsed: 0, cableUsed: {}, retreats: 0, abilityUsed: {}, canAttack: true, evolveFreely: false, lockTurn: false, noEnergy: false, attacked: false, amp: null };
+  G.t = { over: false, energyUsed: 0, cableUsed: {}, retreats: 0, abilityUsed: {}, canAttack: true, freeEvolves: 0, lockTurn: false, noEnergy: false, attacked: false, amp: null };
   [s1, s2].forEach((s, i) => {
     const P = G.players[i];
     P.active = s.active ? E.makeMon(G, idOf(s.active)) : null;
@@ -538,6 +538,23 @@ await test('Contact Zap: the attacker does no damage on its NEXT turn', async ()
   ok(act(G, 0).effects.some(e => e.kind === 'dmgDebuff' && e.amount >= 999), 'still unable to do damage on my next turn');
   const hp = act(G, 1).hp; await ctx.resolveAttack(G, G.players[0], act(G, 0), hit);
   eq(act(G, 1).hp, hp, 'no damage');
+});
+
+await test('Birthday Boy: each one allows one same-turn evolution', async () => {
+  const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
+  const P = G.players[0];
+  const doIt = async (type, text) => { const a = ctx.legalActions(G, P).find(x => x.type === type && (!text || x.label.includes(text))); ok(a, type + ' ' + (text || '') + ' should be offered'); await ctx.perform(G, P, a); };
+  await doIt('playBasic');
+  eq(ctx.legalActions(G, P).some(a => a.type === 'evolve'), false, 'no evolving a card played this turn, without help');
+  await doIt('item', 'Birthday Boy'); await doIt('evolve', 'Quexcell');
+  eq(ctx.legalActions(G, P).some(a => a.type === 'evolve'), false, 'one Birthday Boy, one evolution');
+  await doIt('item', 'Birthday Boy'); await doIt('evolve', 'Quetzillian');
+  eq(bn(G, 0).card.name, 'Quetzillian', 'all the way up in one turn with two Birthday Boys');
+});
+await test('Co-opt: Mushmutt chooses which energy to take', async () => {
+  const G = game({ active: 'Mushmutt' }, { active: 'Musherus', energy: { Musherus: ['grass', 'water', 'grass'] } }, [{ energyType: (G, P, req) => (ok(req.options.length === 2, 'offered the two kinds'), 'water') }]);
+  await ability(G, 0, act(G, 0), 'Co-opt');
+  eq(act(G, 0).energy.join(), 'water', 'took the one we chose'); eq(act(G, 1).energy.join(), 'grass,grass', 'the rest stays');
 });
 
 /* ================= items ================= */

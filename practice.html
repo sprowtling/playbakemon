@@ -290,6 +290,8 @@ let lastSetup = null;           // { botId, deckValue } for "rematch"
 let pending = null;             // what the engine is waiting on from you: { kind: 'action' | 'ask', ... , resolve }
 let subPick = null;             // after clicking an evolution card: the actions you can choose between by clicking a Bakemon
 let uiPick = null;              // choosing a Bakemon for energy or retreat BEFORE committing (so it can be cancelled): { prompt, mons, onPick }
+let undoStack = [];             // snapshots of the game, one before each of your actions this turn (the last one is "now")
+let undoTurn = -1;              // which turn undoStack belongs to
 let skipping = false;           // "skip to my turn"
 let botDelay = 550;
 
@@ -425,7 +427,13 @@ async function startMatch(botId, deckValue) {
   lastSetup = { botId, deckValue, deckName: deck.name, borrowed: deckValue.startsWith("borrow:") };
 
   const human = {
-    chooseAction: (G, P, actions) => new Promise(resolve => { skipping = false; subPick = null; pending = { kind: "action", actions, resolve }; renderAll(); }),
+    chooseAction: (G, P, actions) => new Promise(resolve => {
+      skipping = false; subPick = null;
+      if (undoTurn !== G.turnNumber) { undoStack = []; undoTurn = G.turnNumber; }      // undo never reaches back past the start of your turn
+      undoStack.push(snapshotGame(G));
+      pending = { kind: "action", actions, resolve };
+      renderAll();
+    }),
     ask: (G, P, req) => new Promise(resolve => { skipping = false; pending = { kind: "ask", req, resolve }; renderAll(); }),
   };
   G = newBattle([
@@ -433,7 +441,7 @@ async function startMatch(botId, deckValue) {
     { name: botEntry.name, deck: deckList(botEntry.cards), controller: makeAI({ mistakes: botEntry.mistakes }) },
   ], { rules: { pointsToWin: 4, reshuffleNeedsEmptyHand: true }, io: { show: showEvent } });
   me = G.players[0]; bot = G.players[1];
-  pending = null; subPick = null; skipping = false;
+  pending = null; subPick = null; skipping = false; undoStack = []; undoTurn = -1;
 
   document.getElementById("log-messages").innerHTML = "";
   document.getElementById("result-panel").style.display = "none";
@@ -616,11 +624,13 @@ function renderActionBar() {
     <button class="small" id="energy-btn" ${energy ? "" : "disabled"}>Attach Energy</button>
     <button class="small" id="retreat-btn" ${retreat ? "" : "disabled"} title="${retreat ? escapeHtml(retreat.label) : "Can't retreat right now"}">Retreat${me.active && me.active.card.retreat ? ` (${me.active.card.retreat})` : ""}</button>
     <button class="small" id="end-turn-btn">End Turn</button>
+    <button class="small" id="undo-btn" ${undoStack.length > 1 ? "" : "disabled"} title="Take back your last action this turn">Undo last action</button>
     <button class="small" id="give-up-btn" style="margin-top:6px; opacity:0.8;">Give Up</button>`;
   document.getElementById("attack-btn").onclick = () => openMonMenu(me.active);
   if (energy) document.getElementById("energy-btn").onclick = () => startEnergy(energy);
   if (retreat) document.getElementById("retreat-btn").onclick = () => startRetreat(retreat);
   document.getElementById("end-turn-btn").onclick = () => answer(of("endTurn")[0]);
+  document.getElementById("undo-btn").onclick = undoLastAction;
   document.getElementById("give-up-btn").onclick = () => {
     if (!confirm("Give up this practice match?")) return;
     G.winner = bot; G.t.over = true;
@@ -637,6 +647,31 @@ function renderHint() {
   else if (pending && pending.kind === "action") hint.textContent = "Your turn. Play outlined cards from your hand, or click one of your Bakemon to use its moves.";
   else if (pending && pending.kind === "ask") hint.textContent = "";
   else hint.textContent = `${bot.name}'s turn.`;
+}
+
+/* ---------------- undo ---------------- */
+
+// A full copy of the game, minus the parts that aren't data (the controllers and the screen hook).
+function snapshotGame(game) {
+  const controllers = game.players.map(P => P.controller), io = game.io;
+  game.players.forEach(P => { P.controller = null; }); game.io = null;
+  try { return structuredClone(game); }
+  finally { game.players.forEach((P, i) => { P.controller = controllers[i]; }); game.io = io; }
+}
+// Put a snapshot back INTO the live game objects (the engine is holding references to them).
+function restoreGame(game, snap) {
+  const copy = structuredClone(snap);
+  for (const k of Object.keys(copy)) if (k !== "players" && k !== "io" && k !== "rules") game[k] = copy[k];
+  copy.players.forEach((p, i) => { for (const k of Object.keys(p)) if (k !== "controller") game.players[i][k] = p[k]; });
+}
+
+function undoLastAction() {
+  if (!pending || pending.kind !== "action" || undoStack.length < 2) return;
+  undoStack.pop();                                 // the state right now
+  const before = undoStack.pop();                  // the state before your last action (chooseAction saves it again)
+  restoreGame(G, before);
+  addLog("You took back your last action.", "bot-says");
+  answer({ type: "noop" });                        // the engine carries on from the restored state and asks again
 }
 
 /* ---------------- choices ---------------- */
