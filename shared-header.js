@@ -100,6 +100,8 @@ function highlightCurrentNavLink() {
 
   if (path === "playmat.html") {
     markCurrent("nav-link-playmat", "nav-group-battle");
+  } else if (path === "practice.html") {
+    markCurrent("nav-link-practice", "nav-group-battle");
   } else if (path === "matches.html") {
     markCurrent("nav-link-matchhistory", "nav-group-battle");
   } else if (path === "tournaments.html" || path === "tournament.html") {

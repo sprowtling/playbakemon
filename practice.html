@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Practice Mat</title>
+<script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
+<link rel="stylesheet" href="shared-styles.css">
+<style>
+  /* Most of this is the playmat's own styling, so practice looks like the real table.
+     Practice-only additions are grouped at the bottom. */
+  :root { --panel-brown: #b98a5f; }
+  #mat-screen { zoom: 1.25; }
+
+  /* ---- Setup screen ---- */
+  #setup-screen {
+    max-width: 560px;
+    margin: 50px auto;
+    background: var(--mat-green);
+    padding: 28px;
+    border-radius: 12px;
+    box-shadow: var(--panel-shadow);
+  }
+  #setup-screen h2 { color: var(--accent); margin-top: 0; text-align: center; }
+  #setup-screen .intro { font-size: 13px; color: var(--text-light); text-align: center; margin: -6px 0 18px; }
+  #setup-screen .field { margin: 16px 0; }
+  #setup-screen label.field-label { display: block; font-size: 13px; color: var(--text-light); margin-bottom: 6px; }
+  #setup-screen select { width: 100%; }
+  #setup-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; text-align: center; }
+  #setup-warnings { font-size: 12px; color: #e8c93a; margin-top: 12px; }
+  #setup-warnings:empty { display: none; }
+  .bot-list { display: flex; flex-direction: column; gap: 8px; }
+  .bot-option {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--row-bg); border: 1px solid var(--card-border); border-radius: 8px;
+    padding: 10px 12px; cursor: pointer; color: var(--text-light);
+  }
+  .bot-option input { margin-top: 3px; }
+  .bot-option .bot-name { font-weight: 600; color: var(--accent); }
+  .bot-option .bot-level { font-size: 11px; color: var(--text-muted); margin-left: 6px; }
+  .bot-option .bot-blurb { font-size: 12px; margin-top: 2px; }
+  .bot-option:has(input:checked) { outline: 2px solid var(--accent); }
+  #deck-note { font-size: 12px; color: var(--text-muted); margin-top: 6px; min-height: 16px; }
+  #start-btn { width: 100%; margin-top: 6px; }
+
+  /* ---- Battle mat (from the playmat) ---- */
+  #mat-screen { display: none; padding: 12px; max-width: 900px; margin: 0 auto; }
+  .mat { display: flex; gap: 12px; max-height: 60vh; }
+  .field-col { flex: 1; overflow-y: auto; }
+  .chat-col {
+    width: 210px;
+    background: var(--row-bg);
+    border-radius: 10px;
+    border: 0.5px solid var(--card-border);
+    box-shadow: var(--panel-shadow);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .chat-col h3 { font-size: 12px; margin: 0; color: var(--accent); text-align: center; }
+  .chat-messages {
+    flex: 1; min-height: 200px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 4px; padding: 4px; font-size: 11px;
+  }
+  .chat-message { color: var(--text-light); line-height: 1.3; word-wrap: break-word; }
+  .chat-message.turn-divider {
+    text-align: center; font-weight: 700; color: var(--accent);
+    border-top: 1px dashed var(--card-border, #d9b25c); border-bottom: 1px dashed var(--card-border, #d9b25c);
+    padding: 6px 0; margin: 8px 0;
+  }
+  .hand-strip {
+    margin-top: 12px; background: var(--row-bg); border-radius: 10px;
+    border: 0.5px solid var(--card-border); box-shadow: var(--panel-shadow);
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .hand-strip h3 { font-size: 12px; margin: 0; color: var(--accent); }
+  .hand-list { display: flex; flex-direction: row; gap: 8px; max-width: 100%; overflow-x: auto; align-items: center; padding: 4px 2px; }
+  .field { background: var(--mat-green); border-radius: 12px; box-shadow: var(--panel-shadow); padding: 14px; border: 0.5px solid var(--card-border); }
+  .row-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); margin-bottom: 8px; }
+  .bench-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+  .bench-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .active-row { display: flex; gap: 10px; justify-content: center; align-items: center; }
+  .divider-line { height: 1px; background: color-mix(in srgb, var(--card-border) 45%, transparent); margin: 10px 0; }
+  .card-face {
+    width: 64px; height: 90px; border-radius: 6px; background: var(--card-cream);
+    border: 1.5px solid var(--card-border); position: relative; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; color: var(--button-text);
+  }
+  .card-face.empty { background: rgba(255,255,255,0.03); border: 1.5px dashed var(--accent-2); cursor: default; }
+  .card-face.active-size { width: 139px; height: 195px; }
+  .card-face.item-slot { width: 84px; height: 118px; border-style: dashed; }
+  .card-face.item-slot.empty { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 11px; color: var(--text-muted); }
+  .card-face.item-slot.empty .label { position: static; background: none; }
+  .card-face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .card-face .label {
+    position: relative; z-index: 1; background: rgba(253,246,227,0.92);
+    font-size: 9px; padding: 2px 3px; line-height: 1.15; text-align: center;
+  }
+  .card-face.hand-card { width: 80px; height: 112px; flex-shrink: 0; }
+  .zoom-btn {
+    position: absolute; bottom: 2px; right: 2px; width: 16px; height: 16px; padding: 0; line-height: 1;
+    font-size: 10px; border-radius: 50%; z-index: 3; background: rgba(253,246,227,0.9);
+    border: 1px solid var(--card-border); cursor: zoom-in;
+  }
+  .card-face.active-size .zoom-btn { width: 26px; height: 26px; font-size: 15px; }
+  .card-face.active-size .label { font-size: 12px; padding: 3px 4px; }
+  #lightbox-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200;
+    align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  #lightbox-overlay img { max-width: 80vw; max-height: 80vh; border-radius: 12px; border: 3px solid var(--card-border); box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .status-badges { position: absolute; top: 2px; left: 2px; display: flex; flex-wrap: wrap; gap: 2px; z-index: 2; }
+  .status-badge { font-size: 9px; padding: 1px 3px; border-radius: 4px; background: #7a2e2e; color: #fff; }
+  .side-panel {
+    width: 92px; border-radius: 6px; border: 1px solid var(--panel-brown); background: rgba(255,255,255,0.04);
+    padding: 6px; display: flex; flex-direction: column; gap: 5px; align-items: center; font-size: 10px; color: var(--text-light);
+  }
+  .side-panel .remaining { font-size: 12px; font-weight: 600; color: var(--accent); }
+  .energy-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 72px; }
+  .energy-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-flex; border: 1px solid rgba(0,0,0,0.2); }
+  .score-row { display: flex; align-items: center; justify-content: left; gap: 8px; margin: 4px 0; }
+  .score-label { font-size: 11px; color: var(--text-muted); }
+  .score-orbs { display: flex; gap: 5px; }
+  .score-orb { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--accent); background: transparent; }
+  .score-orb.filled { background: var(--accent); }
+  .bench-tray {
+    width: 56px; min-height: 15px; border-radius: 4px; border: 1px solid var(--panel-brown); background: rgba(255,255,255,0.04);
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px;
+  }
+  .bench-tray .energy-dot { width: 8px; height: 8px; }
+  #selection-hint { text-align: center; font-size: 12px; color: var(--accent); min-height: 16px; margin: 4px 0; }
+
+  /* ---- Practice-only additions ---- */
+  #action-bar { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; min-width: 96px; }
+  #action-bar button { width: 100%; }
+  #action-bar .waiting { font-size: 11px; color: var(--text-muted); text-align: center; max-width: 110px; }
+  .card-face.pickable { outline: 3px dashed var(--accent); outline-offset: 2px; animation: pick-pulse 1.1s ease-in-out infinite; }
+  @keyframes pick-pulse { 50% { outline-color: transparent; } }
+  .card-face.playable { box-shadow: 0 0 0 2px var(--accent); }
+  .card-face.unplayable { opacity: 0.55; }
+  .effect-badge { font-size: 9px; padding: 1px 4px; border-radius: 4px; background: rgba(143,211,193,0.18); color: var(--text-light); border: 1px solid color-mix(in srgb, var(--card-border) 50%, transparent); }
+  .hp-line { font-size: 9px; color: var(--text-light); text-align: center; }
+  #weather-banner { text-align: center; font-size: 12px; color: var(--accent); margin: 0 0 8px; }
+  #weather-banner:empty { display: none; }
+  #weather-banner .weather-text { color: var(--text-muted); font-size: 11px; }
+  .chat-message.event-roll, .chat-message.event-flip { color: var(--accent); }
+  .chat-message.event-ko, .chat-message.event-win { font-weight: 700; color: var(--accent); }
+  .chat-message.bot-says { font-style: italic; color: var(--text-muted); }
+  .log-controls { display: flex; gap: 4px; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted); }
+  .log-controls select { font-size: 10px; padding: 1px 2px; }
+
+  #choice-panel {
+    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+    background: var(--mat-green); border-top: 2px solid var(--card-border);
+    padding: 14px 12px 16px; flex-direction: column; align-items: center; gap: 10px;
+    max-height: 55vh; overflow-y: auto;
+  }
+  #choice-panel h3 { margin: 0; color: var(--accent); font-size: 15px; text-align: center; }
+  #choice-panel .options { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 900px; }
+  .choice-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; max-width: 280px; }
+  .choice-btn .choice-top { display: flex; gap: 6px; align-items: center; font-weight: 600; }
+  .choice-btn .choice-text { font-size: 11px; font-weight: 400; opacity: 0.85; }
+  .choice-btn .choice-note { font-size: 10px; font-style: italic; opacity: 0.75; }
+  .choice-btn img.thumb { width: 44px; height: 62px; object-fit: cover; border-radius: 4px; border: 1px solid var(--card-border); }
+  .choice-btn[disabled] { opacity: 0.5; cursor: default; }
+
+  #result-panel {
+    display: none; position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,0.55);
+    align-items: center; justify-content: center;
+  }
+  #result-panel .box {
+    background: var(--mat-green); border: 2px solid var(--card-border); border-radius: 12px; box-shadow: var(--panel-shadow);
+    padding: 24px 28px; text-align: center; max-width: 380px;
+  }
+  #result-panel h2 { margin: 0 0 8px; color: var(--accent); }
+  #result-panel p { color: var(--text-light); font-size: 13px; }
+  #result-panel .buttons { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<div id="bakemon-shared-header-slot" data-requires-login="true"></div>
+
+<div id="setup-screen">
+  <h2>Practice Mat</h2>
+  <p class="intro">Play a full match against a bot. The rules are enforced for both of you.<br>Practice matches don't count toward your rank or match history.</p>
+  <div class="field">
+    <label class="field-label">Opponent</label>
+    <div class="bot-list" id="bot-list"><span style="font-size:12px; color:var(--text-muted);">Loading...</span></div>
+  </div>
+  <div class="field">
+    <label class="field-label" for="deck-select">Deck to bring</label>
+    <select id="deck-select"><option>Loading your decks...</option></select>
+    <div id="deck-note"></div>
+  </div>
+  <button class="primary" id="start-btn" disabled>Start Practice Match</button>
+  <div id="setup-status"></div>
+  <div id="setup-warnings"></div>
+</div>
+
+<div id="mat-screen">
+  <div id="selection-hint"></div>
+  <div class="mat">
+    <div class="field-col">
+      <div class="field">
+        <div class="row-label"><span id="opp-name-label">Bot</span><span id="opp-zone-counts"></span></div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:10px; flex-wrap:wrap;">
+          <div class="card-face" id="opp-discard-pile" style="border-style:dashed; flex-shrink:0;"></div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
+          <div class="bench-row" id="opp-bench" style="margin:0;"></div>
+        </div>
+        <div class="active-row" id="opp-active-row"></div>
+        <div class="score-row"><span class="score-label">Points</span><div class="score-orbs" id="opp-score-orbs"></div></div>
+        <div class="divider-line"></div>
+        <div id="weather-banner"></div>
+        <div class="score-row"><span class="score-label">Points</span><div class="score-orbs" id="my-score-orbs"></div></div>
+        <div class="active-row" id="my-active-row"></div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:28px; margin-top:16px; flex-wrap:wrap;">
+          <div class="card-face" id="my-discard-pile" style="border-style:dashed; flex-shrink:0;"></div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
+          <div class="bench-row" id="my-bench" style="margin:0;"></div>
+          <div style="width:1px; align-self:stretch; background:color-mix(in srgb, var(--card-border) 45%, transparent);"></div>
+          <div id="action-bar"></div>
+        </div>
+        <div class="row-label" id="my-zone-counts" style="margin-top:8px;"></div>
+      </div>
+    </div>
+    <div class="chat-col">
+      <h3>Match Log</h3>
+      <div class="log-controls">
+        <label for="speed-select">Bot speed</label>
+        <select id="speed-select">
+          <option value="1000">Slow</option>
+          <option value="550" selected>Normal</option>
+          <option value="200">Fast</option>
+        </select>
+      </div>
+      <div class="chat-messages" id="log-messages"></div>
+    </div>
+  </div>
+  <div class="hand-strip">
+    <h3>Your Hand</h3>
+    <span id="hand-count" style="font-size:10px; color:var(--text-muted);"></span>
+    <div class="hand-list" id="hand-list"></div>
+  </div>
+</div>
+
+<div id="choice-panel"></div>
+<div id="result-panel"><div class="box" id="result-box"></div></div>
+<div id="lightbox-overlay"><img id="lightbox-img" src="" alt=""></div>
+
+<script src="shared-header.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- The rules engine, shared with the RPG (gameguy/). It reads CARD_BY_ID, which this page fills from the live database. -->
+<script src="gameguy/data/battle-rules.js"></script>
+<script src="gameguy/data/moves.js"></script>
+<script>const CARD_BY_ID = {};</script>
+<script src="gameguy/js/battle.js"></script>
+<script src="gameguy/js/battle-ai.js"></script>
+<script src="practice-bots.js"></script>
+
+<script>
+const SUPABASE_URL = "https://ykfuhvkjknrhocmahelx.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
+
+// The database stores rarity as a number. Same words the rules page uses.
+const RARITY_WORDS = { 1: "common", 2: "uncommon", 3: "rare", 4: "double rare", 5: "ultra rare", 6: "legendary" };
+const RARITY_LIMIT = { common: 3, uncommon: 3, rare: 3, "double rare": 2, "ultra rare": 1, legendary: 1 };
+const STANDARD_DECK = 32;
+// The engine says "asleep"; the playmat's badge says "sleeping".
+const STATUS_LABEL = { asleep: "sleeping" };
+// Lasting effects worth a badge, in plain words.
+const EFFECT_LABEL = {
+  shield: "guarded", flinch: "flinching", cantRetreat: "can't retreat", noEnergy: "no energy", missNext: "will miss",
+  mustFlip: "must flip to attack", disabled: "move disabled", delusion: "delusion", barbed: "barbed", thorns: "thorns",
+  retaliate: "retaliates", reflect: "reflects", dmgBuff: "powered up", dmgDebuff: "weakened", splashBench: "focused",
+};
+
+let currentPlayer = null;
+let uuidToNumber = {};          // cards.id (uuid, used by decks) -> card number (used by the engine)
+let myDecks = [];
+let G = null;                   // the match being played
+let me = null, bot = null;      // G.players[0] / G.players[1]
+let botEntry = null;            // the PRACTICE_BOTS entry we're playing
+let lastSetup = null;           // { botId, deckValue } for "rematch"
+let pending = null;             // what the engine is waiting on from you: { kind: 'action' | 'ask', ... , resolve }
+let subPick = null;             // after clicking an evolution card: the actions you can choose between by clicking a Bakemon
+let skipping = false;           // "skip to my turn"
+let botDelay = 550;
+
+function escapeHtml(str) { const d = document.createElement("div"); d.textContent = str == null ? "" : String(str); return d.innerHTML; }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const deckList = cards => Object.entries(cards).flatMap(([id, n]) => Array(n).fill(id));
+
+/* ---------------- loading ---------------- */
+
+// A database row -> the card shape the engine knows (same as gameguy/tools/export-cards.html).
+function rowToCard(r) {
+  const c = { id: r.card_number, uuid: r.id, name: r.name, kind: r.card_type, rarity: RARITY_WORDS[r.rarity] || null };
+  if (r.card_type === "item") { c.itemKind = r.item_kind; c.effect = r.effect_text || ""; }
+  else {
+    c.stage = r.stage; c.from = r.evolves_from || null; c.hp = r.hp;
+    c.types = [r.type_1, r.type_2].filter(Boolean);
+    c.weak = [r.weakness_1, r.weakness_2].filter(Boolean);
+    c.retreat = r.retreat_cost || 0;
+    c.abilities = [1, 2].filter(n => r["ability_" + n + "_name"]).map(n => ({
+      name: r["ability_" + n + "_name"], cost: r["ability_" + n + "_cost"] || "",
+      text: r["ability_" + n + "_text"] || "", damage: r["ability_" + n + "_damage"],
+    }));
+  }
+  c.image = r.image_filename || null;
+  return c;
+}
+
+// Problems with a deck from practice-bots.js, in words. (Your own decks are trusted as built.)
+function templateProblems(label, cards) {
+  const problems = [];
+  let total = 0, legendary = 0;
+  for (const [id, n] of Object.entries(cards)) {
+    const card = CARD_BY_ID[id];
+    if (!card) { problems.push(`${label}: there is no card number "${id}".`); continue; }
+    total += n;
+    if (card.rarity === "legendary") legendary += n;
+    else if (card.rarity && n > RARITY_LIMIT[card.rarity]) problems.push(`${label}: ${n} copies of ${card.name}, but a ${card.rarity} card allows ${RARITY_LIMIT[card.rarity]}.`);
+  }
+  if (legendary > 1) problems.push(`${label}: ${legendary} legendary cards, but a deck allows one.`);
+  if (total !== STANDARD_DECK) problems.push(`${label}: ${total} cards, but a standard deck is ${STANDARD_DECK}.`);
+  if (!Object.keys(cards).some(id => CARD_BY_ID[id] && isBasic(id))) problems.push(`${label}: no basic Bakemon, so it can't start a match.`);
+  return problems;
+}
+
+async function initSetup() {
+  currentPlayer = window.getBakemonPlayer();
+  if (!currentPlayer) { location.href = "index.html"; return; }
+  const status = document.getElementById("setup-status");
+  status.textContent = "Loading cards...";
+
+  const { data: rows, error } = await supabaseClient.from("cards").select("*").order("card_number");
+  if (error || !rows) { status.textContent = "Couldn't load the cards. Try refreshing."; console.error(error); return; }
+  for (const r of rows) { const c = rowToCard(r); CARD_BY_ID[c.id] = c; uuidToNumber[r.id] = c.id; }
+
+  const { data: decks } = await supabaseClient.from("decks").select("*").eq("player_id", currentPlayer.id).order("created_at");
+  myDecks = decks || [];
+
+  // Bots
+  document.getElementById("bot-list").innerHTML = PRACTICE_BOTS.map((b, i) => `
+    <label class="bot-option">
+      <input type="radio" name="bot" value="${escapeHtml(b.id)}" ${i === 0 ? "checked" : ""}>
+      <div><span class="bot-name">${escapeHtml(b.name)}</span><span class="bot-level">${escapeHtml(b.difficulty || "")}</span>
+      <div class="bot-blurb">${escapeHtml(b.blurb || "")}</div></div>
+    </label>`).join("");
+
+  // Decks: yours first, then the borrowable ones
+  const sel = document.getElementById("deck-select");
+  sel.innerHTML = "";
+  if (myDecks.length) {
+    const g = document.createElement("optgroup"); g.label = "My decks";
+    for (const d of myDecks) { const o = document.createElement("option"); o.value = "mine:" + d.id; o.textContent = d.deck_name; g.appendChild(o); }
+    sel.appendChild(g);
+  }
+  const g2 = document.createElement("optgroup"); g2.label = "Borrow a deck";
+  for (const d of BORROW_DECKS) { const o = document.createElement("option"); o.value = "borrow:" + d.id; o.textContent = d.name; g2.appendChild(o); }
+  sel.appendChild(g2);
+  sel.addEventListener("change", describeDeckChoice);
+  describeDeckChoice();
+
+  // Mistakes in practice-bots.js, shown to whoever edits it
+  const problems = PRACTICE_BOTS.flatMap(b => templateProblems("Bot " + b.name, b.cards))
+    .concat(BORROW_DECKS.flatMap(d => templateProblems("Borrowed deck " + d.name, d.cards)));
+  document.getElementById("setup-warnings").innerHTML = problems.length
+    ? "<strong>practice-bots.js has some things to fix:</strong><br>" + problems.map(escapeHtml).join("<br>") : "";
+
+  status.textContent = "";
+  document.getElementById("start-btn").disabled = false;
+}
+
+function describeDeckChoice() {
+  const v = document.getElementById("deck-select").value || "";
+  const note = document.getElementById("deck-note");
+  if (v.startsWith("borrow:")) { const d = BORROW_DECKS.find(x => "borrow:" + x.id === v); note.textContent = d ? d.blurb || "" : ""; }
+  else note.textContent = myDecks.length ? "" : "You don't have any decks yet, so borrow one (or build one in the Deckbuilder).";
+}
+
+// The chosen deck as a list of card numbers.
+async function loadChosenDeck(value) {
+  if (value.startsWith("borrow:")) {
+    const d = BORROW_DECKS.find(x => "borrow:" + x.id === value);
+    return { name: d.name, cards: deckList(d.cards) };
+  }
+  const deckId = value.slice("mine:".length);
+  const { data, error } = await supabaseClient.from("deck_cards").select("card_id, quantity").eq("deck_id", deckId);
+  if (error) throw error;
+  const cards = [];
+  for (const row of data || []) { const num = uuidToNumber[row.card_id]; if (num) for (let i = 0; i < (row.quantity || 1); i++) cards.push(num); }
+  return { name: (myDecks.find(d => d.id === deckId) || {}).deck_name || "Your deck", cards };
+}
+
+/* ---------------- starting a match ---------------- */
+
+document.getElementById("start-btn").addEventListener("click", async () => {
+  const botId = (document.querySelector("input[name=bot]:checked") || {}).value;
+  const deckValue = document.getElementById("deck-select").value;
+  await startMatch(botId, deckValue);
+});
+
+async function startMatch(botId, deckValue) {
+  const status = document.getElementById("setup-status");
+  botEntry = PRACTICE_BOTS.find(b => b.id === botId);
+  if (!botEntry) { status.textContent = "Pick an opponent."; return; }
+  let deck;
+  try { deck = await loadChosenDeck(deckValue); } catch (err) { console.error(err); status.textContent = "Couldn't load that deck. Try again."; return; }
+  if (!deck.cards.some(isBasic)) { status.textContent = "That deck has no basic Bakemon, so it can't start a match."; return; }
+  lastSetup = { botId, deckValue };
+
+  const human = {
+    chooseAction: (G, P, actions) => new Promise(resolve => { skipping = false; subPick = null; pending = { kind: "action", actions, resolve }; renderAll(); }),
+    ask: (G, P, req) => new Promise(resolve => { skipping = false; pending = { kind: "ask", req, resolve }; renderAll(); }),
+  };
+  G = newBattle([
+    { name: currentPlayer.display_name, deck: deck.cards, controller: human, isHuman: true },
+    { name: botEntry.name, deck: deckList(botEntry.cards), controller: makeAI({ mistakes: botEntry.mistakes }) },
+  ], { rules: { pointsToWin: 4, reshuffleNeedsEmptyHand: true }, io: { show: showEvent } });
+  me = G.players[0]; bot = G.players[1];
+  pending = null; subPick = null; skipping = false;
+
+  document.getElementById("log-messages").innerHTML = "";
+  document.getElementById("result-panel").style.display = "none";
+  document.getElementById("result-box").innerHTML = "";
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("mat-screen").style.display = "block";
+  addLog(`${botEntry.name}: “${botEntry.hello || "Let's play."}”`, "bot-says");
+  addLog(`You brought ${deck.name}${deck.cards.length !== STANDARD_DECK ? ` (${deck.cards.length} cards; a standard deck is ${STANDARD_DECK})` : ""}.`);
+  renderAll();
+
+  runBattle(G).then(() => showResult(G.draw ? "draw" : G.winner === me ? "win" : "loss"))
+    .catch(err => { console.error(err); showResult("broken"); });
+}
+
+/* ---------------- what the engine tells us ---------------- */
+
+async function showEvent(game, e) {
+  addLog(e.text, e.kind ? "event-" + e.kind : "");
+  renderAll();
+  const botsTurn = game.players[game.turn] === bot && !pending;
+  const ms = skipping ? 0 : botsTurn ? botDelay : 90;
+  if (ms) await sleep(ms);
+}
+
+function addLog(text, cls) {
+  const box = document.getElementById("log-messages");
+  const div = document.createElement("div");
+  const isTurn = cls === "event-turn";
+  div.className = "chat-message " + (isTurn ? "turn-divider" : cls || "");
+  div.textContent = isTurn ? text.replace(/—/g, "").trim() : text;
+  box.appendChild(div);
+  while (box.children.length > 400) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+
+function answer(value) {
+  const p = pending;
+  pending = null; subPick = null;
+  hideChoices();
+  if (p) p.resolve(value);
+  renderAll();
+}
+
+/* ---------------- drawing the table ---------------- */
+
+const allMons = () => G ? [me.active, ...me.bench, bot.active, ...bot.bench].filter(Boolean) : [];
+const monByUid = uid => allMons().find(m => m.uid === uid);
+
+function cardImage(card, opts = {}) {
+  if (!card) return "";
+  const url = card.image ? CARD_IMAGE_BASE + card.image : "";
+  // If the art is missing (a brand-new card, say), fall back to the card's name.
+  const img = url ? `<img src="${url}" alt="" onerror="this.style.display='none'; if (this.nextElementSibling) this.nextElementSibling.style.display='';">` : "";
+  const zoom = url && !opts.noZoom ? `<button class="zoom-btn" data-zoom-src="${url}" title="View larger">🔍</button>` : "";
+  const label = `<div class="label" ${url ? 'style="display:none"' : ""}>${escapeHtml(card.name)}</div>`;
+  return zoom + img + label;
+}
+
+function energyDots(list) {
+  return list.map(e => `<span class="energy-dot" style="background:${ENERGY_COLORS[e] || "#999"}" title="${escapeHtml(e)}"></span>`).join("");
+}
+function statusBadges(mon) {
+  return `<div class="status-badges">${Object.keys(mon.status).map(s => `<span class="status-badge">${escapeHtml(STATUS_LABEL[s] || s)}</span>`).join("")}</div>`;
+}
+function effectBadges(mon) {
+  const seen = new Set();
+  return mon.effects.map(e => EFFECT_LABEL[e.kind]).filter(l => l && !seen.has(l) && seen.add(l))
+    .map(l => `<span class="effect-badge">${escapeHtml(l)}</span>`).join("");
+}
+
+// Which highlight a Bakemon on the table gets right now.
+function monClasses(mon) {
+  if (pending && pending.kind === "ask" && pending.req.kind === "mon" && pending.req.options.includes(mon)) return "pickable";
+  if (subPick && subPick.some(a => a.mon === mon)) return "pickable";
+  return "";
+}
+
+function monFace(mon, size) {
+  return `<div class="card-face ${size} ${monClasses(mon)}" data-mon-uid="${mon.uid}">${statusBadges(mon)}${cardImage(mon.card)}</div>`;
+}
+
+function sidePanel(mon) {
+  if (!mon) return "";
+  const extras = [];
+  if (mon.armor) extras.push(`armor ${mon.armor}`);
+  if (mon.lurkStored !== undefined) extras.push(`stored ${mon.lurkStored}`);
+  if (mon.notepad) extras.push(`notepad: ${mon.notepad.name}`);
+  return `
+    <div class="side-panel">
+      <div>Energy</div>
+      <div class="energy-dots">${energyDots(mon.energy) || '<span style="font-size:9px; opacity:0.6;">none</span>'}</div>
+      <div class="divider-line" style="width:100%;"></div>
+      <div class="remaining">${Math.max(0, mon.hp)}<span style="font-size:8px; font-weight:400;"> / ${mon.maxHp}</span></div>
+      ${effectBadges(mon) ? `<div style="display:flex; flex-wrap:wrap; gap:2px; justify-content:center;">${effectBadges(mon)}</div>` : ""}
+      ${extras.map(x => `<div style="font-size:9px; opacity:0.8; text-align:center;">${escapeHtml(x)}</div>`).join("")}
+    </div>`;
+}
+
+function activeRow(P) {
+  const a = P.active;
+  const item = a && a.equip ? CARD_BY_ID[a.equip] : null;
+  return `
+    <div class="card-face item-slot ${item ? "" : "empty"}">${item ? cardImage(item) : '<div class="label">Item<br>equipped</div>'}</div>
+    ${a ? monFace(a, "active-size") : '<div class="card-face active-size empty"></div>'}
+    ${sidePanel(a)}`;
+}
+
+function benchRow(P) {
+  return P.bench.map(mon => mon ? `
+    <div class="bench-slot">
+      ${monFace(mon, "")}
+      <div class="hp-line">${Math.max(0, mon.hp)} / ${mon.maxHp}${mon.equip ? " · " + escapeHtml(CARD_BY_ID[mon.equip].name) : ""}</div>
+      <div class="bench-tray">${energyDots(mon.energy)}</div>
+      ${effectBadges(mon) ? `<div style="display:flex; flex-wrap:wrap; gap:2px; justify-content:center; max-width:70px;">${effectBadges(mon)}</div>` : ""}
+    </div>` : `<div class="bench-slot"><div class="card-face empty"></div></div>`).join("");
+}
+
+function discardPile(P) {
+  const top = P.discard[P.discard.length - 1];
+  return top ? cardImage(CARD_BY_ID[top], { noZoom: false }) + `<div class="label" style="position:absolute; bottom:0; width:100%;">${P.discard.length} in discard</div>`
+             : `<div class="label">Discard<br>(empty)</div>`;
+}
+
+const orbs = n => Array.from({ length: G.rules.pointsToWin }, (_, i) => `<div class="score-orb ${n > i ? "filled" : ""}"></div>`).join("");
+
+function renderAll() {
+  if (!G) return;
+  document.getElementById("opp-name-label").textContent = `${bot.name} (${botEntry.difficulty || "bot"})`;
+  document.getElementById("opp-zone-counts").textContent = `Deck ${bot.deck.length} · Discard ${bot.discard.length} · Hand ${bot.hand.length}`;
+  document.getElementById("my-zone-counts").innerHTML = `<span>${escapeHtml(currentPlayer.display_name)}</span><span>Deck ${me.deck.length} · Discard ${me.discard.length}</span>`;
+  document.getElementById("opp-score-orbs").innerHTML = orbs(bot.points);
+  document.getElementById("my-score-orbs").innerHTML = orbs(me.points);
+  document.getElementById("opp-bench").innerHTML = benchRow(bot);
+  document.getElementById("my-bench").innerHTML = benchRow(me);
+  document.getElementById("opp-active-row").innerHTML = activeRow(bot);
+  document.getElementById("my-active-row").innerHTML = activeRow(me);
+  document.getElementById("opp-discard-pile").innerHTML = discardPile(bot);
+  document.getElementById("my-discard-pile").innerHTML = discardPile(me);
+
+  const w = currentWeather(G);
+  const wInfo = w && (WEATHER[w.name] || { label: w.name, text: "" });
+  document.getElementById("weather-banner").innerHTML = w
+    ? `Weather: <strong>${escapeHtml(wInfo.label)}</strong> <span class="weather-text">(from ${escapeHtml(w.source.card.name)}) ${escapeHtml(wInfo.text)}</span>` : "";
+
+  // Hand: cards you can play right now are outlined
+  const playableIdx = new Set(pending && pending.kind === "action" ? pending.actions.filter(a => a.handIndex !== undefined).map(a => a.handIndex) : []);
+  document.getElementById("hand-count").textContent = `${me.hand.length} cards`;
+  document.getElementById("hand-list").innerHTML = me.hand.map((id, i) => `
+    <div class="card-face hand-card ${pending && pending.kind === "action" ? (playableIdx.has(i) ? "playable" : "unplayable") : ""}" data-hand-index="${i}">
+      ${cardImage(CARD_BY_ID[id])}
+    </div>`).join("");
+
+  renderActionBar();
+  renderHint();
+  if (pending && pending.kind === "ask" && pending.req.kind !== "mon") showAskChoices(pending.req);
+}
+
+function renderActionBar() {
+  const bar = document.getElementById("action-bar");
+  if (!G) { bar.innerHTML = ""; return; }
+  if ((G.winner || G.draw) && document.getElementById("result-box").innerHTML) {
+    bar.innerHTML = `<div class="waiting">Match over.</div><button class="small primary" id="over-btn">Play again</button>`;
+    document.getElementById("over-btn").onclick = () => { document.getElementById("result-panel").style.display = "flex"; };
+    return;
+  }
+  if (!pending || pending.kind !== "action") {
+    const waitingOnYou = pending && pending.kind === "ask";
+    bar.innerHTML = waitingOnYou ? "" : `
+      <div class="waiting">${escapeHtml(bot.name)} is playing...</div>
+      <button class="small" id="skip-btn">Skip to my turn</button>`;
+    const skip = document.getElementById("skip-btn");
+    if (skip) skip.onclick = () => { skipping = true; };
+    return;
+  }
+  const of = t => pending.actions.filter(a => a.type === t);
+  const attacks = of("attack"), energy = of("energy")[0], retreat = of("retreat")[0];
+  bar.innerHTML = `
+    <button class="small primary" id="attack-btn" ${me.active ? "" : "disabled"}>Attack${attacks.length ? "" : "…"}</button>
+    <button class="small" id="energy-btn" ${energy ? "" : "disabled"}>Attach Energy</button>
+    <button class="small" id="retreat-btn" ${retreat ? "" : "disabled"} title="${retreat ? escapeHtml(retreat.label) : "Can't retreat right now"}">Retreat${me.active && me.active.card.retreat ? ` (${me.active.card.retreat})` : ""}</button>
+    <button class="small" id="end-turn-btn">End Turn</button>
+    <button class="small" id="give-up-btn" style="margin-top:6px; opacity:0.8;">Give Up</button>`;
+  document.getElementById("attack-btn").onclick = () => openMonMenu(me.active);
+  if (energy) document.getElementById("energy-btn").onclick = () => answer(energy);
+  if (retreat) document.getElementById("retreat-btn").onclick = () => answer(retreat);
+  document.getElementById("end-turn-btn").onclick = () => answer(of("endTurn")[0]);
+  document.getElementById("give-up-btn").onclick = () => {
+    if (!confirm("Give up this practice match?")) return;
+    G.winner = bot; G.t.over = true;
+    answer(of("endTurn")[0]);
+  };
+}
+
+function renderHint() {
+  const hint = document.getElementById("selection-hint");
+  if (!G || G.winner || G.draw) { hint.textContent = ""; return; }
+  if (pending && pending.kind === "ask" && pending.req.kind === "mon") hint.textContent = pending.req.prompt || "Choose a Bakemon.";
+  else if (subPick) hint.textContent = "Click the Bakemon to evolve (it's outlined). Click the card in your hand again to cancel.";
+  else if (pending && pending.kind === "action") hint.textContent = "Your turn. Play outlined cards from your hand, or click one of your Bakemon to use its moves.";
+  else if (pending && pending.kind === "ask") hint.textContent = "";
+  else hint.textContent = `${bot.name}'s turn.`;
+}
+
+/* ---------------- choices ---------------- */
+
+function moveButtonHtml(move, extra) {
+  const cost = Object.entries(move.cost.types).flatMap(([t, n]) => Array(n).fill(t));
+  const anyCost = move.cost.any ? `<span style="font-size:10px;">+${move.cost.any} any</span>` : "";
+  const note = move.fx && move.fx.approx ? `<span class="choice-note">Simplified: ${escapeHtml(move.fx.approx)}</span>` : "";
+  return `<span class="choice-top"><span class="energy-dots" style="max-width:none;">${energyDots(cost)}</span>${anyCost}${escapeHtml(move.name)}${move.damage ? " · " + move.damage : ""}</span>
+          ${move.text ? `<span class="choice-text">${escapeHtml(move.text)}</span>` : ""}${note}${extra ? `<span class="choice-note">${escapeHtml(extra)}</span>` : ""}`;
+}
+
+// Everything you can do with one of your Bakemon: its abilities, and (if active) its attacks and retreat.
+function openMonMenu(mon) {
+  if (!pending || pending.kind !== "action" || !mon) return;
+  const acts = pending.actions;
+  const items = [];
+  for (const a of acts.filter(a => a.type === "ability" && a.mon === mon))
+    items.push({ html: moveButtonHtml(a.move, a.notepad ? "From the Notepad" : ""), run: () => answer(a) });
+  if (mon === me.active) {
+    const usable = acts.filter(a => a.type === "attack");
+    for (const move of cardMoves(mon.card).filter(m => !m.isAbility)) {
+      const a = usable.find(x => x.move === move);
+      const why = a ? "" : !G.t.canAttack ? "Can't attack this turn." : move.fx.needsTargetStatus ? `Only on a ${STATUS_LABEL[move.fx.needsTargetStatus] || move.fx.needsTargetStatus} target.` : "Not enough energy.";
+      items.push({ html: moveButtonHtml(move, why), run: a ? () => answer(a) : null });
+    }
+    for (const a of usable.filter(x => x.notepad)) items.push({ html: moveButtonHtml(a.move, "From the Notepad"), run: () => answer(a) });
+    const retreat = acts.find(a => a.type === "retreat");
+    if (retreat) items.push({ html: `<span class="choice-top">${escapeHtml(retreat.label)}</span>`, run: () => answer(retreat) });
+  }
+  if (!items.length) { flashHint(`${mon.card.name} has nothing it can do right now.`); return; }
+  showChoices(mon.card.name, items, true);
+}
+
+function showAskChoices(req) {
+  const items = req.options.map(o => {
+    const card = o.cardId ? CARD_BY_ID[o.cardId] : null;
+    const thumb = card && card.image ? `<img class="thumb" src="${CARD_IMAGE_BASE + card.image}" alt="" onerror="this.style.display='none'">` : "";
+    const dot = o.energy ? `<span class="energy-dot" style="background:${ENERGY_COLORS[o.energy] || "#999"}"></span>` : "";
+    const html = thumb ? `<span class="choice-top">${thumb}${escapeHtml(o.label)}</span>` : `<span class="choice-top">${dot}${escapeHtml(o.label)}</span>`;
+    return { html, run: () => answer(o.value) };
+  });
+  showChoices(req.prompt || "Choose one", items, false);
+}
+
+function showChoices(title, items, cancellable) {
+  const panel = document.getElementById("choice-panel");
+  panel.innerHTML = `<h3>${escapeHtml(title)}</h3><div class="options">${items.map((it, i) =>
+    `<button class="small choice-btn" data-choice="${i}" ${it.run ? "" : "disabled"}>${it.html}</button>`).join("")}</div>
+    ${cancellable ? '<button class="small" id="choice-cancel">Cancel</button>' : ""}`;
+  panel.style.display = "flex";
+  panel.querySelectorAll("[data-choice]").forEach(btn => btn.onclick = () => { const it = items[+btn.dataset.choice]; if (it.run) { hideChoices(); it.run(); } });
+  const cancel = document.getElementById("choice-cancel");
+  if (cancel) cancel.onclick = hideChoices;
+}
+function hideChoices() { const p = document.getElementById("choice-panel"); p.style.display = "none"; p.innerHTML = ""; }
+
+let flashTimer = null;
+function flashHint(text) {
+  const hint = document.getElementById("selection-hint");
+  hint.textContent = text;
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(renderHint, 2500);
+}
+
+/* ---------------- clicking ---------------- */
+
+document.getElementById("mat-screen").addEventListener("click", e => {
+  const zoom = e.target.closest("[data-zoom-src]");
+  if (zoom) {
+    e.stopPropagation();
+    document.getElementById("lightbox-img").src = zoom.dataset.zoomSrc;
+    document.getElementById("lightbox-overlay").style.display = "flex";
+    return;
+  }
+  const monEl = e.target.closest("[data-mon-uid]");
+  if (monEl) return clickMon(monByUid(+monEl.dataset.monUid));
+  const handEl = e.target.closest("[data-hand-index]");
+  if (handEl) return clickHand(+handEl.dataset.handIndex);
+});
+document.getElementById("lightbox-overlay").addEventListener("click", () => { document.getElementById("lightbox-overlay").style.display = "none"; });
+
+function clickMon(mon) {
+  if (!mon || !pending) return;
+  if (pending.kind === "ask" && pending.req.kind === "mon") {
+    if (pending.req.options.includes(mon)) answer(mon);
+    return;
+  }
+  if (subPick) {
+    const a = subPick.find(x => x.mon === mon);
+    if (a) answer(a);
+    return;
+  }
+  if (pending.kind === "action" && (mon === me.active || me.bench.includes(mon))) openMonMenu(mon);
+}
+
+function clickHand(i) {
+  if (!pending || pending.kind !== "action") return;
+  if (subPick && subPick[0].handIndex === i) { subPick = null; renderAll(); return; }
+  const acts = pending.actions.filter(a => a.handIndex === i);
+  const card = CARD_BY_ID[me.hand[i]];
+  if (!acts.length) { flashHint(`You can't play ${card.name} right now.`); return; }
+  if (acts.length === 1) { answer(acts[0]); return; }
+  subPick = acts;                       // one evolution card, several Bakemon it could evolve
+  renderAll();
+}
+
+/* ---------------- the end ---------------- */
+
+function showResult(result) {
+  pending = null; subPick = null; hideChoices();
+  renderAll();
+  const words = { win: "You win!", loss: `${bot.name} wins.`, draw: "It's a draw.", broken: "The match fell apart." }[result];
+  const line = result === "win" ? botEntry.ifYouWin : result === "loss" ? botEntry.ifYouLose : "";
+  document.getElementById("result-box").innerHTML = `
+    <h2>${escapeHtml(words)}</h2>
+    ${line ? `<p><em>${escapeHtml(bot.name)}: “${escapeHtml(line)}”</em></p>` : ""}
+    ${result === "broken" ? "<p>A card effect hit a bug. If you can, tell Claude which cards were in play (the details are in the browser console).</p>" : ""}
+    <p style="font-size:11px; color:var(--text-muted);">Practice matches don't count toward your rank.</p>
+    <div class="buttons">
+      <button class="primary" id="rematch-btn">Rematch</button>
+      <button id="change-btn">Change opponent or deck</button>
+      <button id="look-btn">Look at the table</button>
+    </div>`;
+  document.getElementById("result-panel").style.display = "flex";
+  document.getElementById("rematch-btn").onclick = () => startMatch(lastSetup.botId, lastSetup.deckValue);
+  document.getElementById("change-btn").onclick = () => {
+    document.getElementById("result-panel").style.display = "none";
+    document.getElementById("mat-screen").style.display = "none";
+    document.getElementById("setup-screen").style.display = "block";
+    G = null;
+  };
+  document.getElementById("look-btn").onclick = () => { document.getElementById("result-panel").style.display = "none"; };
+}
+
+document.getElementById("speed-select").addEventListener("change", e => { botDelay = +e.target.value; });
+window.addEventListener("beforeunload", e => { if (G && !G.winner && !G.draw) { e.preventDefault(); e.returnValue = ""; } });
+
+initSetup();
+</script>
+</body>
+</html>

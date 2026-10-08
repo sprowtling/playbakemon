@@ -217,6 +217,12 @@ fixed checks. The simulator proves nothing crashes and the books balance; `tools
 checks individual cards against what their text says. Neither proves a card does what YOU
 meant: reading `data/moves.js` against your intent is the real review.
 
+**The website shares this engine.** `practice.html` (Practice vs Bot, in the site's Battle menu)
+loads `data/battle-rules.js`, `data/moves.js`, `js/battle.js` and `js/battle-ai.js` straight from
+this folder, with cards read live from the database. So wiring a card here wires it there too,
+and a bug here is a bug there. Run `node tools/test-moves.js` after changing any of them. The
+practice bots and borrowable decks live in `practice-bots.js` at the top of the site.
+
 **Adding an opponent.** Copy an entry in `data/opponents.js`, then put `battle: 'their_id'`
 on an NPC or a place.
 
