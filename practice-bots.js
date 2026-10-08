@@ -51,14 +51,19 @@ const PRACTICE_BOTS = [
       '003': 2,  // Raizado
       '048': 3,  // Envelawn
       '049': 2,  // Constricturf
-      '042': 2,  // Mymot
-      '038': 3,  // Musherus
-      '039': 2,  // Shimejirus
-      '066': 2,  // Grupix
-      '067': 2,  // Gossiary
+      '066': 1,  // Grupix
+      '067': 1,  // Gossiary
       '101': 3,  // Band-aid
       '106': 2,  // Nectar
       '102': 3,  // Bill
+      '090': 2, // Lemurk
+      '082': 1, // Silooper
+      '031': 1, // Growlbud
+      '109': 1, // Helmet
+      '116': 1, // Elemental Drift
+      '110': 2, // Sleeping Bag
+      '016': 1, // Pentawunk 
+       
     },
   },
 
