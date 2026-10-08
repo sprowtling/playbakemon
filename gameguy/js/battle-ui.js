@@ -130,7 +130,8 @@ function showBattleEvent(G, e) {
   if (e.cardId) bs.preview = CARD_BY_ID[e.cardId];
   if (e.mon && e.kind === 'damage' && e.amount) { bs.fx.push({ uid: e.mon.uid, text: '-' + e.amount, color: COLOR.coral, t: 0 }); bs.shake[e.mon.uid] = 0.3; }
   if (e.mon && e.kind === 'heal')   bs.fx.push({ uid: e.mon.uid, text: '+' + e.amount, color: COLOR.glass, t: 0 });
-  if (e.mon && e.kind === 'status') bs.fx.push({ uid: e.mon.uid, text: e.text.split(' is now ')[1].replace('.', ''), color: COLOR.sand, t: 0 });
+  if (e.mon && e.kind === 'status') bs.fx.push({ uid: e.mon.uid, text: e.status || '', color: COLOR.sand, t: 0 });
+  if (e.kind === 'roll') bs.fx.push({ uid: null, text: 'D' + e.sides + ': ' + e.value, color: COLOR.sand, t: 0 });
   const seconds = BATTLE_RULES.messageSeconds * (e.kind === 'turn' || e.kind === 'ko' || e.kind === 'win' ? 1.4 : 1);
   return new Promise(resolve => { bs.wait = { left: seconds, resolve }; });
 }
@@ -291,8 +292,14 @@ function drawBattle() {
   ctx.fillStyle = '#173a45'; ctx.fillRect(0, 340, 650, 2);                       // the line down the middle of the table
   const you = G.players.find(P => P.isHuman), them = other(G, you);
   drawSide(them, 1); drawSide(you, 0);
+  const weather = currentWeather(G);
+  if (weather) {                                                                  // one weather at a time, until its maker leaves
+    const w = WEATHER[weather.name] || { label: weather.name, text: '' };
+    setFont(16); ctx.fillStyle = COLOR.glass; ctx.fillText('Weather: ' + w.label, 24, 312);
+    setFont(13); ctx.fillStyle = COLOR.dim; ctx.fillText(w.text, 24, 329);
+  }
 
-  for (const f of bs.fx) { const r = rectOfUid(f.uid); if (!r) continue;
+  for (const f of bs.fx) { const r = f.uid === null ? { x: TABLE.centre - 60, y: 300, w: 120, h: 80 } : rectOfUid(f.uid); if (!r) continue;
     ctx.globalAlpha = Math.max(0, 1 - f.t / 1.1); setFont(34); ctx.textAlign = 'center';
     ctx.fillStyle = COLOR.ink; ctx.fillText(f.text, r.x + r.w / 2 + 2, r.y + r.h / 2 - f.t * 40 + 2);
     ctx.fillStyle = f.color;   ctx.fillText(f.text, r.x + r.w / 2, r.y + r.h / 2 - f.t * 40);
@@ -314,7 +321,7 @@ function drawBattle() {
     ctx.fillText((m.cost.any ? '+' + m.cost.any + ' any    ' : '') + (m.damage ? m.damage + ' damage' : ''), px + (m.cost.total - m.cost.any) * 16 + 6, ty);
     ty += 22; setFont(16); ctx.fillStyle = COLOR.text;
     for (const line of wrapText(m.text, pw).slice(0, 4)) { ctx.fillText(line, px, ty); ty += 19; }
-    if (m.fx.todo || (m.text && !m.ops.length && !m.fx.tag)) { ctx.fillStyle = COLOR.coral; ctx.fillText('Effect not wired yet: damage only.', px, ty); }
+    if (m.fx.todo || (m.text && !m.ops.length && !m.fx.tag && !m.fx.needsTargetStatus)) { ctx.fillStyle = COLOR.coral; ctx.fillText('Effect not wired yet: damage only.', px, ty); }
     else if (m.fx.approx) { ctx.fillStyle = COLOR.dim; for (const line of wrapText('Simplified: ' + m.fx.approx, pw)) { ctx.fillText(line, px, ty); ty += 19; } }
   }
 

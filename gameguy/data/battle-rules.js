@@ -40,11 +40,19 @@ const BATTLE_RULES = {
   enragedBonus: 20,
 };
 
-// The ten energy types and their colours, copied from the playmat.
+// The twelve energy types and their colours, copied from the playmat.
 // There is no "normal" ENERGY: a cost of "2normal" means "any two energy".
 const ENERGY_COLORS = {
   fighting: '#965d48', grass: '#97c267', fire: '#e0602d', water: '#63a6e6', dark: '#3c697a',
   psychic: '#a56dad', steel: '#aaa7ab', electric: '#e8d331', dragon: '#ad9142', fairy: '#eb90f0',
+  ground: '#61463B', ice: '#A8F7F7',
+};
+
+// Ionodyr's Purify: a cleansed status "mutates into its corresponding energy". 'random' means
+// a random type of energy (confusion).
+const PURIFY_ENERGY = {
+  burned: 'fire', frozen: 'ice', paralyzed: 'electric', quaked: 'ground', confused: 'random',
+  poisoned: 'dark', asleep: 'fairy', haunted: 'psychic', enraged: 'dragon', taunted: 'fighting',
 };
 
 // Spellings in the card database that mean the same thing.

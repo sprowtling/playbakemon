@@ -770,7 +770,7 @@ function validateData() {
   const unwired = [];
   for (const c of CARDS) {
     if (c.kind === 'item') { if (!ITEMS[c.id] || ITEMS[c.id].todo) unwired.push(c.name + ' (item)'); continue; }
-    for (const m of cardMoves(c)) if (m.fx.todo || (m.text && !m.ops.length && !m.fx.tag)) unwired.push(c.name + ': ' + m.name);
+    for (const m of cardMoves(c)) if (m.fx.todo || (m.text && !m.ops.length && !m.fx.tag && !m.fx.needsTargetStatus)) unwired.push(c.name + ': ' + m.name);
   }
   if (unwired.length) console.info('Card effects not wired into island matches yet (' + unwired.length + '):\n  ' + unwired.join('\n  '));
 
