@@ -540,6 +540,24 @@ await test('Contact Zap: the attacker does no damage on its NEXT turn', async ()
   eq(act(G, 1).hp, hp, 'no damage');
 });
 
+await test("Hide: blocks damage through the opponent's next turn, then wears off", async () => {
+  const G = game({ active: 'Leapod', big: ['Leapod'] }, { active: 'Poteplant', big: ['Poteplant'] });
+  const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  const leapod = act(G, 0);
+  G.turn = 0; await attack(G, 0, 'Hide');
+  await ctx.endTurn(G, G.players[0]);                                 // Leapod's turn ends
+  G.turnNumber += 1; G.turn = 1;                                      // opponent's next turn
+  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
+  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
+  eq(leapod.maxHp - leapod.hp, 0, 'every hit that turn is avoided');
+  await ctx.endTurn(G, G.players[1]);                                 // opponent's turn ends
+  G.turnNumber += 1; G.turn = 0;
+  ok(!leapod.effects.some(e => e.kind === 'shield'), 'Hide should be gone');
+  G.turnNumber += 1; G.turn = 1;
+  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
+  eq(leapod.maxHp - leapod.hp, 30, 'hit normally a turn later');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

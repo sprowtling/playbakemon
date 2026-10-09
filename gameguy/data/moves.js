@@ -103,7 +103,7 @@ const MOVES = {
   '002': { 'Seed Bullet':     { ops: [{ flip: 6, perHeads: { damage: 10 } }] } },
   '003': { 'Take Root':       { ops: [{ shield: 30, lasts: 'nextHit' }] },
            'Solar Powered':   { ops: [{ flip: 1, heads: [{ heal: 10, who: 'self' }] }] } },
-  '004': { 'Hide':            { ops: [{ shield: 'all', lasts: 'nextHit' }] } },
+  '004': { 'Hide':            { ops: [{ shield: 'all', lasts: 'nextTurn' }] } },
   // "water-type damage" is read as: an attack whose cost includes water energy.
   // (The same way the rules page defines weakness.)
   '005': { 'Umbrella':        { ops: [{ shield: 'all', lasts: 'nextTurn', onlyFrom: 'water' }] } },
