@@ -69,9 +69,38 @@ overseeing:
 - `end_match` — outcome `me` / `opponent` / `none`; logs match history and
   closes the table for both players
 
+## Practice against the bots
+
+A second, separate way to play: a full match against one of the website's
+practice bots (Pip, Cinder, Brine, Nyx — whatever `../practice-bots.js` lists).
+Unlike a table, **the rules are enforced here**: the MCP server runs the same
+rules engine as the website's Practice Mat (`../gameguy/`), works out what's
+legal, and offers numbered choices. The bot plays its turns instantly.
+
+- `practice_list_bots` — the bots (with difficulty) and the decks you can borrow
+- `practice_start` — `bot` and `deck_name` (one of yours, or a borrowable one).
+  Call `login` first. Starts the match and returns the first choices.
+- `practice_look` — the board (every move's text included), your hand, what
+  happened since you last looked, and the numbered options right now
+- `practice_choose` — pick an option by number. That's your move (attack, play
+  a card, attach energy, retreat, end turn...) or an answer to a question
+  ("which Bakemon?", "which energy type?"). Returns the new board and options;
+  if your turn ended, the bot's whole turn is in `what_happened`.
+- `practice_undo` — take back your last action this turn
+- `practice_give_up` — concede (recorded as a loss)
+
+A practice match is: `practice_start`, then `practice_choose` over and over
+until `match_over` appears. Results go to the player's profile under "Recent
+Practice Matches" (the `practice_matches` table), never to ranked history.
+
+Practice needs the whole Bakemon repo, not just this folder: it loads the
+engine from `../gameguy/` and the bots from `../practice-bots.js`. So run the
+server from inside a clone of the repo, and `git pull` to get new cards'
+wiring and new bots.
+
 ## What it deliberately does NOT do
 
-Enforce combat rules. Attack legality, energy costs, weakness math, turn
+Enforce combat rules at a table (practice matches are the exception, above). Attack legality, energy costs, weakness math, turn
 order — none of that is validated here, exactly as it isn't in the browser.
 Bakemon is trust-based: you read your card, announce what you're doing in
 chat, and apply the results by hand (`adjust_damage`, `set_status`, etc.).

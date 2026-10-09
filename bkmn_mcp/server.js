@@ -12,6 +12,7 @@ const {
 } = require("@modelcontextprotocol/sdk/types.js");
 
 const game = require("./game.js");
+const practice = require("./practice.js");
 
 const sb = game.client();
 
@@ -26,6 +27,49 @@ const server = new Server(
 );
 
 const TOOLS = [
+  // ---- Practice against the bots (practice.js). Real rules, numbered choices. ----
+  {
+    name: "practice_list_bots",
+    description: "List the practice bots you can play against (with difficulty) and the decks you can borrow. Practice matches use the real rules engine (the same one as the website's Practice Mat): it works out what's legal, so you just pick from numbered choices. They don't count toward rank; results go to the player's profile under 'Recent Practice Matches'.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "practice_start",
+    description: "Start a practice match against a bot. Call login first. Bring one of your own decks (see list_my_decks) or a borrowable one (see practice_list_bots). Returns the board, what happened, and a numbered list of options: answer with practice_choose. Starting a new match abandons any unfinished one.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bot: { type: "string", description: "The bot's name or id, e.g. 'Pip' or 'nyx'." },
+        deck_name: { type: "string", description: "One of your deck names, or a borrowable deck's name." }
+      },
+      required: ["bot", "deck_name"]
+    }
+  },
+  {
+    name: "practice_look",
+    description: "See the current practice match: both boards (with every move's text), your hand, anything that happened since you last looked, and the numbered options you can pick from right now.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "practice_choose",
+    description: "Pick one of the numbered options from practice_start / practice_look / the last practice_choose. That might be your move (attack, play a card, attach energy, retreat, end your turn...) or an answer to a question (which Bakemon? which energy type?). The game plays it out, the bot takes its turn when yours ends, and you get the new board and options back.",
+    inputSchema: {
+      type: "object",
+      properties: { option: { type: "number", description: "The number of the option, e.g. 3." } },
+      required: ["option"]
+    }
+  },
+  {
+    name: "practice_undo",
+    description: "Take back your last action this turn (as far back as the start of your turn). Only while it's your move.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "practice_give_up",
+    description: "Concede the current practice match (it's recorded as a loss).",
+    inputSchema: { type: "object", properties: {} }
+  },
+
   {
     name: "login",
     description: "Log in as an existing Bakemon player by display name and PIN — the same 4-digit PIN they use to log in via index.html. Must be called before anything else. The player must already have an account and a PIN set.",
@@ -236,6 +280,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 async function handleTool(name, args) {
   switch (name) {
+    case "practice_list_bots": return practice.listBots();
+    case "practice_start": {
+      requireLogin();
+      const deck = await practice.resolveDeck(sb, session.player, args.deck_name);
+      return await practice.startPractice(sb, session.player, args.bot, deck);
+    }
+    case "practice_look": return practice.view();
+    case "practice_choose": return await practice.choose(sb, args.option);
+    case "practice_undo": return await practice.undo(sb);
+    case "practice_give_up": return await practice.giveUp(sb);
+
     case "login": {
       session.player = await game.findPlayer(sb, args.display_name, args.pin);
       return { logged_in_as: session.player.display_name };
