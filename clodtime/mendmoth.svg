@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 413 581" width="413" height="581" font-family="Georgia, 'Times New Roman', serif">
+  <defs>
+    <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d9dbe3"/>
+      <stop offset="0.5" stop-color="#a9adbb"/>
+      <stop offset="1" stop-color="#cfd2dc"/>
+    </linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b9c2d4"/>
+      <stop offset="0.52" stop-color="#b9c2d4"/>
+      <stop offset="0.52" stop-color="#e9c8e6"/>
+      <stop offset="1" stop-color="#e9c8e6"/>
+    </linearGradient>
+    <radialGradient id="sky" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0" stop-color="#3a3f6e"/>
+      <stop offset="1" stop-color="#14162e"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe9a8" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#ffd36a" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#ffd36a" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="art"><rect x="32" y="55" width="349" height="221"/></clipPath>
+  </defs>
+
+  <!-- card body -->
+  <rect x="0" y="0" width="413" height="581" rx="18" fill="url(#frame)"/>
+  <rect x="12" y="12" width="389" height="557" rx="10" fill="url(#face)"/>
+
+  <!-- header -->
+  <rect x="18" y="16" width="58" height="18" rx="9" fill="#5b6070"/>
+  <text x="47" y="29.5" font-size="11" font-style="italic" font-weight="bold" fill="#fff" text-anchor="middle" font-family="Arial, sans-serif">BASIC</text>
+  <text x="80" y="47" font-size="27" font-weight="bold" fill="#111">Mendmoth</text>
+  <text x="300" y="45" font-size="11" font-weight="bold" fill="#111" font-family="Arial, sans-serif">HP</text>
+  <text x="316" y="47" font-size="30" font-weight="bold" fill="#111" font-family="Arial, sans-serif">60</text>
+  <!-- type icons: steel, fairy -->
+  <circle cx="365" cy="37" r="12" fill="#8d96a8" stroke="#222" stroke-width="1.5"/>
+  <path d="M365 29 l7 4 v8 l-7 4 l-7 -4 v-8 z" fill="#e8ecf2" stroke="#222" stroke-width="1"/>
+  <circle cx="389" cy="37" r="12" fill="#e7a3d8" stroke="#222" stroke-width="1.5"/>
+  <path d="M389 28 l2.4 6.2 6.6 .4 -5.1 4.2 1.7 6.4 -5.6 -3.6 -5.6 3.6 1.7 -6.4 -5.1 -4.2 6.6 -.4 z" fill="#fff" stroke="#222" stroke-width=".8"/>
+
+  <!-- artwork -->
+  <rect x="28" y="51" width="357" height="229" fill="#7c8293"/>
+  <g clip-path="url(#art)">
+    <rect x="32" y="55" width="349" height="221" fill="url(#sky)"/>
+    <!-- stars -->
+    <g fill="#f4f1ff">
+      <circle cx="62" cy="78" r="1.6"/><circle cx="118" cy="96" r="1.1"/><circle cx="96" cy="150" r="1.3"/>
+      <circle cx="330" cy="82" r="1.5"/><circle cx="352" cy="140" r="1.1"/><circle cx="300" cy="118" r="1"/>
+      <circle cx="70" cy="226" r="1.2"/><circle cx="344" cy="232" r="1.4"/><circle cx="150" cy="70" r="1"/>
+    </g>
+    <!-- crescent moon -->
+    <path d="M335 66 a16 16 0 1 0 14 24 a13 13 0 1 1 -14 -24 z" fill="#fff4cf"/>
+    <!-- lantern glow -->
+    <circle cx="206" cy="232" r="70" fill="url(#glow)"/>
+
+    <!-- wings: back pair -->
+    <path d="M200 160 C150 110 82 108 74 150 C68 182 120 198 196 182 Z" fill="#9aa6c4" stroke="#1c1d2b" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M212 160 C262 110 330 108 338 150 C344 182 292 198 216 182 Z" fill="#9aa6c4" stroke="#1c1d2b" stroke-width="4" stroke-linejoin="round"/>
+    <!-- stitches on the wings: it mends itself too -->
+    <g stroke="#1c1d2b" stroke-width="2.4" stroke-linecap="round" fill="none">
+      <path d="M108 138 l26 18"/><path d="M112 134 l-4 8"/><path d="M120 140 l-4 8"/><path d="M128 146 l-4 8"/>
+      <path d="M304 138 l-26 18"/><path d="M300 134 l4 8"/><path d="M292 140 l4 8"/><path d="M284 146 l4 8"/>
+    </g>
+    <!-- wings: front pair -->
+    <path d="M198 186 C160 192 116 214 126 238 C136 258 176 236 200 204 Z" fill="#e3b6dc" stroke="#1c1d2b" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M214 186 C252 192 296 214 286 238 C276 258 236 236 212 204 Z" fill="#e3b6dc" stroke="#1c1d2b" stroke-width="4" stroke-linejoin="round"/>
+    <!-- eyespots that are really tiny bolts -->
+    <g fill="#1c1d2b">
+      <circle cx="150" cy="226" r="7"/><circle cx="262" cy="226" r="7"/>
+    </g>
+    <g fill="#c9d1e4">
+      <path d="M147 223 h6 v6 h-6 z"/><path d="M259 223 h6 v6 h-6 z"/>
+    </g>
+
+    <!-- fuzzy body -->
+    <ellipse cx="206" cy="190" rx="22" ry="40" fill="#6d7488" stroke="#1c1d2b" stroke-width="4"/>
+    <path d="M190 178 h32 M188 194 h36 M190 210 h32" stroke="#1c1d2b" stroke-width="2" opacity="0.45"/>
+    <!-- head -->
+    <circle cx="206" cy="140" r="26" fill="#d6dbe7" stroke="#1c1d2b" stroke-width="4"/>
+    <!-- feathery antennae -->
+    <g stroke="#1c1d2b" stroke-width="3" fill="none" stroke-linecap="round">
+      <path d="M196 117 C188 96 174 88 162 86"/>
+      <path d="M216 117 C224 96 238 88 250 86"/>
+      <path d="M186 100 l-8 -6 M178 93 l-8 -4 M192 108 l-8 -3"/>
+      <path d="M226 100 l8 -6 M234 93 l8 -4 M220 108 l8 -3"/>
+    </g>
+    <!-- big sleepy-awake eyes -->
+    <ellipse cx="195" cy="141" rx="9" ry="11" fill="#1c1d2b"/>
+    <ellipse cx="217" cy="141" rx="9" ry="11" fill="#1c1d2b"/>
+    <circle cx="198" cy="137" r="3.2" fill="#ffe9a8"/>
+    <circle cx="220" cy="137" r="3.2" fill="#ffe9a8"/>
+    <path d="M201 154 q5 4 10 0" stroke="#1c1d2b" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+
+    <!-- little legs holding a lantern -->
+    <path d="M196 224 l-6 18 M216 224 l6 18" stroke="#1c1d2b" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M206 236 v8" stroke="#1c1d2b" stroke-width="2.4"/>
+    <rect x="192" y="244" width="28" height="30" rx="5" fill="#ffd36a" stroke="#1c1d2b" stroke-width="3.4"/>
+    <path d="M192 254 h28 M192 264 h28" stroke="#1c1d2b" stroke-width="1.6" opacity="0.5"/>
+    <path d="M188 244 h36" stroke="#1c1d2b" stroke-width="4" stroke-linecap="round"/>
+    <!-- tiny wrench on the belt -->
+    <g transform="rotate(-30 232 212)">
+      <rect x="229" y="200" width="6" height="22" rx="2" fill="#c9d1e4" stroke="#1c1d2b" stroke-width="2"/>
+      <path d="M226 200 a6 6 0 1 1 12 0 l-3 -1 v-4 h-6 v4 z" fill="#c9d1e4" stroke="#1c1d2b" stroke-width="2"/>
+    </g>
+  </g>
+
+  <!-- info strip -->
+  <rect x="40" y="284" width="333" height="16" rx="8" fill="#e8eaf0" stroke="#9aa0ae"/>
+  <text x="206" y="296" font-size="9" fill="#222" text-anchor="middle" font-family="Arial, sans-serif">NO. ??? lamplighter   HT: 0'7"   WT: 0.1 lbs.</text>
+
+  <!-- ability: Night Shift (no cost: passive) -->
+  <text x="206" y="350" font-size="18" font-weight="bold" fill="#111" text-anchor="middle">Night Shift</text>
+  <text x="34" y="373" font-size="12.5" fill="#111" font-family="Arial, sans-serif">At the end of your turn, heal 10 damage from one</text>
+  <text x="34" y="389" font-size="12.5" fill="#111" font-family="Arial, sans-serif">of your benched Bakemon.</text>
+
+  <!-- attack: Patch -->
+  <circle cx="44" cy="438" r="11" fill="#8d96a8" stroke="#222" stroke-width="1.5"/>
+  <path d="M44 430 l7 4 v8 l-7 4 l-7 -4 v-8 z" fill="#e8ecf2" stroke="#222" stroke-width="1"/>
+  <text x="140" y="445" font-size="18" font-weight="bold" fill="#111">Patch</text>
+  <text x="378" y="446" font-size="22" font-weight="bold" fill="#111" text-anchor="end" font-family="Arial, sans-serif">20</text>
+  <text x="34" y="468" font-size="12.5" fill="#111" font-family="Arial, sans-serif">Remove one status from Mendmoth.</text>
+
+  <!-- footer -->
+  <path d="M24 500 H389" stroke="#8a8fa0" stroke-width="2"/>
+  <text x="34" y="517" font-size="10" fill="#222" font-family="Arial, sans-serif">weakness</text>
+  <circle cx="92" cy="513" r="7" fill="#f08a3c" stroke="#222"/>
+  <text x="150" y="517" font-size="10" fill="#222" font-family="Arial, sans-serif">weakness</text>
+  <circle cx="208" cy="513" r="7" fill="#3f3a4a" stroke="#222"/>
+  <text x="262" y="517" font-size="10" fill="#222" font-family="Arial, sans-serif">retreat</text>
+  <circle cx="306" cy="513" r="7" fill="#f4f4f4" stroke="#222"/>
+
+  <text x="34" y="540" font-size="9" font-style="italic" fill="#222" font-family="Arial, sans-serif">Illus. Claude</text>
+  <text x="34" y="556" font-size="9" fill="#222" font-family="Arial, sans-serif">clodtime · not a real card</text>
+  <text x="380" y="536" font-size="9.5" fill="#222" text-anchor="end" font-family="Arial, sans-serif">It comes out after everyone is asleep</text>
+  <text x="380" y="549" font-size="9.5" fill="#222" text-anchor="end" font-family="Arial, sans-serif">and quietly fixes whatever broke</text>
+  <text x="380" y="562" font-size="9.5" fill="#222" text-anchor="end" font-family="Arial, sans-serif">during the day.</text>
+</svg>
