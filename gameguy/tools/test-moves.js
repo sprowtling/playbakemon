@@ -587,6 +587,18 @@ await test('Frostpincer and Ice Spear cost ice energy, not water', async () => {
   ok(ctx.legalActions(H, H.players[0]).some(a => a.type === 'attack' && a.move.name === 'Ice Spear'), 'Ice Spear with grass + ice');
 });
 
+await test('Life Cycle: works with Grupix on the bench', async () => {
+  const G = game({ active: 'Raizado', bench: ['Grupix'], hand: [idOf('Musherus'), idOf('Shimejirus')] }, { active: 'Raizado' });
+  const P = G.players[0];
+  await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'playBasic' && a.label.includes('Musherus')));
+  ok(ctx.legalActions(G, P).some(a => a.type === 'evolve' && a.label.includes('Shimejirus')), 'Musherus can evolve the turn it was played');
+});
+await test('Fluttershine: works with Gossiary on the bench', async () => {
+  const G = game({ active: 'Shimejirus', bench: ['Gossiary'] }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Poison Spore');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 30, 'Poison Spore: 10 + 20');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

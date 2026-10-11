@@ -303,8 +303,9 @@ function canEvolveOnto(G, P, mon, card) {
 }
 
 const needsSameTurnPass = (G, mon) => mon.playedTurn === G.turnNumber || mon.evolvedTurn === G.turnNumber;
-// Grupix's Life Cycle is an ability, so like any ability it works once a turn.
-const lifeCycleCovers = (P, mon) => !!P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
+// Grupix's Life Cycle is an ability, so like any ability it works once a turn. "While Grupix is
+// active" means while it's in play, benched or not: abilities work from the bench.
+const lifeCycleCovers = (P, mon) => zone(P).some(m => hasTag(m, 'grassEvolvesSameTurn')) && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
 
 function energyTargets(G, P) {
   if (G.t.lockTurn || G.t.noEnergy) return [];
@@ -639,7 +640,7 @@ async function dealDamage(G, source, victim, amount, o) {
     if (hasTag(source, 'twinshipBonus') && P && zone(P).some(m => m.card.name === 'Jeremo♀')) amount += 30;
     if (elemental) {
       if (P) for (const m of zone(P)) for (const aura of m.auras) if (costIncludes(move, aura.costIncludes)) amount += aura.damage;
-      if (P && P.active && hasTag(P.active, 'fluttershine') && costIncludes(move, 'grass')) amount += 20;
+      if (P && fluttershineOn(P) && costIncludes(move, 'grass')) amount += 20;
       if (costIncludes(move, 'dark')) amount += 10 * tagCount(G, 'darkPulse');                              // Lemurk: everyone's dark attacks
       if (victim.status.frozen && costIncludes(move, 'electric') && tagCount(G, 'ionCharge')) amount += 10 * move.cost.types.electric;   // Cryodyr
       if (G.t.amp && G.t.amp.types.some(t => costIncludes(move, t))) amount += G.t.amp.amount;                // Eclidyr's Celestial Bodies
@@ -1229,7 +1230,9 @@ async function runOps(G, ctx, ops) {
   if (ctx.recoil && ctx.dealt !== undefined) { const r = ctx.recoil; ctx.recoil = 0; await dealDamage(G, null, me, r, { why: 'the dive' }); }
 }
 
-const fluttershineBonus = (P, move) => (P.active && hasTag(P.active, 'fluttershine') && costIncludes(move, 'grass')) ? 20 : 0;
+// Gossiary's Fluttershine works from the bench too ("active" on the card means in play). Two Gossiary don't stack.
+const fluttershineOn = P => zone(P).some(m => hasTag(m, 'fluttershine'));
+const fluttershineBonus = (P, move) => (fluttershineOn(P) && costIncludes(move, 'grass')) ? 20 : 0;
 
 // Energy that MOVES (rather than being freshly attached) still feeds Necrozoa's hunger.
 async function attachEnergySilently(G, mon, type) {
