@@ -558,6 +558,35 @@ await test("Hide: blocks damage through the opponent's next turn, then wears off
   eq(leapod.maxHp - leapod.hp, 30, 'hit normally a turn later');
 });
 
+await test('Networking: Mushmutt counts as a mushroom', async () => {
+  const G = game({ active: 'Mushmutt', bench: ['Musherus'] }, { active: 'Raizado' });
+  await ability(G, 0, bn(G, 0), 'Networking');
+  eq(act(G, 0).energy.length, 1, 'Mushmutt got the energy');
+});
+await test('Nutrient Absorption: heals only the HP the poisoned Bakemon actually lost', async () => {
+  const G = game({ active: 'Shimejirus' }, { active: 'Raizado', hp: { Raizado: 10 } });
+  const shim = act(G, 0); shim.hp = shim.maxHp - 60;
+  act(G, 1).status.poisoned = true;
+  await ctx.endTurn(G, G.players[1]);                                 // poison ticks for 20 on a 10 HP Raizado
+  eq(shim.maxHp - shim.hp, 50, 'healed 10, not 20');
+});
+await test('Asleep: the Bakemon that replaces it can still attack', async () => {
+  const G = game({ active: 'Shimejirus', bench: ['Sleetle'], energy: { Sleetle: ['ice', 'dark', 'grass'] } }, { active: 'Raizado' });
+  act(G, 0).status.asleep = true;
+  rig(TAILS); await ctx.startTurn(G, G.players[0]);
+  eq(G.t.canAttack, false, 'Shimejirus stays asleep');
+  await ctx.switchActive(G, G.players[0], bn(G, 0));                 // Dinner Bell
+  ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'attack' && a.move.name === 'Frostpincer'), 'Sleetle can use Frostpincer');
+});
+await test('Frostpincer and Ice Spear cost ice energy, not water', async () => {
+  const G = game({ active: 'Sleetle', energy: { Sleetle: ['water', 'dark', 'grass'] } }, { active: 'Raizado' });
+  ok(!ctx.legalActions(G, G.players[0]).some(a => a.type === 'attack' && a.move.name === 'Frostpincer'), 'water should not pay for it');
+  act(G, 0).energy = ['ice', 'dark', 'grass'];
+  ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'attack' && a.move.name === 'Frostpincer'), 'ice should');
+  const H = game({ active: 'Iceopod', energy: { Iceopod: ['grass', 'ice'] } }, { active: 'Raizado' });
+  ok(ctx.legalActions(H, H.players[0]).some(a => a.type === 'attack' && a.move.name === 'Ice Spear'), 'Ice Spear with grass + ice');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

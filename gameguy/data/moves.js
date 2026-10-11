@@ -157,7 +157,7 @@ const MOVES = {
            'Lurk':            { ops: [{ lurk: true }] } },
   '037': { 'Infiltrate':      { ops: [{ status: 'confused' }] },
            'Surgeflood':      { ops: [{ discardAllEnergy: 'electric', from: 'self' }] } },
-  '038': { 'Networking':      { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'choose', to: 'own_other', names: ['Musherus', 'Shimejirus'] }] },
+  '038': { 'Networking':      { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'choose', to: 'own_other', names: MUSHROOMS }] },
            'Sporesprinkle':   { ops: [{ damageBench: 10, pick: 'all' }] } },
   '039': { 'Nutrient Absorption': { ability: 'passive', tag: 'healsOnEnemyPoison' },
            'Poison Spore':    { ops: [{ status: 'poisoned' }] } },

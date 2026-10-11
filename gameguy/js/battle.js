@@ -246,15 +246,18 @@ async function startTurn(G, P) {
 
   const a = P.active;
   if (!a) return;
-  if (a.effects.some(e => e.kind === 'flinch')) { G.t.canAttack = false; await say2(G, a.card.name + ' flinches and cannot attack this turn.'); }
+  // These stop THIS Bakemon from attacking. If it leaves the active slot (a retreat, Dinner Bell),
+  // whoever replaces it may still attack: see switchActive.
+  const stuck = () => { if (G.t.canAttack) G.t.stuck = a; G.t.canAttack = false; };
+  if (a.effects.some(e => e.kind === 'flinch')) { stuck(); await say2(G, a.card.name + ' flinches and cannot attack this turn.'); }
   if (a.status.asleep) {
     if (await flip(G, a.card.name + ' is asleep')) { delete a.status.asleep; await say2(G, a.card.name + ' wakes up.'); }
-    else G.t.canAttack = false;
+    else stuck();
   }
-  if (a.status.paralyzed && !(await flip(G, a.card.name + ' is paralyzed'))) G.t.canAttack = false;
+  if (a.status.paralyzed && !(await flip(G, a.card.name + ' is paralyzed'))) stuck();
   if (a.status.frozen) {
     if (await flip(G, a.card.name + ' is frozen')) await dealDamage(G, null, a, G.rules.frozenDamage, { why: 'the cold', freeze: true });
-    else G.t.canAttack = false;
+    else stuck();
     await checkKOs(G);
   }
 }
@@ -270,8 +273,10 @@ async function endTurn(G, P) {
     if (mon.status.poisoned) {
       const amount = mon.poisonDoubling || G.rules.poisonDamage;
       if (mon.poisonDoubling) mon.poisonDoubling *= 2;
-      const dealt = await dealDamage(G, null, mon, amount, { why: 'poison' });
-      for (const leech of zone(other(G, P))) if (hasTag(leech, 'healsOnEnemyPoison')) await heal(G, leech, dealt);
+      // Shimejirus heals "the same amount of HP that that Bakemon lost": no more than it had left.
+      const hpBefore = Math.max(0, mon.hp);
+      const lost = Math.min(hpBefore, await dealDamage(G, null, mon, amount, { why: 'poison' }));
+      for (const leech of zone(other(G, P))) if (hasTag(leech, 'healsOnEnemyPoison')) await heal(G, leech, lost);
     }
     if (mon.status.asleep) {
       if (mon.sleepHeal) await heal(G, mon, mon.sleepHeal);
@@ -534,6 +539,7 @@ async function switchActive(G, P, incoming) {
   }
   P.bench[slot] = outgoing || null;
   P.active = incoming;
+  if (G.t && outgoing && G.t.stuck === outgoing) { G.t.stuck = null; G.t.canAttack = true; }
   await say2(G, subj(P, 'sends') + ' out ' + incoming.card.name + '.', { mon: incoming });
   if (outgoing) releaseBorrowed(G, outgoing, P);
   if (quake) await dealDamage(G, null, incoming, 10 * (await roll(G, 3, 'The quake')), { why: 'the quake' });
@@ -1090,7 +1096,7 @@ async function runOps(G, ctx, ops) {
     else if (op.lockTurn)    { G.t.lockTurn = true; await say2(G, me.card.name + ' settles in. Nothing else can be done this turn.'); }
     else if (op.cling) {
       me.effects.push({ kind: 'shield', amount: 'all', lasts: 'nextTurn', expires: until(1) });
-      G.t.canAttack = false; G.t.noEnergy = true;
+      G.t.canAttack = false; G.t.noEnergy = true; G.t.stuck = null;
       await say2(G, me.card.name + ' clings to the ceiling.', { mon: me });
     }
     else if (op.amplify) {
