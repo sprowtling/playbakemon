@@ -72,6 +72,9 @@
      { lurk: true }  { stealEquip: true }  { delusion: true }  { drawUntilBasic: true }  { cling: true }
      { lockTurn: true }                               nothing else (no items, energy, attacks, abilities) this turn
      { hydraulic: true }  { swapPartner: { names: [...] } }  { convertStatus: { from, to } }  { purify: true }
+     { addDamage: -30 }                               change this attack's damage (put it in a  pre: true  op)
+     { ifUsedLastTurn: 'Move Name', then: [ops] }     only if this Bakemon used that move on its previous turn
+     { hurtOwn: 20 }                                  you choose one of your own Bakemon to take the damage
    A move can also carry   needsTargetStatus: 'asleep'   (it can only be used on such a target).
 
    SELECTORS (the `who`, `to`, `from`, `on` values):
@@ -267,6 +270,17 @@ const MOVES = {
            'Celestial Bodies': { ability: 'activated', oncePerTurn: true,
                                  ops: [{ amplify: { heads: ['fire', 'electric', 'ground', 'fighting'], tails: ['ice', 'water', 'dark', 'steel'], amount: 20 } }] } },
   '096': { 'Purify':          { ability: 'activated', oncePerTurn: true, ops: [{ purify: true }] } },
+  // "Fluff Up" in Mister Fister's text means Fluff It Up.
+  '097': { 'Fluff It Up':     { ops: [{ status: 'haunted' }] },
+           'Mister Fister':   { ops: [{ pre: true, ifUsedLastTurn: 'Fluff It Up', then: [{ addDamage: -30 }] },
+                                      { ifUsedLastTurn: 'Fluff It Up', then: [{ status: 'confused' }] }] } },
+  '098': { 'Lucky Whomps':    { ops: [{ roll: 6, why: 'Lucky Whomps', table: {
+             1: [{ status: 'haunted' }],
+             2: [{ heal: 20, who: 'target' }],
+             3: [{ status: 'confused' }],
+             4: [{ heal: 20, who: 'self' }],
+             5: [{ hurtOwn: 20 }],
+             6: [{ status: 'asleep', on: 'self' }] } }] } },
   '099': { 'Secret Frequency': { ability: 'activated', oncePerTurn: true, ops: [{ bothDraw: 1 }] } },
 };
 

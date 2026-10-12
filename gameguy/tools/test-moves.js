@@ -659,6 +659,47 @@ await test('Life Cycle: once a turn, like any ability', async () => {
   ok(ctx.legalActions(G, P).some(a => a.type === 'evolve' && a.label.includes('Vasflor')), 'next turn it works again');
 });
 
+/* ================= Boowhomp and Whompwhomp ================= */
+await test('Fluff It Up: 10 damage and haunted', async () => {
+  const G = game({ active: 'Boowhomp' }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Fluff It Up');
+  ok(act(G, 1).status.haunted, 'haunted'); ok(act(G, 1).hp < act(G, 1).maxHp, 'took damage');
+});
+await test('Mister Fister: full damage normally; 30 less but confusing right after Fluff It Up', async () => {
+  let G = game({ active: 'Boowhomp' }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Mister Fister');
+  const plain = act(G, 1).maxHp - act(G, 1).hp;
+  ok(!act(G, 1).status.confused, 'no confusion without Fluff It Up');
+  G = game({ active: 'Boowhomp' }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Fluff It Up');
+  const afterFluff = act(G, 1).hp;
+  G.turnNumber += 2;                                     // Boowhomp's next turn
+  await attack(G, 0, 'Mister Fister');
+  eq(afterFluff - act(G, 1).hp, plain - 30, '30 less than usual'); ok(act(G, 1).status.confused, 'confused');
+  G.turnNumber += 2;                                     // and the turn after: Fluff It Up wasn't the last move
+  const hp = act(G, 1).hp; await attack(G, 0, 'Mister Fister');
+  eq(hp - act(G, 1).hp, plain, 'back to full damage');
+});
+for (const [roll, what, check] of [
+  [1, 'target haunted', G => ok(act(G, 1).status.haunted, 'haunted')],
+  [2, 'target heals 20', null],                                 // checked below: depends on Raizado's weaknesses
+  [3, 'target confused', G => ok(act(G, 1).status.confused, 'confused')],
+  [4, 'Whompwhomp heals 20', G => eq(act(G, 0).hp, 50, 'healed from 30 to 50')],
+  [5, '20 damage to one of your own', G => eq(bn(G, 0).maxHp - bn(G, 0).hp, 20, 'the bench Bakemon took 20')],
+  [6, 'Whompwhomp falls asleep', G => ok(act(G, 0).status.asleep, 'asleep')],
+]) await test('Lucky Whomps rolls ' + roll + ': ' + what, async () => {
+  const G = game({ active: 'Whompwhomp', bench: ['Leapek'], hp: { Whompwhomp: 30 } }, { active: 'Raizado', big: ['Raizado'] },
+                 [{ selfHurt: (G, P, req) => req.options.find(m => m.card.name === 'Leapek') }]);
+  const before = act(G, 1).hp;
+  rig(d(6, roll)); await attack(G, 0, 'Lucky Whomps');
+  if (check) check(G);
+  else {                                                         // the hit (60, plus weakness), then the target heals 20
+    const weak = t => act(G, 1).card.weak.includes(t);
+    const hit = 60 + (weak('psychic') ? 20 : 0) + (weak('fighting') ? 30 : 0);
+    eq(before - act(G, 1).hp, hit - 20, 'hit, then healed 20');
+  }
+});
+
 /* ================= items ================= */
 await test('Moira: you choose the five discards, and they are named', async () => {
   const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['102'] }, { active: 'Raizado' }, [{ discardFromHand: (G, P, req) => req.options[0].value }]);

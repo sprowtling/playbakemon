@@ -579,7 +579,7 @@ async function resolveAttack(G, P, attacker, move, copied) {
   if (attacker.status.confused && !(await flip(G, attacker.card.name + ' is confused'))) { ctx.target = attacker; await say2(G, 'It hurts itself in its confusion!'); }
 
   const isPre = op => op.pre || op.bonusIfTargetStatus || op.damagePerEnergy || op.chooseDamage || op.copyLastAttack || op.copyAnyAttack
-    || op.noBase || op.lurk || op.streakBonus || (op.perHeads && op.perHeads.damage) || (op.roll && op.times && op.times.damage);
+    || op.noBase || op.lurk || op.addDamage || (op.ifUsedLastTurn && op.pre) || op.streakBonus || (op.perHeads && op.perHeads.damage) || (op.roll && op.times && op.times.damage);
   await runOps(G, ctx, move.ops.filter(isPre));
   if (ctx.replaced) return;                                   // Parrot handed the attack over to another move
 
@@ -1091,6 +1091,14 @@ async function runOps(G, ctx, ops) {
     else if (op.splashBench) me.effects.push({ kind: 'splashBench', amount: op.splashBench, expires: until(2) });
     else if (op.healByDealt) { if (ctx.dealt > 0) await heal(G, me, ctx.dealt); }
     else if (op.noBase)      ctx.base = 0;
+    else if (op.addDamage)   ctx.bonus += op.addDamage;                       // e.g. -30 (Mister Fister after Fluff It Up)
+    // "If <move> was used last turn": this Bakemon's attack on its owner's previous turn.
+    // (lastMove is only updated once the current attack has finished resolving.)
+    else if (op.ifUsedLastTurn) { if (me.lastMove === op.ifUsedLastTurn && me.lastAttackTurn === G.turnNumber - 2) await runOps(G, ctx, op.then); }
+    else if (op.hurtOwn) {                                                    // Lucky Whomps: you pick which of yours takes it
+      const mon = await pick(G, P, zone(P).filter(m => m.hp > 0), 'selfHurt', 'Which of your Bakemon takes ' + op.hurtOwn + ' damage?');
+      if (mon) await dealDamage(G, null, mon, op.hurtOwn, { why: op.why || (ctx.move ? ctx.move.name : 'the backlash') });
+    }
     else if (op.lurk) {            // Miremalkin: first use stores the last hit it took, the next use pays it back double
       ctx.base = 0;
       if (me.lurkStored !== undefined) { ctx.bonus += 2 * me.lurkStored; await say2(G, me.card.name + ' strikes back for double the ' + me.lurkStored + ' it stored!', { mon: me }); delete me.lurkStored; }

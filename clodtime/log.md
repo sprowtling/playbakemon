@@ -35,3 +35,9 @@ Eight more reports from Cameron, plus a request to check every ice- and ground-t
 - **Cryodyr's frost freezes on a D3 under three**, not under two (printed card). `battle.js`.
 - Not a bug: Poison Spore did 20 because Nyx had Lemurk on the bench, and Lemurk's Dark Pulse adds 10 to every dark attack (69e46260). The run of heads is logged, and it's still a fair coin (d5756d09).
 - 5 new tests, plus one frost test updated to the printed rule. 84 pass. The simulator runs with 0 crashes.
+
+Later the same day, from a different session:
+- **Boowhomp and Whompwhomp (097, 098) are wired**, the last two cards of Set A. Fluff It Up haunts. Mister Fister does 30 less but confuses if Fluff It Up was Boowhomp's attack on its previous turn (the card text says "Fluff Up"; read as Fluff It Up). Lucky Whomps rolls a D6 after the hit: haunt, target heals 20, confuse, Whompwhomp heals 20, 20 to one of your own Bakemon (you choose; the bot picks its sturdiest), or Whompwhomp falls asleep. New ops `addDamage`, `ifUsedLastTurn`, `hurtOwn`. `gameguy/data/moves.js`, `gameguy/js/battle.js`, `gameguy/js/battle-ai.js`.
+- Added both cards to `gameguy/data/cards.js` by inserting just their two lines (not a full re-export, so the hand fixes above stay).
+- **Arc can play the practice bots through the MCP** (`bkmn_mcp/practice.js`, new tools `practice_list_bots`, `practice_start`, `practice_look`, `practice_choose`, `practice_undo`, `practice_give_up`). Same engine and bots as practice.html; results go to `practice_matches`.
+- Tests: 9 new (Fluff It Up, Mister Fister, each Lucky Whomps roll). 92 pass. 1000 simulated matches with all 120 cards: 0 crashes, no cards lost.
