@@ -546,7 +546,7 @@ async function switchActive(G, P, incoming) {
   if (quake) await dealDamage(G, null, incoming, 10 * (await roll(G, 3, 'The quake')), { why: 'the quake' });
   // Cryodyr's Glaciabolt: the frost freezes whatever the other side puts in the active slot.
   const w = currentWeather(G);
-  if (w && w.name === 'frost' && ownerOf(G, w.source) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 2) await applyStatus(G, incoming, 'frozen');
+  if (w && w.name === 'frost' && ownerOf(G, w.source) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 3) await applyStatus(G, incoming, 'frozen');
 }
 
 // Gambarue's Rascal borrows an item "until the target retreats or is KO'd". Then it goes to the discard pile.
@@ -914,7 +914,10 @@ async function runOps(G, ctx, ops) {
 
     else if (op.shield) {
       const mon = await selectMon(G, ctx, op.who || 'self', op, 'protect', 'Protect which Bakemon?');
-      if (mon) mon.effects.push({ kind: 'shield', amount: op.grows ? op.shield * (ctx.streak || 1) : op.shield, lasts: op.lasts, onlyFrom: op.onlyFrom, expires: op.lasts === 'nextTurn' ? until(1) : undefined });
+      const from = ctx.move && ctx.move.name;
+      // noStack: using the move again refreshes its shield instead of adding a second one (Take Root).
+      if (mon && op.noStack) mon.effects = mon.effects.filter(e => !(e.kind === 'shield' && e.from === from));
+      if (mon) mon.effects.push({ kind: 'shield', amount: op.grows ? op.shield * (ctx.streak || 1) : op.shield, lasts: op.lasts, onlyFrom: op.onlyFrom, from, expires: op.lasts === 'nextTurn' ? until(1) : undefined });
     }
     else if (op.shieldRoll) me.effects.push({ kind: 'shield', roll: op.shieldRoll.sides, mult: op.shieldRoll.mult, lasts: 'nextTurn', expires: until(1) });
     else if (op.reflect)   me.effects.push({ kind: 'reflect', minus: op.reflect.minus, expires: until(1) });

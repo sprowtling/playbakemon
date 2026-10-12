@@ -199,7 +199,7 @@ await test('Frost: a Bakemon put in the active slot may freeze', async () => {
   rig(d(3, 1)); await ctx.switchActive(G, G.players[1], bn(G, 1)); ok(act(G, 1).status.frozen, 'frozen on a 1');
   G = game({ active: 'Cryodyr' }, { active: 'Poteplant', bench: ['Leapod'], big: ['Poteplant'] });
   await attack(G, 0, 'Glaciabolt');
-  rig(d(3, 2)); await ctx.switchActive(G, G.players[1], bn(G, 1)); ok(!act(G, 1).status.frozen, 'safe on a 2');
+  rig(d(3, 3)); await ctx.switchActive(G, G.players[1], bn(G, 1)); ok(!act(G, 1).status.frozen, 'safe on a 3');
 });
 
 /* ================= defence ================= */
@@ -597,6 +597,38 @@ await test('Fluttershine: works with Gossiary on the bench', async () => {
   const G = game({ active: 'Shimejirus', bench: ['Gossiary'] }, { active: 'Raizado', big: ['Raizado'] });
   await attack(G, 0, 'Poison Spore');
   eq(act(G, 1).maxHp - act(G, 1).hp, 30, 'Poison Spore: 10 + 20');
+});
+
+await test('Take Root: using it again does not stack', async () => {
+  const G = game({ active: 'Raizado', big: ['Raizado'] }, { active: 'Poteplant' });
+  const hit = { name: 'Poke', damage: 100, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  await attack(G, 0, 'Take Root'); await attack(G, 0, 'Take Root'); await attack(G, 0, 'Take Root');
+  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
+  eq(act(G, 0).maxHp - act(G, 0).hp, 70, 'blocked 30, not 90');
+});
+await test('Solar Powered: heads heals 20', async () => {
+  const G = game({ active: 'Raizado' }, { active: 'Poteplant', big: ['Poteplant'] });
+  act(G, 0).hp -= 50;
+  rig(HEADS); await attack(G, 0, 'Solar Powered');
+  eq(act(G, 0).maxHp - act(G, 0).hp, 30, 'healed 20');
+});
+await test('Drown discards two water energy; Plow two ground', async () => {
+  const G = game({ active: 'Whave', energy: { Whave: ['water', 'water', 'water', 'water'] } }, { active: 'Poteplant', big: ['Poteplant'] });
+  await attack(G, 0, 'Drown'); eq(act(G, 0).energy.join(), 'water,water', 'two left');
+  const H = game({ active: 'Mymot', energy: { Mymot: ['grass', 'grass', 'ground', 'ground'] } }, { active: 'Poteplant', big: ['Poteplant'] });
+  await attack(H, 0, 'Plow'); eq(act(H, 0).energy.join(), 'grass,grass', 'both ground gone');
+});
+await test('Vine Slap is a ground move: +10 on a ground-weak target', async () => {
+  const G = game({ active: 'Vasflor', energy: { Vasflor: ['grass', 'ground'] } }, { active: 'Gloomgoyle' });
+  ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'attack' && a.move.name === 'Vine Slap'), 'ground energy pays for it');
+  await attack(G, 0, 'Vine Slap');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 50, '40 + 10 weakness');
+});
+await test('Glaciabolt frost: a D3 under three freezes', async () => {
+  const G = game({ active: 'Cryodyr' }, { active: 'Raizado', bench: ['Poteplant'] });
+  G.weather = { name: 'frost', source: act(G, 0) };
+  rig(d(3, 2)); await ctx.switchActive(G, G.players[1], bn(G, 1));
+  ok(act(G, 1).status.frozen, 'a 2 freezes');
 });
 
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {

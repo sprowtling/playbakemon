@@ -23,3 +23,15 @@ Eight reports from one long practice match against Nyx. Checked each against the
 - Follow-up after talking with the owner: on cards, "active" usually means *in play*, not *in the active slot*. **Grupix's Life Cycle and Gossiary's Fluttershine now work from the bench** (de02bc30, 56dab600). Two Gossiary in play still add +20, not +40. I checked every other ability that mentions "active": Sparkeet, Biropod and Murkitty already worked anywhere in your zone. `gameguy/js/battle.js`.
 - **Practice mode reshuffles the discard pile as soon as the deck runs out** (9a0b40b1). In person you can discard any time to get there, but practice mode has no button for that. `practice.html`.
 - Tests for both bench abilities (79 pass).
+
+## 2026-10-12
+Eight more reports from Cameron, plus a request to check every ice- and ground-type card against its printed version. I compared 20 printed cards with the card data.
+- **Ground and ice costs** (f5b9c675, f8264258, 1506847f). These cards were printed with ground or ice symbols, but the data still says fighting or water: Vasflor's Vine Slap, Raizado's Take Root and Solar Powered, Kotora's Ominous Wind, Yukitora's Hailstorm and Cursed Wind, and Mymot's Till and Plow. That's why Vine Slap missed Gloomgoyle's ground weakness. Fixed in `gameguy/data/cards.js`. Supabase needs the same change before practice mode picks it up.
+- **Mushmutt is weak to water**, not ice (printed card). `cards.js`, and Supabase needs it too.
+- **Raizado's Solar Powered heals 20 on heads**, not 10 (113e6a59). `gameguy/data/moves.js`.
+- **Take Root doesn't stack** (4af4d3aa). Using it again refreshes the 30 instead of adding another 30. New `noStack` option on shields. `moves.js`, `battle.js`.
+- **Whave** (347430c0): Torrent is 40 and Drown discards two water energy, per the printed card. Drown is now wired in `moves.js`. Torrent's damage and Drown's text come from Supabase, which still has 50 and no text.
+- **Mymot**: Plow discards *two ground* energy, not one of any kind. Weak to ice, not fire.
+- **Cryodyr's frost freezes on a D3 under three**, not under two (printed card). `battle.js`.
+- Not a bug: Poison Spore did 20 because Nyx had Lemurk on the bench, and Lemurk's Dark Pulse adds 10 to every dark attack (69e46260). The run of heads is logged, and it's still a fair coin (d5756d09).
+- 5 new tests, plus one frost test updated to the printed rule. 84 pass. The simulator runs with 0 crashes.
