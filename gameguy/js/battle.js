@@ -246,15 +246,18 @@ async function startTurn(G, P) {
 
   const a = P.active;
   if (!a) return;
-  if (a.effects.some(e => e.kind === 'flinch')) { G.t.canAttack = false; await say2(G, a.card.name + ' flinches and cannot attack this turn.'); }
+  // These stop THIS Bakemon from attacking. If it leaves the active slot (a retreat, Dinner Bell),
+  // whoever replaces it may still attack: see switchActive.
+  const stuck = () => { if (G.t.canAttack) G.t.stuck = a; G.t.canAttack = false; };
+  if (a.effects.some(e => e.kind === 'flinch')) { stuck(); await say2(G, a.card.name + ' flinches and cannot attack this turn.'); }
   if (a.status.asleep) {
     if (await flip(G, a.card.name + ' is asleep')) { delete a.status.asleep; await say2(G, a.card.name + ' wakes up.'); }
-    else G.t.canAttack = false;
+    else stuck();
   }
-  if (a.status.paralyzed && !(await flip(G, a.card.name + ' is paralyzed'))) G.t.canAttack = false;
+  if (a.status.paralyzed && !(await flip(G, a.card.name + ' is paralyzed'))) stuck();
   if (a.status.frozen) {
     if (await flip(G, a.card.name + ' is frozen')) await dealDamage(G, null, a, G.rules.frozenDamage, { why: 'the cold', freeze: true });
-    else G.t.canAttack = false;
+    else stuck();
     await checkKOs(G);
   }
 }
@@ -270,8 +273,10 @@ async function endTurn(G, P) {
     if (mon.status.poisoned) {
       const amount = mon.poisonDoubling || G.rules.poisonDamage;
       if (mon.poisonDoubling) mon.poisonDoubling *= 2;
-      const dealt = await dealDamage(G, null, mon, amount, { why: 'poison' });
-      for (const leech of zone(other(G, P))) if (hasTag(leech, 'healsOnEnemyPoison')) await heal(G, leech, dealt);
+      // Shimejirus heals "the same amount of HP that that Bakemon lost": no more than it had left.
+      const hpBefore = Math.max(0, mon.hp);
+      const lost = Math.min(hpBefore, await dealDamage(G, null, mon, amount, { why: 'poison' }));
+      for (const leech of zone(other(G, P))) if (hasTag(leech, 'healsOnEnemyPoison')) await heal(G, leech, lost);
     }
     if (mon.status.asleep) {
       if (mon.sleepHeal) await heal(G, mon, mon.sleepHeal);
@@ -298,8 +303,9 @@ function canEvolveOnto(G, P, mon, card) {
 }
 
 const needsSameTurnPass = (G, mon) => mon.playedTurn === G.turnNumber || mon.evolvedTurn === G.turnNumber;
-// Grupix's Life Cycle is an ability, so like any ability it works once a turn.
-const lifeCycleCovers = (P, mon) => !!P.active && hasTag(P.active, 'grassEvolvesSameTurn') && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
+// Grupix's Life Cycle is an ability, so like any ability it works once a turn. "While Grupix is
+// active" means while it's in play, benched or not: abilities work from the bench.
+const lifeCycleCovers = (P, mon) => zone(P).some(m => hasTag(m, 'grassEvolvesSameTurn')) && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
 
 function energyTargets(G, P) {
   if (G.t.lockTurn || G.t.noEnergy) return [];
@@ -534,12 +540,13 @@ async function switchActive(G, P, incoming) {
   }
   P.bench[slot] = outgoing || null;
   P.active = incoming;
+  if (G.t && outgoing && G.t.stuck === outgoing) { G.t.stuck = null; G.t.canAttack = true; }
   await say2(G, subj(P, 'sends') + ' out ' + incoming.card.name + '.', { mon: incoming });
   if (outgoing) releaseBorrowed(G, outgoing, P);
   if (quake) await dealDamage(G, null, incoming, 10 * (await roll(G, 3, 'The quake')), { why: 'the quake' });
   // Cryodyr's Glaciabolt: the frost freezes whatever the other side puts in the active slot.
   const w = currentWeather(G);
-  if (w && w.name === 'frost' && ownerOf(G, w.source) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 2) await applyStatus(G, incoming, 'frozen');
+  if (w && w.name === 'frost' && ownerOf(G, w.source) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 3) await applyStatus(G, incoming, 'frozen');
 }
 
 // Gambarue's Rascal borrows an item "until the target retreats or is KO'd". Then it goes to the discard pile.
@@ -633,7 +640,7 @@ async function dealDamage(G, source, victim, amount, o) {
     if (hasTag(source, 'twinshipBonus') && P && zone(P).some(m => m.card.name === 'Jeremo♀')) amount += 30;
     if (elemental) {
       if (P) for (const m of zone(P)) for (const aura of m.auras) if (costIncludes(move, aura.costIncludes)) amount += aura.damage;
-      if (P && P.active && hasTag(P.active, 'fluttershine') && costIncludes(move, 'grass')) amount += 20;
+      if (P && fluttershineOn(P) && costIncludes(move, 'grass')) amount += 20;
       if (costIncludes(move, 'dark')) amount += 10 * tagCount(G, 'darkPulse');                              // Lemurk: everyone's dark attacks
       if (victim.status.frozen && costIncludes(move, 'electric') && tagCount(G, 'ionCharge')) amount += 10 * move.cost.types.electric;   // Cryodyr
       if (G.t.amp && G.t.amp.types.some(t => costIncludes(move, t))) amount += G.t.amp.amount;                // Eclidyr's Celestial Bodies
@@ -907,7 +914,10 @@ async function runOps(G, ctx, ops) {
 
     else if (op.shield) {
       const mon = await selectMon(G, ctx, op.who || 'self', op, 'protect', 'Protect which Bakemon?');
-      if (mon) mon.effects.push({ kind: 'shield', amount: op.grows ? op.shield * (ctx.streak || 1) : op.shield, lasts: op.lasts, onlyFrom: op.onlyFrom, expires: op.lasts === 'nextTurn' ? until(1) : undefined });
+      const from = ctx.move && ctx.move.name;
+      // noStack: using the move again refreshes its shield instead of adding a second one (Take Root).
+      if (mon && op.noStack) mon.effects = mon.effects.filter(e => !(e.kind === 'shield' && e.from === from));
+      if (mon) mon.effects.push({ kind: 'shield', amount: op.grows ? op.shield * (ctx.streak || 1) : op.shield, lasts: op.lasts, onlyFrom: op.onlyFrom, from, expires: op.lasts === 'nextTurn' ? until(1) : undefined });
     }
     else if (op.shieldRoll) me.effects.push({ kind: 'shield', roll: op.shieldRoll.sides, mult: op.shieldRoll.mult, lasts: 'nextTurn', expires: until(1) });
     else if (op.reflect)   me.effects.push({ kind: 'reflect', minus: op.reflect.minus, expires: until(1) });
@@ -1090,7 +1100,7 @@ async function runOps(G, ctx, ops) {
     else if (op.lockTurn)    { G.t.lockTurn = true; await say2(G, me.card.name + ' settles in. Nothing else can be done this turn.'); }
     else if (op.cling) {
       me.effects.push({ kind: 'shield', amount: 'all', lasts: 'nextTurn', expires: until(1) });
-      G.t.canAttack = false; G.t.noEnergy = true;
+      G.t.canAttack = false; G.t.noEnergy = true; G.t.stuck = null;
       await say2(G, me.card.name + ' clings to the ceiling.', { mon: me });
     }
     else if (op.amplify) {
@@ -1223,7 +1233,9 @@ async function runOps(G, ctx, ops) {
   if (ctx.recoil && ctx.dealt !== undefined) { const r = ctx.recoil; ctx.recoil = 0; await dealDamage(G, null, me, r, { why: 'the dive' }); }
 }
 
-const fluttershineBonus = (P, move) => (P.active && hasTag(P.active, 'fluttershine') && costIncludes(move, 'grass')) ? 20 : 0;
+// Gossiary's Fluttershine works from the bench too ("active" on the card means in play). Two Gossiary don't stack.
+const fluttershineOn = P => zone(P).some(m => hasTag(m, 'fluttershine'));
+const fluttershineBonus = (P, move) => (fluttershineOn(P) && costIncludes(move, 'grass')) ? 20 : 0;
 
 // Energy that MOVES (rather than being freshly attached) still feeds Necrozoa's hunger.
 async function attachEnergySilently(G, mon, type) {

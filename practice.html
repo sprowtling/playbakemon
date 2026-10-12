@@ -439,7 +439,7 @@ async function startMatch(botId, deckValue) {
   G = newBattle([
     { name: currentPlayer.display_name, deck: deck.cards, controller: human, isHuman: true },
     { name: botEntry.name, deck: deckList(botEntry.cards), controller: makeAI({ mistakes: botEntry.mistakes }) },
-  ], { rules: { pointsToWin: 4, reshuffleNeedsEmptyHand: true }, io: { show: showEvent } });
+  ], { rules: { pointsToWin: 4, reshuffleNeedsEmptyHand: false }, io: { show: showEvent } });
   me = G.players[0]; bot = G.players[1];
   pending = null; subPick = null; skipping = false; undoStack = []; undoTurn = -1;
 

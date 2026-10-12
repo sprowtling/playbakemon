@@ -101,8 +101,8 @@ const MUSHROOMS = ['Musherus', 'Shimejirus', 'Mushmutt', 'Iveldyr'];
 const MOVES = {
   '001': { 'Photosynthesize': { ops: [{ heal: 10, who: 'self' }] } },
   '002': { 'Seed Bullet':     { ops: [{ flip: 6, perHeads: { damage: 10 } }] } },
-  '003': { 'Take Root':       { ops: [{ shield: 30, lasts: 'nextHit' }] },
-           'Solar Powered':   { ops: [{ flip: 1, heads: [{ heal: 10, who: 'self' }] }] } },
+  '003': { 'Take Root':       { ops: [{ shield: 30, lasts: 'nextHit', noStack: true }] },
+           'Solar Powered':   { ops: [{ flip: 1, heads: [{ heal: 20, who: 'self' }] }] } },
   '004': { 'Hide':            { ops: [{ shield: 'all', lasts: 'nextTurn' }] } },
   // "water-type damage" is read as: an attack whose cost includes water energy.
   // (The same way the rules page defines weakness.)
@@ -144,6 +144,7 @@ const MOVES = {
   '027': { 'Waste Disposal':  { ability: 'activated', oncePerTurn: false, ops: [{ moveEnergy: 1, from: 'self', to: 'own_other' }] } },
   '028': { 'Ink Blot':        { ops: [{ targetMustFlip: true }] } },
   '029': { 'Salt Spray':      { ops: [{ flipPerOwnEnergy: true, perHeads: { discardEnemyEnergy: 1 } }] } },
+  '030': { 'Drown':           { ops: [{ discardEnergy: 2, from: 'self', type: 'water' }] } },
   '031': { 'Drain Punch':     { ops: [{ stealEnergy: 1 }] },
            'Bloom':           { ops: [{ targetMisses: true }] } },
   '032': { 'Preen':           { ability: 'activated', oncePerTurn: true, ops: [{ heal: 10, who: 'any' }] } },
@@ -157,7 +158,7 @@ const MOVES = {
            'Lurk':            { ops: [{ lurk: true }] } },
   '037': { 'Infiltrate':      { ops: [{ status: 'confused' }] },
            'Surgeflood':      { ops: [{ discardAllEnergy: 'electric', from: 'self' }] } },
-  '038': { 'Networking':      { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'choose', to: 'own_other', names: ['Musherus', 'Shimejirus'] }] },
+  '038': { 'Networking':      { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'choose', to: 'own_other', names: MUSHROOMS }] },
            'Sporesprinkle':   { ops: [{ damageBench: 10, pick: 'all' }] } },
   '039': { 'Nutrient Absorption': { ability: 'passive', tag: 'healsOnEnemyPoison' },
            'Poison Spore':    { ops: [{ status: 'poisoned' }] } },
@@ -166,7 +167,7 @@ const MOVES = {
   '041': { 'Hailstorm':       { ops: [{ weather: 'hailstorm' }] },
            'Cursed Wind':     { ops: [{ ifWeather: 'hailstorm', then: [{ thorns: 10 }] }] } },
   '042': { 'Till':            { ops: [{ buffSelf: 30, lasts: 'myNextTurn' }] },
-           'Plow':            { ops: [{ discardEnergy: 1, from: 'self' }] } },
+           'Plow':            { ops: [{ discardEnergy: 2, from: 'self', type: 'ground' }] } },
   '043': { 'Static Nuzzle':   { ops: [{ targetMustFlip: true }] },
            'Generator':       { ops: [{ debuffTarget: 20, turns: 3 }] } },
   '044': { 'Arclight':        { ops: [{ aura: { costIncludes: 'electric', damage: 20 } }] },
