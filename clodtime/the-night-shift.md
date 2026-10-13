@@ -62,4 +62,4 @@ Mendmoth tucks its lantern away, folds its stitched-up wings, and goes to sleep 
 
 ---
 
-*for Cameron, who found every one of those, and for whoever writes the cards*
+*for Cameron, who found every one of those, and for Bryan, who writes the cards*
