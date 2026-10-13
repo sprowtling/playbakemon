@@ -151,6 +151,17 @@
   }
   #see-all-link:hover { color: var(--accent); }
 
+  /* A quiet link to the sister game, Watchpoint, at the bottom */
+  #watchpoint-link {
+    display: none;
+    text-align: center;
+    margin: 28px 0 8px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  #watchpoint-link a { color: var(--accent); font-weight: 600; text-decoration: none; }
+  #watchpoint-link a:hover { text-decoration: underline; }
+
   #empty-message {
     text-align: center;
     color: var(--text-muted);
@@ -336,6 +347,8 @@
   <div id="practice-record"></div>
   <div id="practice-list"></div>
   <div id="practice-empty" style="display:none; color:var(--text-muted); font-size:13px; padding:8px 0;"></div>
+
+  <p id="watchpoint-link"></p>
 </div>
 
 <div id="picker-backdrop">
@@ -442,7 +455,29 @@ async function init() {
     }
   }
 
-  await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory(), loadPracticeSnapshot()]);
+  await Promise.all([loadMatchSnapshot(), loadFavorites(), loadTournamentHistory(), loadPracticeSnapshot(), loadWatchpointLink()]);
+}
+
+// Watchpoint (the Overwatch card battler) shares these logins. If this player
+// has played a Watchpoint match against someone, link to their profile there.
+const WATCHPOINT_URL = "https://watchpoint-tcg.vercel.app";
+async function loadWatchpointLink() {
+  try {
+    const { count, error } = await supabaseClient.schema("watchpoint").from("match_history")
+      .select("id", { count: "exact", head: true })
+      .or(`player_1_id.eq.${targetPlayer.id},player_2_id.eq.${targetPlayer.id}`);
+    if (error || !count) return;
+    const el = document.getElementById("watchpoint-link");
+    const who = isOwnProfile ? "You play" : `${targetPlayer.display_name} plays`;
+    el.textContent = `${who} Watchpoint too! `;
+    const a = document.createElement("a");
+    a.href = `${WATCHPOINT_URL}/profile.html?id=${encodeURIComponent(targetPlayer.id)}`;
+    a.textContent = "See the Watchpoint profile →";
+    el.appendChild(a);
+    el.style.display = "block";
+  } catch (e) {
+    console.warn("Watchpoint link skipped:", e);
+  }
 }
 
 // The actual challenge list (sent and received, with Accept/Reject/Join/
