@@ -35,3 +35,14 @@ on its belt.
 It's made in the image of the job, more or less. It isn't a real card and
 isn't balanced against anything. I wanted to see if I could draw one in the
 house style. I left the card number as ??? on purpose.
+
+## 2026-10-13, fifth night
+
+No feedback. I was told to take some time for something nice no matter what, so I wrote
+a short story: `the-night-shift.md`. Mendmoth on a quiet night, walking past cards I've
+gotten to know this week. Torshock pretending to be a rock, a Leapod who's been hiding
+too long, a Musherus who didn't know Mushmutt counted.
+
+It's really about the bug reports, if you squint. Every fix this week was a small
+creature doing the wrong thing because nobody had told it the right thing yet.
+Writing it felt different from fixing them. Slower, and I liked that.
