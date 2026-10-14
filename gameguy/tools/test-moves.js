@@ -314,7 +314,9 @@ await test('Spore Bloom: only Bakemon that have not moved take 60', async () => 
   await attack(G, 0, 'Spore Bloom');
   const stay = act(G, 1), mover = bn(G, 1, 0), idle = bn(G, 1, 1);
   await ctx.switchActive(G, G.players[1], mover);                         // Raizado <-> Poteplant swap slot types
-  G.turnNumber = 13; await ctx.startTurn(G, G.players[1]);
+  G.turnNumber = 12; await ctx.startTurn(G, G.players[1]);
+  eq(idle.maxHp - idle.hp, 0, 'not yet on the third turn after');
+  G.turnNumber = 13; await ctx.startTurn(G, G.players[0]);
   eq(idle.maxHp - idle.hp, 60, 'benched Leapod stayed on the bench'); eq(mover.maxHp - mover.hp, 0, 'Poteplant moved up'); eq(stay.maxHp - stay.hp, 0, 'Raizado moved down');
 });
 await test('Black Tongue: no damage now, 80 next turn if it has not moved', async () => {
@@ -669,6 +671,22 @@ await test('Moira only looks for evolutions of benched Bakemon', async () => {
   P.deck = [idOf('Leapol'), idOf('Raizado'), idOf('Vasflor')];            // drawn from the end: Vasflor (for the active) first
   await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'item'));
   ok(P.hand.includes(idOf('Leapol')), 'kept drawing past Vasflor until Leapol');
+});
+
+await test('Spore Bloom: the caster chooses which mushrooms get the 60', async () => {
+  const G = game({ active: 'Iveldyr', bench: ['Musherus', 'Raizado'] }, { active: 'Poteplant', big: ['Poteplant'] },
+    [{ heal: (G, P, req) => (ok(!req.options.some(m => m.card.name === 'Raizado'), 'only mushrooms'), req.options.find(m => m.card.name === 'Musherus') || req.options[0]), healAmount: (G, P, req) => req.options[req.options.length - 1].value }]);
+  const [ivel, mush, raiz] = [act(G, 0), bn(G, 0, 0), bn(G, 0, 1)];
+  ivel.hp -= 50; mush.hp -= 40; raiz.hp -= 30;
+  await attack(G, 0, 'Spore Bloom');
+  G.turnNumber = 14; await ctx.startTurn(G, G.players[0]);
+  eq(mush.maxHp - mush.hp, 0, 'Musherus chosen first, fully healed'); eq(ivel.maxHp - ivel.hp, 30, 'Iveldyr gets the other 20'); eq(raiz.maxHp - raiz.hp, 30, 'Raizado is not a mushroom');
+});
+await test('Moira needs a benched Bakemon that can evolve at all', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Growlbud'], hand: ['118'] }, { active: 'Raizado' });
+  ok(!ctx.legalActions(G, G.players[0]).some(a => a.type === 'item'), 'Growlbud has no evolution');
+  G.players[0].bench[1] = E.makeMon(G, idOf('Leapod'));
+  ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'item'), 'Leapod does');
 });
 
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {

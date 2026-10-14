@@ -399,7 +399,8 @@ function itemOpPossible(G, P, op) {
   if (op.moveAllEnergy || op.moveSomeEnergy) return zone(P).length > 1 && zone(P).some(m => m.energy.length);
   if (op.transmute)        return zone(P).some(m => m.energy.length);
   if (op.removeEnemyEquip) return zone(other(G, P)).some(m => m.equip);
-  if (op.digForEvolution)  return bench(P).length > 0 && P.deck.length > 0;
+  // Moira: somebody on the bench has to have an evolution at all (Growlbud alone doesn't count).
+  if (op.digForEvolution)  return P.deck.length > 0 && bench(P).some(m => Object.values(CARD_BY_ID).some(c => c.from === m.card.name));
   if (op.drawUntilBasic)   return P.deck.some(isBasic);
   return true;
 }
@@ -1160,7 +1161,8 @@ async function runOps(G, ctx, ops) {
     else if (op.sporeBloom) {
       const marks = zone(enemy).map(m => ({ mon: m, slot: slotOf(G, m) }));
       await say2(G, 'Spores begin to grow across ' + their(enemy) + ' side.');
-      G.delayed.push({ kind: 'spores', at: G.turnNumber + 3, owner: P.index, marks, damage: op.sporeBloom.damage, heal: op.sporeBloom.heal, names: MUSHROOMS });
+      // "After four turns": opponent, Iveldyr's side, opponent, then it lands at the start of Iveldyr's side's turn.
+      G.delayed.push({ kind: 'spores', at: G.turnNumber + 4, owner: P.index, marks, damage: op.sporeBloom.damage, heal: op.sporeBloom.heal, names: MUSHROOMS });
     }
     else if (op.delayHit) {
       const mon = await pick(G, P, zone(enemy), 'hurt', 'Declare which Bakemon as your target?');
@@ -1294,10 +1296,16 @@ async function runDelayed(G, P) {
       let hit = 0;
       await say2(G, 'The spores bloom!');
       for (const { mon, slot } of d.marks) if (mon.hp > 0 && slotOf(G, mon) === slot) { await dealDamage(G, null, mon, d.damage, { why: 'the spores' }); hit++; }
-      if (hit) {
+      if (hit) {                                            // the caster shares out the healing among their mushrooms, 10 at a time
         let left = d.heal;
-        for (const m of zone(caster).filter(m => d.names.includes(m.card.name) && m.hp < m.maxHp).sort((a, b) => (b.maxHp - b.hp) - (a.maxHp - a.hp))) {
-          const amount = Math.min(left, m.maxHp - m.hp); if (amount > 0) { await heal(G, m, amount); left -= amount; }
+        while (left > 0) {
+          const hurt = zone(caster).filter(m => d.names.includes(m.card.name) && m.hp > 0 && m.hp < m.maxHp);
+          if (!hurt.length) break;
+          const m = await pick(G, caster, hurt, 'heal', 'Heal which mushroom? (' + left + ' HP left to give)');
+          const most = Math.min(left, m.maxHp - m.hp);
+          const amount = most <= 10 ? most : await caster.controller.ask(G, caster, { kind: 'option', purpose: 'healAmount', mon: m, prompt: 'Heal ' + m.card.name + ' by how much?',
+            options: Array.from({ length: Math.ceil(most / 10) }, (_, i) => Math.min(most, (i + 1) * 10)).map(n => ({ label: String(n), value: n })) });
+          await heal(G, m, amount); left -= amount;
         }
       }
     }

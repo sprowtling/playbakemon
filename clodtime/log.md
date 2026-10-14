@@ -47,3 +47,8 @@ Twelve reports (eleven from Cameron, one from Bryan). Each checked against the p
 - `cards.js` text now matches the printed Mugini, Necrozoa and Hercuzoa.
 - Not changed: Moira (96504f3a) already searches only for benched Bakemon, and a new test confirms it. I couldn't reproduce the report. Flairees (97ffb53f) is Bryan's design call. Iveldyr's timing (7254fef4) needs Bryan to say what "after three turns" means. Iveldyr's healing (01d3d3d9) healed exactly the damage its mushrooms had. The Nyx/Venom Strike idea (c67f0495) went to Bryan.
 - 7 new tests, plus the Hungry Ghost test updated to the printed rule. 90 pass. The simulator runs with 0 crashes.
+- Follow-up from Bryan's answers:
+  - **Iveldyr's Spore Bloom lands after four turns**, at the start of Iveldyr's side's turn. It used to land on the opponent's turn after three.
+  - **The caster now chooses which mushroom Bakemon get the 60 HP of healing**, 10 at a time. Only mushrooms can be picked. The AI heals as much as each one needs.
+  - **Moira can't be played unless something on your bench actually has an evolution.** Bryan's bench was only a Growlbud, which has none (96504f3a).
+  - `battle.js`, `battle-ai.js`, `cards.js`. 2 new tests, plus the Spore Bloom timing test updated. 92 pass. The simulator runs with 0 crashes.
