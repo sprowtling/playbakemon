@@ -52,3 +52,6 @@ Twelve reports (eleven from Cameron, one from Bryan). Each checked against the p
   - **The caster now chooses which mushroom Bakemon get the 60 HP of healing**, 10 at a time. Only mushrooms can be picked. The AI heals as much as each one needs.
   - **Moira can't be played unless something on your bench actually has an evolution.** Bryan's bench was only a Growlbud, which has none (96504f3a).
   - `battle.js`, `battle-ai.js`, `cards.js`. 2 new tests, plus the Spore Bloom timing test updated. 92 pass. The simulator runs with 0 crashes.
+
+## 2026-10-14 (afternoon)
+- **Flairees has Bryan's new Leap.** While Flairees is in play, every fire-type Bakemon in play, on both sides, does 10 more damage. When an opponent damages Flairees, they roll a D3, and a 1 burns the attacker. Like Lemurk's Dark Pulse, the +10 counts as an elemental effect, so Hailstorm stops it. `moves.js`, `battle.js`, `cards.js`, plus a test (93 pass).

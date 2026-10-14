@@ -645,6 +645,7 @@ async function dealDamage(G, source, victim, amount, o) {
       if (P) for (const m of zone(P)) for (const aura of m.auras) if (costIncludes(move, aura.costIncludes)) amount += aura.damage;
       if (P && fluttershineOn(P) && costIncludes(move, 'grass')) amount += 20;
       if (costIncludes(move, 'dark')) amount += 10 * tagCount(G, 'darkPulse');                              // Lemurk: everyone's dark attacks
+      if (source.card.types.includes('fire') && tagCount(G, 'fireAura')) amount += 10;                      // Flairees: every fire-type in play
       if (victim.status.frozen && costIncludes(move, 'electric') && tagCount(G, 'ionCharge')) amount += 10 * move.cost.types.electric;   // Cryodyr
       if (G.t.amp && G.t.amp.types.some(t => costIncludes(move, t))) amount += G.t.amp.amount;                // Eclidyr's Celestial Bodies
     }

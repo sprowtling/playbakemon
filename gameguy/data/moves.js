@@ -130,7 +130,9 @@ const MOVES = {
   '017': { 'Mischief':        { ops: [{ discardEnergy: 1, from: 'self' }, { discardEnergy: 1, from: 'target' }] } },
   '018': { 'Graze':           { ops: [{ healPerEnergy: 20, type: 'grass' }] },
            'Headbutt':        { ops: [{ ifTargetWeakTo: 'fire', then: [{ status: 'burned' }] }] } },
-  '019': { 'Leap':            { ability: 'activated', oncePerTurn: true, ops: [{ retaliate: { status: 'burned' } }] } },
+  // Leap does two things: fire-type Bakemon in play (both sides) hit 10 harder while Flairees is in play,
+  // and whoever damages Flairees rolls a D3, burned on a 1.
+  '019': { 'Leap':            { ability: 'whenHit', tag: 'fireAura', ops: [{ roll: 3, why: 'Leap', table: { 1: [{ status: 'burned', on: 'attacker' }] } }] } },
   '020': { 'Contact Zap':     { ability: 'whenHit', ops: [{ flip: 1, heads: [{ status: 'paralyzed', on: 'attacker' }, { debuffTarget: 999, turns: 1, on: 'attacker' }] }] } },
   '021': { 'Soak':            { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'water', to: 'own_any' }] } },
   // Read as: the 30 damage goes to a benched Bakemon INSTEAD of the active one.
