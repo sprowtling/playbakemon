@@ -314,7 +314,9 @@ await test('Spore Bloom: only Bakemon that have not moved take 60', async () => 
   await attack(G, 0, 'Spore Bloom');
   const stay = act(G, 1), mover = bn(G, 1, 0), idle = bn(G, 1, 1);
   await ctx.switchActive(G, G.players[1], mover);                         // Raizado <-> Poteplant swap slot types
-  G.turnNumber = 13; await ctx.startTurn(G, G.players[1]);
+  G.turnNumber = 12; await ctx.startTurn(G, G.players[1]);
+  eq(idle.maxHp - idle.hp, 0, 'not yet on the third turn after');
+  G.turnNumber = 13; await ctx.startTurn(G, G.players[0]);
   eq(idle.maxHp - idle.hp, 60, 'benched Leapod stayed on the bench'); eq(mover.maxHp - mover.hp, 0, 'Poteplant moved up'); eq(stay.maxHp - stay.hp, 0, 'Raizado moved down');
 });
 await test('Black Tongue: no damage now, 80 next turn if it has not moved', async () => {
@@ -498,15 +500,20 @@ await test('Eclidyr cannot evolve without five kinds of energy', async () => {
   eq(E.canEvolveOnto(G, G.players[0], act(G, 0), ionodyr), true, 'five kinds');
 });
 
-await test('Hungry Ghost: 10 less max HP per psychic energy, and it comes back', async () => {
+await test('Hungry Ghost: 10 less max HP per energy, and discarding brings it back', async () => {
   const G = game({ active: 'Necrozoa' }, { active: 'Raizado' });
   const n = act(G, 0), full = n.maxHp;
   await ctx.dealDamage(G, null, n, 30, {});
-  await ctx.attachEnergy(G, n, 'psychic'); await ctx.attachEnergy(G, n, 'psychic');
-  eq(n.maxHp, full - 20, 'max HP after two psychic'); eq(n.hp, full - 30 - 20, 'HP keeps the same damage');
-  await ctx.attachEnergy(G, n, 'fire'); eq(n.maxHp, full - 20, 'other energy does nothing');
-  n.energy.splice(n.energy.indexOf('psychic'), 1); await ctx.checkKOs(G);
-  eq(n.maxHp, full - 10, 'one psychic gone'); eq(n.hp, full - 30 - 10, 'HP comes back with it');
+  await ctx.attachEnergy(G, n, 'psychic'); await ctx.attachEnergy(G, n, 'fire');
+  eq(n.maxHp, full - 20, 'max HP after two energy of any kind'); eq(n.hp, full - 30 - 20, 'HP keeps the same damage');
+  await ability(G, 0, n, 'Hungry Ghost');
+  eq(n.energy.length, 1, 'discarded one'); eq(n.maxHp, full - 10, 'max HP back up'); eq(n.hp, full - 30 - 10, 'HP comes back with it');
+});
+await test('Hungry Ghost: energy Mugini already had counts the moment it evolves', async () => {
+  const G = game({ active: 'Mugini', energy: { Mugini: ['psychic', 'psychic', 'psychic'] }, hand: [idOf('Necrozoa')] }, { active: 'Raizado' });
+  const P = G.players[0]; G.turnNumber = 12;
+  await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'evolve'));
+  eq(act(G, 0).maxHp, 70, 'Necrozoa 100 - 30');
 });
 await test('Secret Frequency: both draw, and the opponent shows theirs', async () => {
   const G = game({ active: 'Octovox' }, { active: 'Raizado' });
@@ -629,6 +636,57 @@ await test('Glaciabolt frost: a D3 under three freezes', async () => {
   G.weather = { name: 'frost', source: act(G, 0) };
   rig(d(3, 2)); await ctx.switchActive(G, G.players[1], bn(G, 1));
   ok(act(G, 1).status.frozen, 'a 2 freezes');
+});
+
+await test('Headbutt burns only a target weak to fire', async () => {
+  const G = game({ active: 'Pyroat' }, { active: 'Porsite', big: ['Porsite'] });
+  rig(HEADS, HEADS); await attack(G, 0, 'Headbutt');
+  ok(!act(G, 1).status.burned, 'Porsite is not weak to fire');
+  const H = game({ active: 'Pyroat' }, { active: 'Poteplant', big: ['Poteplant'] });
+  await attack(H, 0, 'Headbutt');
+  ok(act(H, 1).status.burned, 'Poteplant is weak to fire');
+});
+await test('Mugini needs two energy of the type it evolves into', async () => {
+  const G = game({ active: 'Mugini', energy: { Mugini: ['fighting'] }, hand: [idOf('Hercuzoa')] }, { active: 'Raizado' });
+  const P = G.players[0]; G.turnNumber = 12;
+  ok(!ctx.legalActions(G, P).some(a => a.type === 'evolve'), 'one fighting is not enough');
+  act(G, 0).energy.push('fighting');
+  ok(ctx.legalActions(G, P).some(a => a.type === 'evolve'), 'two is');
+});
+await test('Zero to Hero can give Hercuzoa the energy itself', async () => {
+  const G = game({ active: 'Hercuzoa' }, { active: 'Raizado' }, [{ energyTo: (G, P, req) => (ok(req.options.includes(act(G, 0)), 'Hercuzoa is offered'), act(G, 0)) }]);
+  await ability(G, 0, act(G, 0), 'Zero to Hero');
+  eq(act(G, 0).energy.join(), 'fighting', 'Hercuzoa got it');
+});
+await test('Floppy Disk moves as much energy as you like', async () => {
+  const G = game({ active: 'Raizado', bench: ['Poteplant'], energy: { Raizado: ['grass', 'grass', 'ground'] }, hand: ['113'] }, { active: 'Poteplant' },
+    [{ energyFrom: (G, P) => act(G, 0), energyTo: (G, P) => bn(G, 0), energyCount: () => 2, energyType: () => 'grass' }]);
+  const P = G.players[0];
+  await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'item'));
+  eq(act(G, 0).energy.join(), 'ground', 'one stays'); eq(bn(G, 0).energy.join(), 'grass,grass', 'two moved');
+});
+await test('Moira only looks for evolutions of benched Bakemon', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['118'] }, { active: 'Raizado' });
+  const P = G.players[0];
+  P.deck = [idOf('Leapol'), idOf('Raizado'), idOf('Vasflor')];            // drawn from the end: Vasflor (for the active) first
+  await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'item'));
+  ok(P.hand.includes(idOf('Leapol')), 'kept drawing past Vasflor until Leapol');
+});
+
+await test('Spore Bloom: the caster chooses which mushrooms get the 60', async () => {
+  const G = game({ active: 'Iveldyr', bench: ['Musherus', 'Raizado'] }, { active: 'Poteplant', big: ['Poteplant'] },
+    [{ heal: (G, P, req) => (ok(!req.options.some(m => m.card.name === 'Raizado'), 'only mushrooms'), req.options.find(m => m.card.name === 'Musherus') || req.options[0]), healAmount: (G, P, req) => req.options[req.options.length - 1].value }]);
+  const [ivel, mush, raiz] = [act(G, 0), bn(G, 0, 0), bn(G, 0, 1)];
+  ivel.hp -= 50; mush.hp -= 40; raiz.hp -= 30;
+  await attack(G, 0, 'Spore Bloom');
+  G.turnNumber = 14; await ctx.startTurn(G, G.players[0]);
+  eq(mush.maxHp - mush.hp, 0, 'Musherus chosen first, fully healed'); eq(ivel.maxHp - ivel.hp, 30, 'Iveldyr gets the other 20'); eq(raiz.maxHp - raiz.hp, 30, 'Raizado is not a mushroom');
+});
+await test('Moira needs a benched Bakemon that can evolve at all', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Growlbud'], hand: ['118'] }, { active: 'Raizado' });
+  ok(!ctx.legalActions(G, G.players[0]).some(a => a.type === 'item'), 'Growlbud has no evolution');
+  G.players[0].bench[1] = E.makeMon(G, idOf('Leapod'));
+  ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'item'), 'Leapod does');
 });
 
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {

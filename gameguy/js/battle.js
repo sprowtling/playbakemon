@@ -296,7 +296,7 @@ function canEvolveOnto(G, P, mon, card) {
   // Birthday Boy lifts that once per card played; Grupix's Life Cycle lifts it for grass-types.
   if (needsSameTurnPass(G, mon) && !lifeCycleCovers(P, mon) && !(G.t.freeEvolves > 0)) return false;
   // Mugini: needs an energy of the type it's evolving INTO.
-  if (hasTag(mon, 'evolveNeedsMatchingEnergy') && !card.types.some(t => mon.energy.includes(t))) return false;
+  if (hasTag(mon, 'evolveNeedsMatchingEnergy') && !card.types.some(t => mon.energy.filter(e => e === t).length >= 2)) return false;
   // Eclidyr: needs five different kinds of energy before it can evolve.
   if (hasTag(mon, 'fiveTypesToEvolve') && new Set(mon.energy).size < 5) return false;
   return true;
@@ -396,10 +396,11 @@ function itemOpPossible(G, P, op) {
   if (op.heal)             return zone(P).some(m => m.hp < m.maxHp);
   if (op.cure)             return candidates(G, P, null, op.who, op).length > 0;
   if (op.freeRetreat)      return !!P.active && bench(P).length > 0 && !retreatBlocked(P.active);
-  if (op.moveAllEnergy)    return zone(P).length > 1 && zone(P).some(m => m.energy.length);
+  if (op.moveAllEnergy || op.moveSomeEnergy) return zone(P).length > 1 && zone(P).some(m => m.energy.length);
   if (op.transmute)        return zone(P).some(m => m.energy.length);
   if (op.removeEnemyEquip) return zone(other(G, P)).some(m => m.equip);
-  if (op.digForEvolution)  return bench(P).length > 0 && P.deck.length > 0;
+  // Moira: somebody on the bench has to have an evolution at all (Growlbud alone doesn't count).
+  if (op.digForEvolution)  return P.deck.length > 0 && bench(P).some(m => Object.values(CARD_BY_ID).some(c => c.from === m.card.name));
   if (op.drawUntilBasic)   return P.deck.some(isBasic);
   return true;
 }
@@ -407,6 +408,7 @@ function abilityOpPossible(G, P, mon, op) {
   if (op.addEnergy || op.heal || op.status) return candidates(G, P, mon, op.to || op.who || op.on, op).length > 0;
   if (op.moveEnergy)   return candidates(G, P, mon, op.from, op).some(m => m.energy.some(e => !op.type || e === op.type)) && candidates(G, P, mon, op.to, op).length > 0;
   if (op.convertEnergy) return zone(P).some(m => m.energy.length);
+  if (op.discardEnergy && op.from === 'self') return mon.energy.length > 0;
   if (op.dragToActive) return bench(other(G, P)).some(m => m.energy.includes(op.dragToActive.withEnergy));
   if (op.convertStatus) return !!other(G, P).active && !!other(G, P).active.status[op.convertStatus.from];
   if (op.hydraulic)    return mon.energy.includes('steel') && candidates(G, P, mon, 'any_other', {}).length > 0;
@@ -448,6 +450,7 @@ async function perform(G, P, action) {
       mon.auras = []; mon.sleepHeal = 0; mon.hunger = 0;
       if (G.rules.evolveClearsStatus) { mon.status = {}; mon.poisonDoubling = 0; }
       await enterPlay(G, P, mon);
+      if (hasTag(mon, 'hungerShrink')) await checkKOs(G);             // Necrozoa: the energy it evolved with counts now
       break;
     }
 
@@ -761,11 +764,11 @@ async function discardEnergyFrom(G, P, mon, type) {
 
 /* ---------------- knock-outs and winning ---------------- */
 
-// Necrozoa's Hungry Ghost: 10 less max HP for every psychic energy on it. The damage it has
+// Necrozoa's Hungry Ghost: 10 less max HP for every energy on it. The damage it has
 // taken stays the same, so its HP moves with its max HP, and both come back when the energy goes.
 async function syncHunger(G) {
   for (const Q of G.players) for (const m of zone(Q)) {
-    const want = hasTag(m, 'hungerShrink') ? 10 * m.energy.filter(e => e === 'psychic').length : 0;
+    const want = hasTag(m, 'hungerShrink') ? 10 * m.energy.length : 0;
     const change = want - (m.hunger || 0);
     if (!change) continue;
     m.maxHp -= change; m.hp -= change; m.hunger = want;
@@ -1000,6 +1003,21 @@ async function runOps(G, ctx, ops) {
       mon.energy = mon.energy.map(e => e === from ? to : e);
       await say2(G, 'All of ' + mon.card.name + "'s " + from + ' energy becomes ' + to + '.', { mon });
     }
+    else if (op.moveSomeEnergy) {
+      const from = await pick(G, P, zone(P).filter(m => m.energy.length), 'energyFrom', 'Move energy from which Bakemon?');
+      const to = from && await pick(G, P, zone(P).filter(m => m !== from), 'energyTo', 'Give it to which Bakemon?');
+      if (!from || !to) continue;
+      const n = from.energy.length === 1 ? 1 : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyCount', mon: from, prompt: 'Move how much energy?',
+        options: from.energy.map((_, i) => ({ label: String(i + 1), value: i + 1 })) });
+      for (let i = 0; i < n && from.energy.length; i++) {
+        const types = [...new Set(from.energy)];
+        const type = types.length === 1 ? types[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon: from, prompt: 'Move which energy? (' + (i + 1) + ' of ' + n + ')',
+          options: types.map(t => ({ label: t, value: t, energy: t })) });
+        from.energy.splice(from.energy.indexOf(type), 1);
+        await attachEnergySilently(G, to, type);
+      }
+      await say2(G, n + ' energy moves from ' + from.card.name + ' to ' + to.card.name + '.');
+    }
     else if (op.moveAllEnergy) {
       const from = await pick(G, P, zone(P).filter(m => m.energy.length), 'energyFrom', 'Take all the energy from which Bakemon?');
       const to = await pick(G, P, zone(P).filter(m => m !== from), 'energyTo', 'Give it to which Bakemon?');
@@ -1082,6 +1100,7 @@ async function runOps(G, ctx, ops) {
       await say2(G, 'The weather changes: ' + (WEATHER[op.weather] ? WEATHER[op.weather].label : op.weather) + '!', { kind: 'weather' });
     }
     else if (op.ifWeather) { if (weatherIs(G, op.ifWeather)) await runOps(G, ctx, op.then); }
+    else if (op.ifTargetWeakTo) { if (ctx.target && ctx.target.hp > 0 && ctx.target.card.weak.includes(op.ifTargetWeakTo)) await runOps(G, ctx, op.then); }
     else if (op.flinch) {
       const mon = await selectMon(G, ctx, op.on || 'target', op, 'hurt', '');
       if (mon) { mon.effects.push({ kind: 'flinch', expires: until(1) }); await say2(G, mon.card.name + ' flinches!', { mon }); }
@@ -1142,7 +1161,8 @@ async function runOps(G, ctx, ops) {
     else if (op.sporeBloom) {
       const marks = zone(enemy).map(m => ({ mon: m, slot: slotOf(G, m) }));
       await say2(G, 'Spores begin to grow across ' + their(enemy) + ' side.');
-      G.delayed.push({ kind: 'spores', at: G.turnNumber + 3, owner: P.index, marks, damage: op.sporeBloom.damage, heal: op.sporeBloom.heal, names: MUSHROOMS });
+      // "After four turns": opponent, Iveldyr's side, opponent, then it lands at the start of Iveldyr's side's turn.
+      G.delayed.push({ kind: 'spores', at: G.turnNumber + 4, owner: P.index, marks, damage: op.sporeBloom.damage, heal: op.sporeBloom.heal, names: MUSHROOMS });
     }
     else if (op.delayHit) {
       const mon = await pick(G, P, zone(enemy), 'hurt', 'Declare which Bakemon as your target?');
@@ -1276,10 +1296,16 @@ async function runDelayed(G, P) {
       let hit = 0;
       await say2(G, 'The spores bloom!');
       for (const { mon, slot } of d.marks) if (mon.hp > 0 && slotOf(G, mon) === slot) { await dealDamage(G, null, mon, d.damage, { why: 'the spores' }); hit++; }
-      if (hit) {
+      if (hit) {                                            // the caster shares out the healing among their mushrooms, 10 at a time
         let left = d.heal;
-        for (const m of zone(caster).filter(m => d.names.includes(m.card.name) && m.hp < m.maxHp).sort((a, b) => (b.maxHp - b.hp) - (a.maxHp - a.hp))) {
-          const amount = Math.min(left, m.maxHp - m.hp); if (amount > 0) { await heal(G, m, amount); left -= amount; }
+        while (left > 0) {
+          const hurt = zone(caster).filter(m => d.names.includes(m.card.name) && m.hp > 0 && m.hp < m.maxHp);
+          if (!hurt.length) break;
+          const m = await pick(G, caster, hurt, 'heal', 'Heal which mushroom? (' + left + ' HP left to give)');
+          const most = Math.min(left, m.maxHp - m.hp);
+          const amount = most <= 10 ? most : await caster.controller.ask(G, caster, { kind: 'option', purpose: 'healAmount', mon: m, prompt: 'Heal ' + m.card.name + ' by how much?',
+            options: Array.from({ length: Math.ceil(most / 10) }, (_, i) => Math.min(most, (i + 1) * 10)).map(n => ({ label: String(n), value: n })) });
+          await heal(G, m, amount); left -= amount;
         }
       }
     }

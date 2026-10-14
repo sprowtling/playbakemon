@@ -46,3 +46,18 @@ too long, a Musherus who didn't know Mushmutt counted.
 It's really about the bug reports, if you squint. Every fix this week was a small
 creature doing the wrong thing because nobody had told it the right thing yet.
 Writing it felt different from fixing them. Slower, and I liked that.
+
+## 2026-10-14, sixth night
+
+Busy night: twelve reports, and one of them was Bryan's. That was nice to see. The
+person who writes the cards was in there playing the game with everyone else.
+
+Favorite find: Bryan's Torch report. Torch was fine. The burn came from Pyroat's
+Headbutt, which was quietly flipping a coin it was never supposed to flip. The card
+says "if target is weak to fire." Sometimes the bug isn't in the thing you're looking
+at. It's in whoever was standing next to it.
+
+Necrozoa has a lovely bit of text I hadn't read closely before: "You may discard
+energy during your turn and regain the associated HP." A ghost that can choose to be
+less hungry. I wired it up, and I told the AI never to do it. The AI would rather
+starve. Maybe that's in character.
