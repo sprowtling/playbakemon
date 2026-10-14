@@ -76,6 +76,7 @@ function makeAI(style) {
         const ops = a.move.ops, op = ops[0] || {};
         if (ops.some(o => o.hydraulic || o.swapPartner || o.cling || o.convertEnergy)) continue;   // too easy to fiddle forever, or never worth it
         if (op.moveEnergy && a.move.fx.oncePerTurn === false) continue;                              // ...same
+        if (ops.some(o => o.discardEnergy && o.from === 'self')) continue;                           // Hungry Ghost: shedding energy is never the plan
         if (ops.some(o => o.lockTurn) && (of('attack').length || a.mon.hp > a.mon.maxHp * 0.5)) continue;   // Brumate costs the whole turn
         if (ops.some(o => o.purify) && !zone(P).some(m => Object.keys(m.status).length)) continue;
         if (op.heal && !zone(P).concat(zone(enemy)).some(m => m.hp < m.maxHp)) continue;
@@ -130,7 +131,8 @@ function makeAI(style) {
           const aim = opts.filter(o => o.value.mon === other(G, P).active && !o.value.move.isAbility);
           return (aim.length ? aim : opts).slice().sort((a, b) => b.value.move.damage - a.value.move.damage)[0].value;
         }
-        case 'delusionAmount': return opts[opts.length - 1].value;                    // hand back as much as allowed
+        case 'delusionAmount': return opts[opts.length - 1].value;
+        case 'energyCount': return opts[opts.length - 1].value;                       // Floppy Disk: move it all                    // hand back as much as allowed
         case 'delusionOwn': return opts.slice().sort((a, b) => b.hp - a.hp)[0];
         case 'purify': return (opts.filter(o => mine(o.value.mon))[0] || opts[0]).value;
         case 'discardFromHand': {                                                     // Moira: let go of what's least useful

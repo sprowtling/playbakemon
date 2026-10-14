@@ -35,3 +35,15 @@ Eight more reports from Cameron, plus a request to check every ice- and ground-t
 - **Cryodyr's frost freezes on a D3 under three**, not under two (printed card). `battle.js`.
 - Not a bug: Poison Spore did 20 because Nyx had Lemurk on the bench, and Lemurk's Dark Pulse adds 10 to every dark attack (69e46260). The run of heads is logged, and it's still a fair coin (d5756d09).
 - 5 new tests, plus one frost test updated to the printed rule. 84 pass. The simulator runs with 0 crashes.
+
+## 2026-10-14
+Twelve reports (eleven from Cameron, one from Bryan). Each checked against the printed card.
+- **Pyroat's Headbutt burns only a target weak to fire**, as printed (372416a7). It used to burn on a coin flip. That flip was the mystery burn in Bryan's Torch report; Torch itself works correctly. New `ifTargetWeakTo` op. `moves.js`, `battle.js`.
+- **Floppy Disk moves as much energy as you like**, not all of it (a036bee5). You pick from, to, how many and which kinds. New `moveSomeEnergy` op. `moves.js`, `battle.js`, `battle-ai.js`.
+- **Hercuzoa's Zero to Hero can target any Bakemon in play, itself included** (259d6d14). `moves.js`.
+- **Mugini needs two energy of its target type to evolve**, not one (06765462). `battle.js`.
+- **Necrozoa's Hungry Ghost** (bb4fd51d, a661d6db): it now counts *every* energy, not just psychic. The energy Mugini already had counts the moment it evolves. You can discard energy on your turn to get the HP back. The AI never discards that way. `moves.js`, `battle.js`, `battle-ai.js`.
+- **Murkitty's Shed Skin** (3620a360) is printed as a free ability, but the data gave it a 2-dragon cost, so it was an attack. Fixed in `cards.js`; Supabase needs the same change.
+- `cards.js` text now matches the printed Mugini, Necrozoa and Hercuzoa.
+- Not changed: Moira (96504f3a) already searches only for benched Bakemon, and a new test confirms it. I couldn't reproduce the report. Flairees (97ffb53f) is Bryan's design call. Iveldyr's timing (7254fef4) needs Bryan to say what "after three turns" means. Iveldyr's healing (01d3d3d9) healed exactly the damage its mushrooms had. The Nyx/Venom Strike idea (c67f0495) went to Bryan.
+- 7 new tests, plus the Hungry Ghost test updated to the printed rule. 90 pass. The simulator runs with 0 crashes.

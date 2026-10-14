@@ -58,6 +58,7 @@
      { weather: 'frost' }                             one weather at a time (see WEATHER below). It lasts until the
                                                       Bakemon that made it leaves play, or a newer weather replaces it.
      { ifWeather: 'hailstorm', then: [ops] }
+     { ifTargetWeakTo: 'fire', then: [ops] }          only if the target is weak to that type
      { shieldRoll: { sides: 6, mult: 10 } }           blocks (roll x mult) damage, rolled when the hit lands
      { shield: 10, grows: true, lasts: 'nextTurn' }   +10 for every turn in a row the same move is used (Curl)
      { streakBonus: 20, sameTarget: true }            +20 per consecutive use against the same target (Trample)
@@ -128,7 +129,7 @@ const MOVES = {
   '016': { 'Slither':         { ops: [{ status: 'asleep' }] } },
   '017': { 'Mischief':        { ops: [{ discardEnergy: 1, from: 'self' }, { discardEnergy: 1, from: 'target' }] } },
   '018': { 'Graze':           { ops: [{ healPerEnergy: 20, type: 'grass' }] },
-           'Headbutt':        { ops: [{ flip: 1, heads: [{ status: 'burned' }] }] } },
+           'Headbutt':        { ops: [{ ifTargetWeakTo: 'fire', then: [{ status: 'burned' }] }] } },
   '019': { 'Leap':            { ability: 'activated', oncePerTurn: true, ops: [{ retaliate: { status: 'burned' } }] } },
   '020': { 'Contact Zap':     { ability: 'whenHit', ops: [{ flip: 1, heads: [{ status: 'paralyzed', on: 'attacker' }, { debuffTarget: 999, turns: 1, on: 'attacker' }] }] } },
   '021': { 'Soak':            { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'water', to: 'own_any' }] } },
@@ -191,12 +192,12 @@ const MOVES = {
            'Trample':         { ops: [{ streakBonus: 20, sameTarget: true }] } },
   '055': { 'Toxidermic':      { ability: 'whenHit', onlyBelowHp: 30, ops: [{ status: 'poisoned', on: 'attacker' }] },
            'Acid Spray':      { ops: [{ status: 'poisoned' }, { discardEnergy: 3, from: 'self', type: 'dark' }] } },
-  '056': { 'Hungry Ghost':    { ability: 'passive', tag: 'hungerShrink' },
+  '056': { 'Hungry Ghost':    { ability: 'activated', oncePerTurn: false, tag: 'hungerShrink', ops: [{ discardEnergy: 1, from: 'self' }] },
            'Soul Eater':      { ops: [{ damagePerEnergy: 30, type: 'psychic', where: 'self', replaceBase: true }] } },
   '057': { 'Plate Armor':     { ability: 'passive', tag: 'plateArmor' } },
   '054': { 'Voices on the Wind': { ops: [{ status: 'confused' }] },
            'Detect Change':   { ability: 'passive', tag: 'peekDraw' } },
-  '058': { 'Zero to Hero':    { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'fighting', to: 'own_other' }] },
+  '058': { 'Zero to Hero':    { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'fighting', to: 'any' }] },
            'Grapple':         { ops: [{ discardEnergy: 3, from: 'self', type: 'fighting' }] } },
   '061': { 'Confusion':       { ops: [{ status: 'confused' }] } },
   '062': { 'Aqua Ring':       { ability: 'passive', tag: 'aquaRing' },
@@ -288,7 +289,7 @@ const ITEMS = {
   '110': { equip: 'sleepHeals40', approx: 'heals whenever asleep, whoever caused it' },
   '111': { equip: 'humidifier' },
   '112': { equip: 'notepad' },
-  '113': { ops: [{ moveAllEnergy: true }], approx: 'moves ALL the energy, not "as much as you like"' },
+  '113': { ops: [{ moveSomeEnergy: true }] },
   '114': { ops: [{ reshuffleDiscard: true }] },
   '115': { ops: [{ evolveFreelyThisTurn: true }] },
   '116': { ops: [{ transmute: true }] },
