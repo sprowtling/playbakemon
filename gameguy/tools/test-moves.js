@@ -689,6 +689,19 @@ await test('Moira needs a benched Bakemon that can evolve at all', async () => {
   ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'item'), 'Leapod does');
 });
 
+await test('Leap: fire-types in play hit 10 harder, and hitting Flairees burns on a D3 of 1', async () => {
+  const fire = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  const G = game({ active: 'Pyroat', bench: ['Flairees'] }, { active: 'Leapod', big: ['Leapod'] });
+  await ctx.resolveAttack(G, G.players[0], act(G, 0), fire);
+  eq(act(G, 1).maxHp - act(G, 1).hp, 40, 'benched Flairees adds 10 to fire-type Pyroat');
+  const H = game({ active: 'Flairees', big: ['Flairees'] }, { active: 'Raizado' });
+  rig(d(3, 1)); await ctx.resolveAttack(H, H.players[1], act(H, 1), fire);
+  ok(act(H, 1).status.burned, 'a 1 burns the attacker');
+  const K = game({ active: 'Flairees', big: ['Flairees'] }, { active: 'Raizado' });
+  rig(d(3, 2)); await ctx.resolveAttack(K, K.players[1], act(K, 1), fire);
+  ok(!act(K, 1).status.burned, 'a 2 does not');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];
