@@ -52,6 +52,10 @@ function makeAI(style) {
       const of = type => actions.filter(a => a.type === type);
       const enemy = other(G, P);
 
+      // Brumate has to come before energy and items, so decide on it first: only when badly hurt and with nothing to attack with.
+      const brumate = of('ability').find(a => a.move.ops.some(o => o.firstThing));
+      if (brumate && brumate.mon.hp <= brumate.mon.maxHp * 0.5 && !of('attack').length) return brumate;
+
       if (of('evolve').length)    return of('evolve')[0];
       if (of('playBasic').length) return of('playBasic')[0];
 

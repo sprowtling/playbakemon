@@ -702,6 +702,31 @@ await test('Leap: fire-types in play hit 10 harder, and hitting Flairees burns o
   ok(!act(K, 1).status.burned, 'a 2 does not');
 });
 
+await test('Brumate: only before energy, items or abilities, and it puts the turn\'s draw back', async () => {
+  const G = game({ active: 'Shython', bench: ['Poteplant'] }, { active: 'Raizado' });
+  const P = G.players[0], s = act(G, 0); s.hp -= 40;
+  P.deck = ['001', '002']; G.turnNumber = 11; await ctx.startTurn(G, P);
+  const drawn = P.hand[P.hand.length - 1];
+  await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'energy'));
+  ok(!ctx.legalActions(G, P).some(a => a.type === 'ability' && a.move.name === 'Brumate'), 'not after attaching energy');
+  const H = game({ active: 'Shython' }, { active: 'Raizado' });
+  const Q = H.players[0], t = act(H, 0); t.hp -= 40;
+  Q.deck = ['001', '002']; H.turnNumber = 11; await ctx.startTurn(H, Q);
+  await ability(H, 0, t, 'Brumate');
+  eq(t.maxHp - t.hp, 0, 'healed'); eq(Q.deck[Q.deck.length - 1], '002', 'the draw went back on top'); eq(Q.hand.length, 0, 'hand empty again');
+});
+await test('Hellfire: no damage, no burn', async () => {
+  const G = game({ active: 'Pyrdyr', energy: { Pyrdyr: ['dark', 'dark', 'dark', 'fire', 'fire'] } }, { active: 'Leapod', big: ['Leapod'] });
+  act(G, 1).effects.push({ kind: 'shield', amount: 'all', lasts: 'nextTurn', expires: 99 });
+  rig(HEADS, HEADS, HEADS); await attack(G, 0, 'Abyssal Flame');
+  ok(!act(G, 1).status.burned, 'Hide stopped the whole attack');
+});
+await test('Reorganise: one orb from each of two enemy Bakemon trade places', async () => {
+  const G = game({ active: 'Silooper' }, { active: 'Raizado', bench: ['Poteplant', 'Leapod'], energy: { Raizado: ['fire'], Leapod: ['water'] } });
+  await attack(G, 0, 'Reorganise');
+  eq(act(G, 1).energy.join(), 'water', 'Raizado got the water'); eq(bn(G, 1, 1).energy.join(), 'fire', 'Leapod got the fire'); eq(bn(G, 1, 0).energy.length, 0, 'Poteplant (no energy) left out');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

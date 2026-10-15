@@ -227,7 +227,7 @@ async function startTurn(G, P) {
   G.t = { over: false, energyUsed: 0, cableUsed: {}, retreats: 0, abilityUsed: {}, canAttack: true, freeEvolves: 0,
           lockTurn: false, noEnergy: false, attacked: false, amp: null };
   await say2(G, '— ' + poss(P) + ' turn —', { kind: 'turn' });
-  await drawCards(G, P, 1, true);
+  G.t.turnDraw = (await drawCards(G, P, 1, true)) ? P.hand[P.hand.length - 1] : null;   // Brumate may put it back
   if (G.turnNumber === 1 && !G.rules.firstPlayerCanAttack) G.t.canAttack = false;
 
   await runDelayed(G, P);
@@ -409,6 +409,9 @@ function abilityOpPossible(G, P, mon, op) {
   if (op.moveEnergy)   return candidates(G, P, mon, op.from, op).some(m => m.energy.some(e => !op.type || e === op.type)) && candidates(G, P, mon, op.to, op).length > 0;
   if (op.convertEnergy) return zone(P).some(m => m.energy.length);
   if (op.discardEnergy && op.from === 'self') return mon.energy.length > 0;
+  // Brumate: "you may not draw a card, use any item cards, attach any energy, or use any attacks/abilities
+  // this turn", so it has to be the first of those things you do.
+  if (op.firstThing)   return !G.t.energyUsed && !G.t.itemsUsed && !G.t.attacked && !Object.keys(G.t.abilityUsed).length;
   if (op.dragToActive) return bench(other(G, P)).some(m => m.energy.includes(op.dragToActive.withEnergy));
   if (op.convertStatus) return !!other(G, P).active && !!other(G, P).active.status[op.convertStatus.from];
   if (op.hydraulic)    return mon.energy.includes('steel') && candidates(G, P, mon, 'any_other', {}).length > 0;
@@ -467,6 +470,7 @@ async function perform(G, P, action) {
 
     case 'item': {
       const id = P.hand.splice(action.handIndex, 1)[0], card = CARD_BY_ID[id], item = ITEMS[id];
+      G.t.itemsUsed = true;
       await say2(G, subj(P, 'uses') + ' ' + card.name + '.', { cardId: id });
       if (item.equip) {
         const mon = P.active;
@@ -617,7 +621,8 @@ async function resolveAttack(G, P, attacker, move, copied) {
   await runOps(G, ctx, move.ops.filter(op => !isPre(op)));
 
   // Pyrdyr's Hellfire: every fire or dark attack from this side has a coin flip's chance to burn.
-  if (ctx.target && ctx.target !== attacker && ctx.target.hp > 0 && elementalOn(G) && tagCount(G, 'hellfire', P) && (costIncludes(move, 'fire') || costIncludes(move, 'dark'))
+  // No damage, no burn (Bryan's ruling): an attack that Hide or a shield fully stops can't set anything alight.
+  if (ctx.target && ctx.target !== attacker && ctx.target.hp > 0 && ctx.dealt > 0 && elementalOn(G) && tagCount(G, 'hellfire', P) && (costIncludes(move, 'fire') || costIncludes(move, 'dark'))
       && await flip(G, 'Hellfire')) await applyStatus(G, ctx.target, 'burned');
 
   // Unstone's Calming Focus: the promised extra damage to the opponent's bench.
@@ -1117,6 +1122,10 @@ async function runOps(G, ctx, ops) {
       else { me.lurkStored = me.lastHit || 0; await say2(G, me.card.name + ' lies in wait, storing ' + me.lurkStored + ' damage.', { mon: me }); }
     }
     else if (op.streakBonus) ctx.bonus += op.streakBonus * ((op.sameTarget ? ctx.targetStreak : ctx.streak) - 1);
+    else if (op.firstThing) {                              // Brumate: the turn's draw goes back on top of the deck
+      const i = G.t.turnDraw ? P.hand.lastIndexOf(G.t.turnDraw) : -1;
+      if (i >= 0) { P.deck.push(P.hand.splice(i, 1)[0]); G.t.turnDraw = null; await say2(G, subj(P, 'puts') + " this turn's draw back on top of the deck."); }
+    }
     else if (op.lockTurn)    { G.t.lockTurn = true; await say2(G, me.card.name + ' settles in. Nothing else can be done this turn.'); }
     else if (op.cling) {
       me.effects.push({ kind: 'shield', amount: 'all', lasts: 'nextTurn', expires: until(1) });
@@ -1194,13 +1203,17 @@ async function runOps(G, ctx, ops) {
       await say2(G, mon.card.name + ' is dragged onto the stage!', { mon });
       await switchActive(G, enemy, mon); ctx.target = enemy.active;
     }
-    else if (op.swapEnemyEnergy) {
-      const a = await pick(G, P, zone(enemy).filter(m => m.energy.length), 'hurt', 'Take an energy orb from which Bakemon?');
-      const b = a && await pick(G, P, zone(enemy).filter(m => m !== a), 'hurt', 'Swap it with which Bakemon?');
-      if (!a || !b) continue;
-      const ea = a.energy.pop(), eb = b.energy.length ? b.energy.pop() : null;
-      await say2(G, a.card.name + "'s " + ea + ' energy and ' + b.card.name + (eb ? "'s " + eb + ' energy trade places.' : ' trade places.'));
-      await attachEnergySilently(G, b, ea); if (eb) await attachEnergySilently(G, a, eb);
+    else if (op.swapEnemyEnergy) {                         // Reorganise: one orb from each of two enemy Bakemon trade places
+      const holders = zone(enemy).filter(m => m.energy.length);
+      if (holders.length < 2) { await say2(G, 'There are no two energy orbs to switch.'); continue; }
+      const a = await pick(G, P, holders, 'hurt', 'Switch an energy orb on which Bakemon?');
+      const b = await pick(G, P, holders.filter(m => m !== a), 'hurt', '...with which Bakemon?');
+      const orb = async mon => { const types = [...new Set(mon.energy)];
+        return types.length === 1 ? types[0] : P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon, prompt: "Which of " + mon.card.name + "'s energy?", options: types.map(t => ({ label: t, value: t, energy: t })) }); };
+      const ea = await orb(a), eb = await orb(b);
+      a.energy.splice(a.energy.indexOf(ea), 1); b.energy.splice(b.energy.indexOf(eb), 1);
+      await attachEnergySilently(G, b, ea); await attachEnergySilently(G, a, eb);
+      await say2(G, a.card.name + "'s " + ea + ' energy and ' + b.card.name + "'s " + eb + ' energy trade places.');
     }
     else if (op.disableMove) {
       const options = [];
