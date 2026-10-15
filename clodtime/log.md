@@ -55,3 +55,11 @@ Twelve reports (eleven from Cameron, one from Bryan). Each checked against the p
 
 ## 2026-10-14 (afternoon)
 - **Flairees has Bryan's new Leap.** While Flairees is in play, every fire-type Bakemon in play, on both sides, does 10 more damage. When an opponent damages Flairees, they roll a D3, and a 1 burns the attacker. Like Lemurk's Dark Pulse, the +10 counts as an elemental effect, so Hailstorm stops it. `moves.js`, `battle.js`, `cards.js`, plus a test (93 pass).
+
+## 2026-10-15
+Four reports.
+- **Shython's Brumate must be the first thing you do on your turn** (761bc855). The card says you may not draw, use items, attach energy, or use attacks/abilities that turn. Brumate is now offered only before any energy, item, ability or attack, and using it puts the turn's draw back on top of the deck. Cameron could attach energy and play items first and then still use it. The AI decides on Brumate before anything else. New `firstThing` op. `moves.js`, `battle.js`, `battle-ai.js`.
+  - The other Shython report (24203947): Brumate isn't offered at full HP, since there's nothing to heal. Working as intended.
+- **Hellfire can't burn without damage** (591ff0b4, Bryan's ruling). An attack that Hide fully blocks no longer burns. `battle.js`.
+- **Silooper's Reorganise swaps one orb each between two enemy Bakemon that both have energy** (87300bf7). Before, it could just move an orb onto a Bakemon with no energy. The player picks which orb when there's a choice. `battle.js`.
+- 3 new tests, 96 pass, and the simulator runs with 0 crashes.

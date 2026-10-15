@@ -238,7 +238,7 @@ const MOVES = {
            'Beam Me Up':      { ops: [{ retreatSelf: { ofType: 'ground' } }] } },
   '079': { 'Ice Eggs':        { ability: 'passive', tag: 'iceEggs' },
            'Sssss':           { ops: [{ roll: 3, min: 3, then: [{ status: 'frozen' }] }] } },
-  '080': { 'Brumate':         { ability: 'activated', oncePerTurn: true, ops: [{ heal: 50, who: 'self', damagedOnly: true }, { lockTurn: true }] },
+  '080': { 'Brumate':         { ability: 'activated', oncePerTurn: true, ops: [{ firstThing: true }, { heal: 50, who: 'self', damagedOnly: true }, { lockTurn: true }] },
            'Frostglass':      { ops: [{ retaliate: { status: 'frozen' } }] } },
   '081': { 'Flash Freeze':    { ops: [{ flashFreeze: true }] },
            'Scareglare':      { ops: [{ ifWeather: 'hailstorm', then: [{ status: 'frozen' }] }] } },
