@@ -40,7 +40,7 @@ const PRACTICE_BOTS = [
     id: 'pip',
     name: 'Pip',
     difficulty: 'Easy',
-    mistakes: 0.45,
+    mistakes: 0.52,
     blurb: 'Garden variety Bakemon. Slow, sturdy, and easily distracted.',
     hello: "Oh, hi! I just learned how to play. Be nice?",
     ifYouWin: "Good game! Can we play again after I water my plants?",
