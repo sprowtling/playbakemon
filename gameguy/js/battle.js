@@ -892,7 +892,7 @@ async function runOps(G, ctx, ops) {
 
     else if (op.bonusIfTargetStatus) { if (ctx.target && ctx.target.status[op.bonusIfTargetStatus]) ctx.bonus += op.damage; }
     else if (op.damagePerEnergy) {
-      const mons = op.where === 'zone' ? zone(P) : [me];
+      const mons = op.where === 'field' ? zone(P).concat(zone(enemy)) : op.where === 'zone' ? zone(P) : [me];
       const count = mons.reduce((n, m) => n + m.energy.filter(e => e === op.type).length, 0);
       if (op.replaceBase) ctx.base = 0;
       ctx.bonus += op.damagePerEnergy * count;

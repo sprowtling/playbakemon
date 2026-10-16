@@ -727,6 +727,20 @@ await test('Reorganise: one orb from each of two enemy Bakemon trade places', as
   eq(act(G, 1).energy.join(), 'water', 'Raizado got the water'); eq(bn(G, 1, 1).energy.join(), 'fire', 'Leapod got the fire'); eq(bn(G, 1, 0).energy.length, 0, 'Poteplant (no energy) left out');
 });
 
+await test('Lightning Storm counts lightning energy on both sides of the play area', async () => {
+  const G = game({ active: 'Amptiel', bench: ['Raizado'], energy: { Amptiel: ['electric', 'electric', 'electric', 'grass'], Raizado: ['electric'] } },
+                 { active: 'Poteplant', energy: { Poteplant: ['electric', 'electric'] }, big: ['Poteplant'] });
+  await attack(G, 0, 'Lightning Storm');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 120, '6 lightning x 20');
+});
+await test('Dunk: Lobscorch avoids every hit on the opponent\'s next turn', async () => {
+  const G = game({ active: 'Lobscorch', big: ['Lobscorch'] }, { active: 'Poteplant' });
+  const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  await attack(G, 0, 'Dunk'); await ctx.endTurn(G, G.players[0]); G.turnNumber += 1;
+  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit); await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
+  eq(act(G, 0).maxHp - act(G, 0).hp, 0, 'both hits avoided');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

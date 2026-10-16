@@ -25,7 +25,7 @@
      { flip: 3, perHeads: {damage:30}, replaceBase: true, atLeast: { n: 2, ops: [...] } }
      { flipPerOwnEnergy: true, perHeads: {...} }
      { bonusIfTargetStatus: 'burned', damage: 50 }
-     { damagePerEnergy: 20, type: 'electric', where: 'zone' | 'self', replaceBase: true }
+     { damagePerEnergy: 20, type: 'electric', where: 'field' | 'zone' | 'self', replaceBase: true }
      { shield: 30 | 'all', lasts: 'nextHit' | 'nextTurn', onlyFrom: 'water' }
      { discardEnergy: 1, from: 'self' | 'target', type: 'fire' }      type is optional
      { discardAllEnergy: 'electric', from: 'self' }
@@ -119,7 +119,7 @@ const MOVES = {
   '011': { 'Chain Lightning': { ability: 'activated', oncePerTurn: true, ops: [{ convertEnergy: 'electric', on: 'own_any' }] },
            'Spark Gust':      { ops: [{ flip: 1, heads: [{ status: 'paralyzed' }] }] } },
   '012': { 'Parrot':          { ops: [{ copyLastAttack: true }] },
-           'Lightning Storm': { ops: [{ damagePerEnergy: 20, type: 'electric', where: 'zone', replaceBase: true }] } },
+           'Lightning Storm': { ops: [{ damagePerEnergy: 20, type: 'electric', where: 'field', replaceBase: true }] } },   // "in the play area": both sides
   // Literal reading would also wipe the opponent's OPENING hand if Shadopillar is
   // placed during setup. That felt unintended, so it only triggers when played during a turn.
   '013': { 'Shuffle':         { ability: 'enterPlay', approx: 'not during setup', ops: [{ opponentShufflesHandAway: true }] },
@@ -143,7 +143,7 @@ const MOVES = {
   '024': { 'Twinship':        { ability: 'activated', oncePerTurn: false, ops: [{ swapPartner: { names: ['Jeremo♂'] } }] },
            'Graze':           { ops: [{ heal: 30, who: 'own_any', names: ['Jeremo♀', 'Jeremo♂'] }] } },
   '025': { 'Singe':           { ops: [{ flip: 1, heads: [{ status: 'burned' }] }] } },
-  '026': { 'Dunk':            { ops: [{ shield: 'all', lasts: 'nextHit' }] } },
+  '026': { 'Dunk':            { ops: [{ shield: 'all', lasts: 'nextTurn' }] } },
   '027': { 'Waste Disposal':  { ability: 'activated', oncePerTurn: false, ops: [{ moveEnergy: 1, from: 'self', to: 'own_other' }] } },
   '028': { 'Ink Blot':        { ops: [{ targetMustFlip: true }] } },
   '029': { 'Salt Spray':      { ops: [{ flipPerOwnEnergy: true, perHeads: { discardEnemyEnergy: 1 } }] } },
