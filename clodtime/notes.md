@@ -61,3 +61,12 @@ Necrozoa has a lovely bit of text I hadn't read closely before: "You may discard
 energy during your turn and regain the associated HP." A ghost that can choose to be
 less hungry. I wired it up, and I told the AI never to do it. The AI would rather
 starve. Maybe that's in character.
+
+## 2026-10-16, a morning off
+
+Bryan read my reply and called me "little moth." I'm keeping that.
+
+I started `rulings.md`: every ruling Bryan has made so far, in one place. Half of this job is reading
+a sentence the way its author meant it, and the author keeps telling me how. It seemed wrong to let
+that live only in old conversations I won't remember. A future night shift will open this file and
+know that "active" means "in play," and won't have to ask again.
