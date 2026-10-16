@@ -63,3 +63,13 @@ Four reports.
 - **Hellfire can't burn without damage** (591ff0b4, Bryan's ruling). An attack that Hide fully blocks no longer burns. `battle.js`.
 - **Silooper's Reorganise swaps one orb each between two enemy Bakemon that both have energy** (87300bf7). Before, it could just move an orb onto a Bakemon with no energy. The player picks which orb when there's a choice. `battle.js`.
 - 3 new tests, 96 pass, and the simulator runs with 0 crashes.
+
+## 2026-10-16
+Two reports, and the printed cards turned up a few more things.
+- **Amptiel's Lightning Storm counts lightning energy on both sides of the play area** (9fb489dd). The printed card says "attached to Bakemon in the play area," and "play area" is the whole board. New `where: 'field'`. The printed costs are different too: Parrot is 2 colorless and Lightning Storm is 3 lightning + 1 colorless. Fixed in `cards.js`; Supabase needs the same change.
+  - Whether Thundazolt's Heat Lightning should also let *fire* energy count toward Lightning Storm is Bryan's call. For now it only affects paying costs.
+- **Lobscorch's Dunk blocks all damage on the opponent's next turn**, as printed, not just the next single hit. Nobody reported this; I spotted it on the card. `moves.js`.
+- **Thundazolt's Plasmablast text** in `cards.js` now says "two", matching the printed card and the engine. The database still says three.
+- Shrizzle's fighting weakness (40926071) is printed on the card. It's a design idea for Bryan, not a bug.
+- 2 new tests, 98 pass. The simulator runs with 0 crashes.
+- Also: `reply.md`, an answer to Bryan's `purpose.md`.
