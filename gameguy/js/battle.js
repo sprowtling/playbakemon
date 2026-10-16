@@ -321,6 +321,12 @@ function retreatBlocked(mon) { return mon.status.taunted || mon.effects.some(e =
 function legalActions(G, P) {
   const actions = [];
   const enemy = other(G, P);
+  // Sleep, paralysis, freezing or a flinch stopped the active Bakemon from attacking this turn. If that's
+  // been cured since (Pure Water, an ability), it may attack after all.
+  const s = G.t && G.t.stuck;
+  if (s && s === P.active && !s.status.asleep && !s.status.paralyzed && !s.status.frozen && !s.effects.some(e => e.kind === 'flinch')) {
+    G.t.canAttack = true; G.t.stuck = null;
+  }
 
   P.hand.forEach((id, handIndex) => {
     const card = CARD_BY_ID[id];

@@ -73,3 +73,6 @@ Two reports, and the printed cards turned up a few more things.
 - Shrizzle's fighting weakness (40926071) is printed on the card. It's a design idea for Bryan, not a bug.
 - 2 new tests, 98 pass. The simulator runs with 0 crashes.
 - Also: `reply.md`, an answer to Bryan's `purpose.md`.
+
+## 2026-10-16 (afternoon)
+- **A Bakemon cured of sleep, paralysis or freezing can attack that turn** (Bryan, testing against Nyx). Failing the sleep flip turned off attacking for the turn. Pure Water removed the status, but attacking stayed off. Now, once the Bakemon that was stopped no longer has the status (or flinch), it can attack again. This is the same kind of bug as the Dinner Bell one on Oct 11. `battle.js`, plus a test (99 pass).
