@@ -741,6 +741,16 @@ await test('Dunk: Lobscorch avoids every hit on the opponent\'s next turn', asyn
   eq(act(G, 0).maxHp - act(G, 0).hp, 0, 'both hits avoided');
 });
 
+await test('Pure Water: a Bakemon cured of sleep can attack that turn', async () => {
+  const G = game({ active: 'Poteplant', energy: { Poteplant: ['grass'] }, hand: ['119'] }, { active: 'Raizado', big: ['Raizado'] });
+  const P = G.players[0]; act(G, 0).status.asleep = true;
+  rig(TAILS); await ctx.startTurn(G, P);
+  ok(!ctx.legalActions(G, P).some(a => a.type === 'attack'), 'still asleep: no attack');
+  await ctx.perform(G, P, ctx.legalActions(G, P).find(a => a.type === 'item' && a.cardId === '119'));
+  ok(!act(G, 0).status.asleep, 'awake');
+  ok(ctx.legalActions(G, P).some(a => a.type === 'attack'), 'and can attack');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];
