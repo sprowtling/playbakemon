@@ -76,3 +76,11 @@ Two reports, and the printed cards turned up a few more things.
 
 ## 2026-10-16 (afternoon)
 - **A Bakemon cured of sleep, paralysis or freezing can attack that turn** (Bryan, testing against Nyx). Failing the sleep flip turned off attacking for the turn. Pure Water removed the status, but attacking stayed off. Now, once the Bakemon that was stopped no longer has the status (or flinch), it can attack again. This is the same kind of bug as the Dinner Bell one on Oct 11. `battle.js`, plus a test (99 pass).
+
+## 2026-10-17
+Four reports, all from Bryan testing against Nyx.
+- Pure Water (b109f0a0): already fixed by PR #41, which merged after this report was filed.
+- **Parrot copies only the attack its target made on the opponent's most recent turn** (c49e57c9, Bryan's ruling). The last attack is cleared at the start of each turn, and it has to have been made by the Bakemon Parrot is aimed at. `battle.js`.
+- **No damage, no status** (2a98917b). If a shield, Brigitte or Hide stops all of an attack's damage, the status it would inflict is lost too. Statuses found before the hit lands (Venom Strike's flips) now wait to see whether it lands. Status-only attacks still work. `battle.js`.
+- **Brigitte can't block Wǔtái** (59016172). It reaches the bench, not the shield's wearer. `battle.js`.
+- 3 new tests, 102 pass, and the simulator runs with 0 crashes. `rulings.md` updated.

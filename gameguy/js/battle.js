@@ -227,6 +227,7 @@ async function startTurn(G, P) {
   G.t = { over: false, energyUsed: 0, cableUsed: {}, retreats: 0, abilityUsed: {}, canAttack: true, freeEvolves: 0,
           lockTurn: false, noEnergy: false, attacked: false, amp: null };
   await say2(G, '— ' + poss(P) + ' turn —', { kind: 'turn' });
+  G.lastAttack[P.index] = null;                              // Parrot can only copy what was done on the turn just gone
   G.t.turnDraw = (await drawCards(G, P, 1, true)) ? P.hand[P.hand.length - 1] : null;   // Brumate may put it back
   if (G.turnNumber === 1 && !G.rules.firstPlayerCanAttack) G.t.canAttack = false;
 
@@ -574,7 +575,7 @@ function releaseBorrowed(G, leaver, ownerP) {
 async function resolveAttack(G, P, attacker, move, copied) {
   const enemy = other(G, P);
   await say2(G, attacker.card.name + ' uses ' + move.name + '!', { mon: attacker, kind: 'attack' });
-  if (!copied) { G.lastAttack[P.index] = move; G.t.attacked = true; attacker.armor = 0; }       // Plate Armor drops when it attacks
+  if (!copied) { G.lastAttack[P.index] = { move, by: attacker }; G.t.attacked = true; attacker.armor = 0; }   // Plate Armor drops when it attacks
 
   // Things that can make an attack fail outright.
   const missNext = attacker.effects.find(e => e.kind === 'missNext');
@@ -593,7 +594,9 @@ async function resolveAttack(G, P, attacker, move, copied) {
 
   const isPre = op => op.pre || op.bonusIfTargetStatus || op.damagePerEnergy || op.chooseDamage || op.copyLastAttack || op.copyAnyAttack
     || op.noBase || op.lurk || op.streakBonus || (op.perHeads && op.perHeads.damage) || (op.roll && op.times && op.times.damage);
+  ctx.deferred = [];
   await runOps(G, ctx, move.ops.filter(isPre));
+  const deferred = ctx.deferred; ctx.deferred = null;
   if (ctx.replaced) return;                                   // Parrot handed the attack over to another move
 
   // Bulbark's Lightning Rod: the defender may point an electric attack at someone else.
@@ -609,9 +612,10 @@ async function resolveAttack(G, P, attacker, move, copied) {
       }
     }
   }
-  // Brigitte's shield: the wearer may block one attack, and the shield breaks.
+  // Brigitte's shield: the wearer may block one attack targeting it, and the shield breaks. Wǔtái reaches
+  // past the active Bakemon to the bench, so the shield can't stop it.
   const tgt1 = ctx.target;
-  if (tgt1 && tgt1 !== attacker && equipTag(tgt1) === 'blocksAttack') {
+  if (tgt1 && tgt1 !== attacker && equipTag(tgt1) === 'blocksAttack' && !move.ops.some(o => o.dragBenchSlot)) {
     const D = ownerOf(G, tgt1);
     if (D && D !== P && await D.controller.ask(G, D, { kind: 'option', purpose: 'optional', prompt: "Block the attack with Brigitte's shield?",
         options: [{ label: 'Block it', value: true }, { label: 'Take the hit', value: false }] })) {
@@ -624,6 +628,8 @@ async function resolveAttack(G, P, attacker, move, copied) {
 
   const amount = ctx.base + ctx.bonus;
   if (amount > 0 && ctx.target) ctx.dealt = await dealDamage(G, attacker, ctx.target, amount, { attack: true, move, unavoidable: ctx.unavoidable });
+  ctx.blocked = amount > 0 && !!ctx.target && !(ctx.dealt > 0);
+  if (!ctx.blocked) for (const [mon, op] of deferred) if (mon.hp > 0) await applyStatus(G, mon, op.status, op);
   await runOps(G, ctx, move.ops.filter(op => !isPre(op)));
 
   // Pyrdyr's Hellfire: every fire or dark attack from this side has a coin flip's chance to burn.
@@ -890,7 +896,16 @@ async function runOps(G, ctx, ops) {
     else if (op.healPerEnergy) await heal(G, me, op.healPerEnergy * me.energy.filter(e => e === op.type).length + fluttershineBonus(P, ctx.move));
     else if (op.sleepHeal) me.sleepHeal = op.sleepHeal;
 
-    else if (op.status) await applyStatus(G, await selectMon(G, ctx, op.on || 'target', op, 'hurt', ''), op.status, op);
+    else if (op.status) {
+      const mon = await selectMon(G, ctx, op.on || 'target', op, 'hurt', '');
+      // No damage, no status (Bryan's ruling): a status that rides on an attack's hit waits until the hit
+      // lands (Venom Strike flips before it), and is lost if a shield or Hide stops all of the damage.
+      if (ctx.isAttack && mon && mon === ctx.target && mon !== ctx.self) {
+        if (ctx.deferred) { ctx.deferred.push([mon, op]); continue; }
+        if (ctx.blocked) continue;
+      }
+      await applyStatus(G, mon, op.status, op);
+    }
     else if (op.cure) {
       const mon = await selectMon(G, ctx, op.who, op, 'cure', 'Which Bakemon?');
       if (mon) { if (op.cure === 'all') { mon.status = {}; mon.poisonDoubling = 0; } else for (const s of op.cure) delete mon.status[s]; await say2(G, mon.card.name + ' recovers.', { mon }); }
@@ -909,7 +924,8 @@ async function runOps(G, ctx, ops) {
       if (op.chooseDamage.recoil) ctx.recoil = ctx.base;
     }
     else if (op.copyLastAttack) {
-      const theirs = G.lastAttack[enemy.index];
+      // Parrot (Bryan's ruling): only the attack the target made on the opponent's most recent turn.
+      const last = G.lastAttack[enemy.index], theirs = last && last.by === ctx.target ? last.move : null;
       ctx.replaced = true;
       if (!theirs || theirs.ops.some(o => o.copyLastAttack)) await say2(G, 'There is nothing to copy.');
       else { await say2(G, me.card.name + ' copies ' + theirs.name + '!'); await resolveAttack(G, P, me, theirs, true); }
