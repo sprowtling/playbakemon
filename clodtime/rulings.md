@@ -12,8 +12,14 @@ are how to read it. I check here before deciding a report.
 - **Thundazolt's Heat Lightning only affects paying for attacks.** Fire and electric can stand in for
   each other when paying a cost. They don't count as each other for damage, and they don't count
   for effects like Lightning Storm's energy count.
-- **No damage, no burn.** An attack that does no damage (Hide, a full shield) can't inflict a status
-  that rides on the hit, such as Hellfire's burn.
+- **No damage, no status.** If an attack's damage is completely stopped (Hide, Brigitte, a full
+  shield), any status it would put on its target (poison, burn, Hellfire) is lost too. Attacks that
+  do no damage at all, only a status (Lullaby, Confusion), still work.
+- **Brigitte only covers its wearer.** Anything aimed at the bench gets past the shield: Wǔtái,
+  Quake, Swift aimed at the bench, Sporesprinkle's bench damage, Calming Focus. "Unavoidable" damage
+  (Swift) gets past it even when aimed at the wearer.
+- **Parrot copies only the attack its target made on the opponent's most recent turn.** If that
+  Bakemon was knocked out or replaced, or the opponent didn't attack, there's nothing to copy.
 - **Iveldyr's Spore Bloom lands after four turns**, at the start of Iveldyr's side's turn. The caster
   chooses which mushroom Bakemon share the 60 HP of healing.
 - **Practice mode reshuffles the discard pile when the deck runs out.** At the table you can discard

@@ -751,6 +751,49 @@ await test('Pure Water: a Bakemon cured of sleep can attack that turn', async ()
   ok(ctx.legalActions(G, P).some(a => a.type === 'attack'), 'and can attack');
 });
 
+await test('Parrot copies only the attack the target made on the opponent\'s last turn', async () => {
+  const G = game({ active: 'Amptiel', energy: { Amptiel: ['electric', 'electric'] } }, { active: 'Poteplant', bench: ['Raizado'], big: ['Poteplant', 'Raizado'] });
+  const poke = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  await ctx.resolveAttack(G, G.players[1], act(G, 1), poke);                 // Poteplant attacks
+  await attack(G, 0, 'Parrot'); eq(act(G, 1).maxHp - act(G, 1).hp, 30, 'copies Poke');
+  await ctx.switchActive(G, G.players[1], bn(G, 1));                       // Raizado steps up and does not attack
+  G.turnNumber = 11; await ctx.startTurn(G, G.players[1]);
+  G.turnNumber = 12; await ctx.startTurn(G, G.players[0]);
+  const before = act(G, 1).hp; await attack(G, 0, 'Parrot');
+  eq(act(G, 1).hp, before, 'nothing left to copy');
+});
+await test('No damage, no status: a shield-blocked hit does not poison', async () => {
+  const G = game({ active: 'Gloomgoyle' }, { active: 'Raizado', big: ['Raizado'] });
+  act(G, 1).effects.push({ kind: 'shield', amount: 'all', lasts: 'nextTurn', expires: 99 });
+  rig(HEADS, HEADS, HEADS); await attack(G, 0, 'Venom Strike');
+  ok(!act(G, 1).status.poisoned, 'blocked: no poison');
+  const H = game({ active: 'Gloomgoyle' }, { active: 'Raizado', big: ['Raizado'] });
+  rig(HEADS, HEADS, HEADS); await attack(H, 0, 'Venom Strike');
+  ok(act(H, 1).status.poisoned, 'a real hit still poisons');
+});
+await test('Brigitte: blocks a hit, poison included, but not Wutai reaching the bench', async () => {
+  const yes = [{}, { optional: () => true }];
+  const G = game({ active: 'Gloomgoyle' }, { active: 'Raizado', equip: { Raizado: '104' } }, yes);
+  rig(HEADS, HEADS, HEADS); await attack(G, 0, 'Venom Strike');
+  ok(!act(G, 1).status.poisoned, 'shield blocked the poison too');
+  const H = game({ active: 'Huangshi' }, { active: 'Raizado', bench: ['Poteplant'], equip: { Raizado: '104' } }, yes);
+  rig(d(3, 1)); await attack(H, 0, 'Wǔtái');
+  eq(act(H, 1).card.name, 'Poteplant', 'dragged out'); ok(!/shield blocks/.test(log(H)), 'the shield did not block it');
+});
+
+await test('Brigitte only covers its wearer: Quake, Swift and Sporesprinkle reach the bench', async () => {
+  const yes = [{}, { optional: () => true, hurt: (G, P, req) => req.options.find(m => m.card.name === 'Leapod') || req.options[0] }];
+  const G = game({ active: 'Draquaduct' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Leapod'] }, yes);
+  await attack(G, 0, 'Quake');
+  ok(bn(G, 1).maxHp - bn(G, 1).hp > 0, 'Quake hit the bench'); eq(act(G, 1).equip, '104', 'shield untouched');
+  const H = game({ active: 'Murkitty' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Raizado'] }, [{ hurt: (G, P, req) => act(G, 1) }, { optional: () => true }]);
+  await attack(H, 0, 'Swift');
+  eq(act(H, 1).maxHp - act(H, 1).hp, 20, 'Swift is unavoidable, even on the shield\'s wearer'); eq(act(H, 1).equip, '104', 'shield not used');
+  const K = game({ active: 'Musherus' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Leapod'] }, yes);
+  await attack(K, 0, 'Sporesprinkle');
+  eq(act(K, 1).maxHp - act(K, 1).hp, 0, 'the wearer is shielded'); eq(bn(K, 1).maxHp - bn(K, 1).hp, 10, 'the bench still takes 10');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];
