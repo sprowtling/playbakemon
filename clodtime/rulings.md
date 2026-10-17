@@ -15,8 +15,9 @@ are how to read it. I check here before deciding a report.
 - **No damage, no status.** If an attack's damage is completely stopped (Hide, Brigitte, a full
   shield), any status it would put on its target (poison, burn, Hellfire) is lost too. Attacks that
   do no damage at all, only a status (Lullaby, Confusion), still work.
-- **Brigitte only blocks attacks that target its wearer.** Wǔtái reaches past the active Bakemon
-  to the bench, so the shield can't stop it.
+- **Brigitte only covers its wearer.** Anything aimed at the bench gets past the shield: Wǔtái,
+  Quake, Swift aimed at the bench, Sporesprinkle's bench damage, Calming Focus. "Unavoidable" damage
+  (Swift) gets past it even when aimed at the wearer.
 - **Parrot copies only the attack its target made on the opponent's most recent turn.** If that
   Bakemon was knocked out or replaced, or the opponent didn't attack, there's nothing to copy.
 - **Iveldyr's Spore Bloom lands after four turns**, at the start of Iveldyr's side's turn. The caster

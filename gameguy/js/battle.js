@@ -572,6 +572,14 @@ function releaseBorrowed(G, leaver, ownerP) {
 
 /* ---------------- attacking ---------------- */
 
+// Unstone's Calming Focus: the promised extra damage to the opponent's bench.
+async function splashBenchAfterAttack(G, attacker, enemy) {
+  for (const e of attacker.effects.filter(e => e.kind === 'splashBench')) {
+    attacker.effects.splice(attacker.effects.indexOf(e), 1);
+    for (const m of bench(enemy)) await dealDamage(G, null, m, e.amount, { why: 'the pressure' });
+  }
+}
+
 async function resolveAttack(G, P, attacker, move, copied) {
   const enemy = other(G, P);
   await say2(G, attacker.card.name + ' uses ' + move.name + '!', { mon: attacker, kind: 'attack' });
@@ -615,12 +623,16 @@ async function resolveAttack(G, P, attacker, move, copied) {
   // Brigitte's shield: the wearer may block one attack targeting it, and the shield breaks. Wǔtái reaches
   // past the active Bakemon to the bench, so the shield can't stop it.
   const tgt1 = ctx.target;
-  if (tgt1 && tgt1 !== attacker && equipTag(tgt1) === 'blocksAttack' && !move.ops.some(o => o.dragBenchSlot)) {
+  // "Unavoidable" damage (Swift) can't be blocked either.
+  if (tgt1 && tgt1 !== attacker && equipTag(tgt1) === 'blocksAttack' && !ctx.unavoidable && !move.ops.some(o => o.dragBenchSlot)) {
     const D = ownerOf(G, tgt1);
     if (D && D !== P && await D.controller.ask(G, D, { kind: 'option', purpose: 'optional', prompt: "Block the attack with Brigitte's shield?",
         options: [{ label: 'Block it', value: true }, { label: 'Take the hit', value: false }] })) {
       D.discard.push(tgt1.equip); tgt1.equip = null; tgt1.helmet = null;
       await say2(G, "The shield blocks the attack, and breaks!", { mon: tgt1 });
+      // The shield only covers its wearer: damage aimed at the bench (Sporesprinkle, Calming Focus) still lands.
+      await runOps(G, ctx, move.ops.filter(op => !isPre(op) && op.damageBench));
+      await splashBenchAfterAttack(G, attacker, enemy);
       await checkKOs(G);
       return;
     }
@@ -637,11 +649,7 @@ async function resolveAttack(G, P, attacker, move, copied) {
   if (ctx.target && ctx.target !== attacker && ctx.target.hp > 0 && ctx.dealt > 0 && elementalOn(G) && tagCount(G, 'hellfire', P) && (costIncludes(move, 'fire') || costIncludes(move, 'dark'))
       && await flip(G, 'Hellfire')) await applyStatus(G, ctx.target, 'burned');
 
-  // Unstone's Calming Focus: the promised extra damage to the opponent's bench.
-  for (const e of attacker.effects.filter(e => e.kind === 'splashBench')) {
-    attacker.effects.splice(attacker.effects.indexOf(e), 1);
-    for (const m of bench(enemy)) await dealDamage(G, null, m, e.amount, { why: 'the pressure' });
-  }
+  await splashBenchAfterAttack(G, attacker, enemy);
 
   if (!copied) { attacker.lastMove = move.name; attacker.lastAttackTurn = G.turnNumber; attacker.streak = streak; attacker.targetStreak = targetStreak; attacker.lastTargetUid = ctx.target && ctx.target.uid; }
   await checkKOs(G);

@@ -781,6 +781,19 @@ await test('Brigitte: blocks a hit, poison included, but not Wutai reaching the 
   eq(act(H, 1).card.name, 'Poteplant', 'dragged out'); ok(!/shield blocks/.test(log(H)), 'the shield did not block it');
 });
 
+await test('Brigitte only covers its wearer: Quake, Swift and Sporesprinkle reach the bench', async () => {
+  const yes = [{}, { optional: () => true, hurt: (G, P, req) => req.options.find(m => m.card.name === 'Leapod') || req.options[0] }];
+  const G = game({ active: 'Draquaduct' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Leapod'] }, yes);
+  await attack(G, 0, 'Quake');
+  ok(bn(G, 1).maxHp - bn(G, 1).hp > 0, 'Quake hit the bench'); eq(act(G, 1).equip, '104', 'shield untouched');
+  const H = game({ active: 'Murkitty' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Raizado'] }, [{ hurt: (G, P, req) => act(G, 1) }, { optional: () => true }]);
+  await attack(H, 0, 'Swift');
+  eq(act(H, 1).maxHp - act(H, 1).hp, 20, 'Swift is unavoidable, even on the shield\'s wearer'); eq(act(H, 1).equip, '104', 'shield not used');
+  const K = game({ active: 'Musherus' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Leapod'] }, yes);
+  await attack(K, 0, 'Sporesprinkle');
+  eq(act(K, 1).maxHp - act(K, 1).hp, 0, 'the wearer is shielded'); eq(bn(K, 1).maxHp - bn(K, 1).hp, 10, 'the bench still takes 10');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

@@ -84,3 +84,4 @@ Four reports, all from Bryan testing against Nyx.
 - **No damage, no status** (2a98917b). If a shield, Brigitte or Hide stops all of an attack's damage, the status it would inflict is lost too. Statuses found before the hit lands (Venom Strike's flips) now wait to see whether it lands. Status-only attacks still work. `battle.js`.
 - **Brigitte can't block Wǔtái** (59016172). It reaches the bench, not the shield's wearer. `battle.js`.
 - 3 new tests, 102 pass, and the simulator runs with 0 crashes. `rulings.md` updated.
+- Follow-up from Bryan: **moves that reach the bench get past Brigitte.** Quake, Swift and Ivyconstrictor already did, because they switch targets before the shield is checked; the new test confirms it. Sporesprinkle's bench damage and Calming Focus used to be cancelled when the active's shield blocked. Now they still land. Swift's damage is unavoidable, so the shield can't block it on the active either. 103 pass.
