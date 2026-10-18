@@ -601,7 +601,7 @@ async function resolveAttack(G, P, attacker, move, copied) {
   if (attacker.status.confused && !(await flip(G, attacker.card.name + ' is confused'))) { ctx.target = attacker; await say2(G, 'It hurts itself in its confusion!'); }
 
   const isPre = op => op.pre || op.bonusIfTargetStatus || op.damagePerEnergy || op.chooseDamage || op.copyLastAttack || op.copyAnyAttack
-    || op.noBase || op.lurk || op.streakBonus || (op.perHeads && op.perHeads.damage) || (op.roll && op.times && op.times.damage);
+    || op.noBase || op.lurk || op.streakBonus || op.ifUsedLastTurn || (op.perHeads && op.perHeads.damage) || (op.roll && op.times && op.times.damage);
   ctx.deferred = [];
   await runOps(G, ctx, move.ops.filter(isPre));
   const deferred = ctx.deferred; ctx.deferred = null;
@@ -630,9 +630,12 @@ async function resolveAttack(G, P, attacker, move, copied) {
         options: [{ label: 'Block it', value: true }, { label: 'Take the hit', value: false }] })) {
       D.discard.push(tgt1.equip); tgt1.equip = null; tgt1.helmet = null;
       await say2(G, "The shield blocks the attack, and breaks!", { mon: tgt1 });
-      // The shield only covers its wearer: damage aimed at the bench (Sporesprinkle, Calming Focus) still lands.
-      await runOps(G, ctx, move.ops.filter(op => !isPre(op) && op.damageBench));
+      // The shield only covers its wearer: damage aimed at the bench (Sporesprinkle, Calming Focus) still lands,
+      // and so does anything the attacker does on its own side (Swoop and Voltage Surge passing energy to the bench).
+      const ownSide = op => op.moveEnergy && op.from !== 'target' && op.to !== 'target';
+      await runOps(G, ctx, move.ops.filter(op => !isPre(op) && (op.damageBench || ownSide(op))));
       await splashBenchAfterAttack(G, attacker, enemy);
+      if (!copied) { attacker.lastMove = move.name; attacker.lastAttackTurn = G.turnNumber; attacker.streak = streak; attacker.targetStreak = targetStreak; attacker.lastTargetUid = ctx.target && ctx.target.uid; }
       await checkKOs(G);
       return;
     }
@@ -676,7 +679,11 @@ async function dealDamage(G, source, victim, amount, o) {
     }
     if (weatherIs(G, 'hydrosurge') && costIncludes(move, 'water')) amount += 20;                              // Draquaduct's weather
     // Weakness: +10 for every matching energy symbol in the attack's cost. (Not on the bench: the rules page.)
-    if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) amount += costCount(move, ENERGY_ALIASES[w] || w) * G.rules.weaknessBonus;
+    // A move whose text names its damage type (Denticle: "in fighting damage") counts as one symbol of it.
+    if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) {
+      const t = ENERGY_ALIASES[w] || w;
+      amount += Math.max(costCount(move, t), move.fx && move.fx.damageType === t ? 1 : 0) * G.rules.weaknessBonus;
+    }
 
     if (victim.status.enraged) amount -= G.rules.enragedBonus;
     if (hasTag(victim, 'plateArmor')) amount -= victim.armor || 0;
@@ -1150,6 +1157,9 @@ async function runOps(G, ctx, ops) {
       ctx.base = 0;
       if (me.lurkStored !== undefined) { ctx.bonus += 2 * me.lurkStored; await say2(G, me.card.name + ' strikes back for double the ' + me.lurkStored + ' it stored!', { mon: me }); delete me.lurkStored; }
       else { me.lurkStored = me.lastHit || 0; await say2(G, me.card.name + ' lies in wait, storing ' + me.lurkStored + ' damage.', { mon: me }); }
+    }
+    else if (op.ifUsedLastTurn) {                          // Boowhomp's Mister Fister: did this Bakemon use that move on its last turn?
+      if (me.lastMove === op.ifUsedLastTurn && me.lastAttackTurn === G.turnNumber - 2) { ctx.bonus += op.damage || 0; await runOps(G, ctx, op.then || []); }
     }
     else if (op.streakBonus) ctx.bonus += op.streakBonus * ((op.sameTarget ? ctx.targetStreak : ctx.streak) - 1);
     else if (op.firstThing) {                              // Brumate: the turn's draw goes back on top of the deck

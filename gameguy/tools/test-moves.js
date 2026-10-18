@@ -794,6 +794,39 @@ await test('Brigitte only covers its wearer: Quake, Swift and Sporesprinkle reac
   eq(act(K, 1).maxHp - act(K, 1).hp, 0, 'the wearer is shielded'); eq(bn(K, 1).maxHp - bn(K, 1).hp, 10, 'the bench still takes 10');
 });
 
+await test('Brigitte blocks the hit, but the attacker still passes energy on its own side', async () => {
+  const yes = [{}, { optional: () => true }];
+  const G = game({ active: 'Chiplum', bench: ['Poteplant'], energy: { Chiplum: ['psychic', 'normal'] } }, { active: 'Raizado', equip: { Raizado: '104' } }, yes);
+  await attack(G, 0, 'Swoop');
+  ok(/shield blocks/.test(log(G)), 'blocked'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'no damage');
+  eq(act(G, 0).energy.length, 1, 'Chiplum gave one away'); eq(bn(G, 0).energy.length, 1, 'the bench got it');
+  const H = game({ active: 'Bulbark', bench: ['Poteplant'], energy: { Bulbark: ['electric', 'electric'] } }, { active: 'Raizado', equip: { Raizado: '104' } }, yes);
+  await attack(H, 0, 'Voltage Surge');
+  eq(act(H, 1).energy.length, 0, 'nothing reaches the shielded target'); eq(bn(H, 0).energy.join(), 'electric', 'the bench still gets one');
+  eq(act(H, 0).energy.join(), 'electric', 'Bulbark keeps the other');
+});
+await test('Voltage Surge: with a full bench, both energy still move', async () => {
+  const G = game({ active: 'Bulbark', bench: ['Torshock', 'Mugini', 'Poteplant'], energy: { Bulbark: ['electric', 'electric'] } }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Voltage Surge');
+  eq(act(G, 0).energy.length, 0, 'gave both away'); eq(act(G, 1).energy.join(), 'electric', 'target');
+  eq(G.players[0].bench.reduce((n, m) => n + m.energy.length, 0), 1, 'one on the bench');
+});
+await test('Boowhomp: Fluff It Up haunts; Mister Fister after it does 30 less and confuses', async () => {
+  const G = game({ active: 'Boowhomp' }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Fluff It Up'); ok(act(G, 1).status.haunted, 'haunted');
+  const t = act(G, 1); t.hp = t.maxHp; t.status = {};
+  G.turnNumber += 2; await attack(G, 0, 'Mister Fister');
+  const after = t.maxHp - t.hp; ok(t.status.confused, 'confused after Fluff It Up');
+  t.hp = t.maxHp; t.status = {};
+  G.turnNumber += 2; await attack(G, 0, 'Mister Fister');
+  eq((t.maxHp - t.hp) - after, 30, 'the full 50 without Fluff It Up last turn'); ok(!t.status.confused, 'no confusion');
+});
+await test('Denticle: its fighting damage counts against a fighting weakness', async () => {
+  const G = game({ active: 'Finlesse' }, { active: 'Lemurk' });
+  rig(d(3, 2)); await attack(G, 0, 'Denticle');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 30, '20 rolled + 10 weakness');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

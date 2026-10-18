@@ -59,6 +59,7 @@
                                                       Bakemon that made it leaves play, or a newer weather replaces it.
      { ifWeather: 'hailstorm', then: [ops] }
      { ifTargetWeakTo: 'fire', then: [ops] }          only if the target is weak to that type
+     { ifUsedLastTurn: 'Move', damage: -30, then: [ops] }   only if this Bakemon used that move on its last turn
      { shieldRoll: { sides: 6, mult: 10 } }           blocks (roll x mult) damage, rolled when the hit lands
      { shield: 10, grows: true, lasts: 'nextTurn' }   +10 for every turn in a row the same move is used (Curl)
      { streakBonus: 20, sameTarget: true }            +20 per consecutive use against the same target (Trample)
@@ -73,7 +74,8 @@
      { lurk: true }  { stealEquip: true }  { delusion: true }  { drawUntilBasic: true }  { cling: true }
      { lockTurn: true }                               nothing else (no items, energy, attacks, abilities) this turn
      { hydraulic: true }  { swapPartner: { names: [...] } }  { convertStatus: { from, to } }  { purify: true }
-   A move can also carry   needsTargetStatus: 'asleep'   (it can only be used on such a target).
+   A move can also carry   needsTargetStatus: 'asleep'   (it can only be used on such a target)
+   and   damageType: 'fighting'   (its text names the damage type, so weakness counts it as one symbol).
 
    SELECTORS (the `who`, `to`, `from`, `on` values):
      'self'  'target'  'attacker'  'enemy_active'
@@ -249,7 +251,7 @@ const MOVES = {
   '084': { 'Wǔtái':           { ops: [{ dragBenchSlot: true }] },
            'Dǎoyǎn':          { ops: [{ disableMove: true }] } },
   '085': { 'Quake Tackle':    { ops: [{ status: 'quaked' }] },
-           'Denticle':        { ops: [{ roll: 3, times: { damage: 10 }, replaceBase: true }] } },
+           'Denticle':        { damageType: 'fighting', ops: [{ roll: 3, times: { damage: 10 }, replaceBase: true }] } },
   '086': { 'Chum Slam':       { ops: [{ status: 'quaked' }] },
            'Apex Uppercut':   { ops: [{ roll: 3, min: 3, then: [{ flinch: true }] }] } },
   '087': { 'Detect':          { ops: [{ reveal: 3 }, { discardEnergy: 1, from: 'self', type: 'dragon' }] },
@@ -269,6 +271,8 @@ const MOVES = {
   '095': { 'Master of All Elements': { ability: 'passive', tag: 'fiveTypesToEvolve' },
            'Celestial Bodies': { ability: 'activated', oncePerTurn: true,
                                  ops: [{ amplify: { heads: ['fire', 'electric', 'ground', 'fighting'], tails: ['ice', 'water', 'dark', 'steel'], amount: 20 } }] } },
+  '097': { 'Fluff It Up':     { ops: [{ status: 'haunted' }] },
+           'Mister Fister':   { ops: [{ ifUsedLastTurn: 'Fluff It Up', damage: -30, then: [{ status: 'confused' }] }] } },
   '096': { 'Purify':          { ability: 'activated', oncePerTurn: true, ops: [{ purify: true }] } },
   '099': { 'Secret Frequency': { ability: 'activated', oncePerTurn: true, ops: [{ bothDraw: 1 }] } },
 };
