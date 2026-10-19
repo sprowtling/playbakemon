@@ -88,10 +88,11 @@ const PRACTICE_BOTS = [
       '043': 2,  // Sizzolt
       '044': 2,  // Crackazolt
       '105': 2,  // Torch
-      '108': 2,  // Power Cable
+      '108': 1,  // Power Cable
       '102': 2,  // Bill
       '101': 2,  // Band-aid
       '103': 1,  // Dinner Bell
+      '082': 1, // Silooper 
     },
   },
 
@@ -205,11 +206,12 @@ const BORROW_DECKS = [
       '020': 3,  // Torshock
       '050': 3,  // Mugini
       '051': 2,  // Deserzoa
-      '108': 2,  // Power Cable
+      '108': 1,  // Power Cable
       '102': 3,  // Bill
       '101': 3,  // Band-aid
       '103': 2,  // Dinner Bell
       '120': 1,  // Lyza
+      '093': 1, // Cryodyr 
     },
   },
 
