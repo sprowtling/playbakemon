@@ -154,6 +154,34 @@ const PRACTICE_BOTS = [
     },
   },
 
+     {
+    id: 'Cmrn',
+    name: 'Cmrn',
+    difficulty: 'Hard',
+    mistakes: 0,
+    blurb: "CIA Water Torture Techniques. You won't last long.",
+    hello: "Hope you brought your swimsuit.",
+    ifYouWin: "No fair. Umbrellas aren't allowed!",
+    ifYouLose: "I'm literally the best Bakemon player in the world. What did you expect?",
+    cards: {
+      '021': 2,  //Aquimp
+      '063': 1, //Bathygigas
+      '102': 3, //Bill
+      '062': 1, //Cettoekko
+      '022': 2, //Draquaduct
+      '113': 1, //Floppy Disk
+      '111': 3, //Humidifier
+      '026': 3 //Lobscorch
+      '118': 3, //Moira
+      '106': 3, //Nectar
+      '112': 3, //Notepad
+      '061': 1, //Porsite
+      '108': 1, //Power Cable
+      '025': 3, //Shrizzle
+      '030': 2, //Whave 
+    },
+  },
+
 ];
 
 
