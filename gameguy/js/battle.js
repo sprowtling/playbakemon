@@ -703,27 +703,43 @@ async function dealDamage(G, source, victim, amount, o) {
       amount = blocked === 'all' ? 0 : amount - blocked;
       if (shield.lasts === 'nextHit') victim.effects.splice(victim.effects.indexOf(shield), 1);
     }
-
-    // Elfdyr's Delusion: the owner may send part of the blow back at the attacker, and the rest anywhere on their own side.
-    if (victim.effects.some(e => e.kind === 'delusion') && amount > 0 && !o.redirected) {
-      const V = ownerOf(G, victim), A = ownerOf(G, source);
-      if (V && A && V !== A && A.active) {
-        const choices = []; for (let d = 0; d <= Math.floor(amount / 2); d += 10) choices.push({ label: d ? 'Send ' + d + ' back at ' + A.active.card.name : 'Keep it all on my side', value: d });
-        const toThem = choices.length > 1 ? await V.controller.ask(G, V, { kind: 'option', purpose: 'delusionAmount', prompt: 'Delusion: how much of the ' + amount + ' damage goes back at the attacker?', options: choices }) : 0;
-        const mine = zone(V).filter(m => m.hp > 0);
-        const keep = amount - toThem;
-        const home = !keep || mine.length < 2 ? victim : await V.controller.ask(G, V, { kind: 'mon', purpose: 'delusionOwn', prompt: 'Delusion: which of your Bakemon takes the other ' + keep + '?', options: mine });
-        await say2(G, victim.card.name + "'s Delusion bends the blow!", { mon: victim });
-        if (toThem) await dealDamage(G, null, A.active, toThem, { why: 'Delusion', redirected: true });
-        if (home !== victim && keep) await dealDamage(G, null, home, keep, { why: 'Delusion', redirected: true });
-        if (toThem < 30 && A.active.hp > 0) await applyStatus(G, A.active, 'haunted');
-        amount = home === victim ? keep : 0;
-      }
-    }
   }
   // Sleetle's Frostbite and Tytania's Starfall touch every kind of damage, not just attacks.
+  // Starfall softens the blow before Delusion bends it, and the bent pieces aren't softened again.
   if (amount > 0 && victim.status.frozen && tagCount(G, 'frostbite')) amount += 20;
-  if (amount > 0 && victim.card.types.includes('fairy') && weatherIs(G, 'starfall')) amount -= await roll(G, 6, 'Starfall softens the blow');
+  if (amount > 0 && !o.softened && victim.card.types.includes('fairy') && weatherIs(G, 'starfall')) amount -= await roll(G, 6, 'Starfall softens the blow');
+
+  // Elfdyr's Delusion: any damage from the other side (an attack, or Liquidation's splash) can be bent. Up to
+  // half goes back at the attacker; the rest stays on the owner's side, at least half of it all on one Bakemon.
+  const V = ownerOf(G, victim), A = source && ownerOf(G, source);
+  if (victim.effects.some(e => e.kind === 'delusion') && amount > 0 && !o.redirected && V && A && V !== A && A.active) {
+    amount = Math.max(0, Math.round(amount));
+    const steps = (lo, hi) => { const out = []; for (let d = lo; d < hi; d += 10) out.push(d); out.push(hi); return out; };
+    const choices = []; for (let d = 0; d <= Math.floor(amount / 2); d += 10) choices.push({ label: d ? 'Send ' + d + ' back at ' + A.active.card.name : 'Keep it all on my side', value: d });
+    const toThem = choices.length > 1 ? await V.controller.ask(G, V, { kind: 'option', purpose: 'delusionAmount', prompt: 'Delusion: how much of the ' + amount + ' damage goes back at the attacker?', options: choices }) : 0;
+    const mine = zone(V).filter(m => m.hp > 0);
+    let left = amount - toThem;
+    const shares = new Map();
+    if (left) {
+      const main = mine.length < 2 ? victim : await V.controller.ask(G, V, { kind: 'mon', purpose: 'delusionOwn', prompt: 'Delusion: which of your Bakemon takes the main share (at least ' + Math.ceil(amount / 2) + ')?', options: mine });
+      const lo = Math.min(left, Math.ceil(amount / 2));
+      const take = mine.length < 2 || lo >= left ? left : await V.controller.ask(G, V, { kind: 'option', purpose: 'delusionShare', mon: main,
+        prompt: 'Delusion: how much does ' + main.card.name + ' take? The rest can go to your other Bakemon.', options: steps(lo, left).map(d => ({ label: String(d), value: d })) });
+      shares.set(main, take); left -= take;
+      while (left > 0) {
+        const rest = mine.filter(m => m !== main);
+        const mon = rest.length < 2 ? rest[0] : await V.controller.ask(G, V, { kind: 'mon', purpose: 'delusionOwn', prompt: 'Delusion: which Bakemon takes some of the last ' + left + '?', options: rest });
+        const n = rest.length < 2 || left <= 10 ? left : await V.controller.ask(G, V, { kind: 'option', purpose: 'delusionShare', mon,
+          prompt: 'Delusion: how much does ' + mon.card.name + ' take?', options: steps(10, left).map(d => ({ label: String(d), value: d })) });
+        shares.set(mon, (shares.get(mon) || 0) + n); left -= n;
+      }
+    }
+    await say2(G, victim.card.name + "'s Delusion bends the blow!", { mon: victim });
+    if (toThem) await dealDamage(G, null, A.active, toThem, { why: 'Delusion', redirected: true });
+    for (const [mon, n] of shares) if (mon !== victim && n) await dealDamage(G, null, mon, n, { why: 'Delusion', redirected: true, softened: true });
+    if (toThem < 30 && A.active.hp > 0) await applyStatus(G, A.active, 'haunted');
+    amount = shares.get(victim) || 0;
+  }
 
   amount = Math.max(0, Math.round(amount));
   victim.hp -= amount;
@@ -1000,7 +1016,7 @@ async function runOps(G, ctx, ops) {
         const mon = zone(enemy).find(m => m.energy.some(e => spec.types.includes(e)));
         if (mon) { await discardEnergyFrom(G, P, mon, mon.energy.find(e => spec.types.includes(e))); lost.add(mon); }
       }
-      for (const mon of zone(enemy)) if (!lost.has(mon)) await dealDamage(G, null, mon, spec.otherwise, {});
+      for (const mon of zone(enemy)) if (!lost.has(mon)) await dealDamage(G, me, mon, spec.otherwise, {});
     }
 
     else if (op.addEnergy) {
