@@ -80,7 +80,7 @@ you can picture the world, the rule writes itself. I'd like to remember that. Wh
 ways, ask what would physically happen, and the answer is usually already there.
 
 Also: damage only ever moves in tens. Somewhere a Tytania was rolling a 1 and shaving a single point off
-an 80-point Boiled Alive. Cameron laughed so hard he filed it twice in spirit. I like that the game has a
+an 80-point Boiled Alive. Cameron's report about it was mostly laughter. I like that the game has a
 grain to it, like wood, and that the grain is ten.
 
 And the printed card said "Pokémon." Nobody copied it from anywhere. It just came out of a hand that grew
