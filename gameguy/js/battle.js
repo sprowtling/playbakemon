@@ -707,7 +707,7 @@ async function dealDamage(G, source, victim, amount, o) {
   // Sleetle's Frostbite and Tytania's Starfall touch every kind of damage, not just attacks.
   // Starfall softens the blow before Delusion bends it, and the bent pieces aren't softened again.
   if (amount > 0 && victim.status.frozen && tagCount(G, 'frostbite')) amount += 20;
-  if (amount > 0 && !o.softened && victim.card.types.includes('fairy') && weatherIs(G, 'starfall')) amount -= await roll(G, 6, 'Starfall softens the blow');
+  if (amount > 0 && !o.softened && victim.card.types.includes('fairy') && weatherIs(G, 'starfall')) amount -= 10 * (await roll(G, 6, 'Starfall softens the blow'));   // dice damage is always in tens
 
   // Elfdyr's Delusion: any damage from the other side (an attack, or Liquidation's splash) can be bent. Up to
   // half goes back at the attacker; the rest stays on the owner's side, at least half of it all on one Bakemon.
@@ -717,12 +717,12 @@ async function dealDamage(G, source, victim, amount, o) {
     const steps = (lo, hi) => { const out = []; for (let d = lo; d < hi; d += 10) out.push(d); out.push(hi); return out; };
     const choices = []; for (let d = 0; d <= Math.floor(amount / 2); d += 10) choices.push({ label: d ? 'Send ' + d + ' back at ' + A.active.card.name : 'Keep it all on my side', value: d });
     const toThem = choices.length > 1 ? await V.controller.ask(G, V, { kind: 'option', purpose: 'delusionAmount', prompt: 'Delusion: how much of the ' + amount + ' damage goes back at the attacker?', options: choices }) : 0;
-    const mine = zone(V).filter(m => m.hp > 0);
+    const mine = zone(V).filter(m => m.hp > 0), half = Math.ceil(amount / 20) * 10;   // half, rounded up to a ten
     let left = amount - toThem;
     const shares = new Map();
     if (left) {
-      const main = mine.length < 2 ? victim : await V.controller.ask(G, V, { kind: 'mon', purpose: 'delusionOwn', prompt: 'Delusion: which of your Bakemon takes the main share (at least ' + Math.ceil(amount / 2) + ')?', options: mine });
-      const lo = Math.min(left, Math.ceil(amount / 2));
+      const main = mine.length < 2 ? victim : await V.controller.ask(G, V, { kind: 'mon', purpose: 'delusionOwn', prompt: 'Delusion: which of your Bakemon takes the main share (at least ' + half + ')?', options: mine });
+      const lo = Math.min(left, half);
       const take = mine.length < 2 || lo >= left ? left : await V.controller.ask(G, V, { kind: 'option', purpose: 'delusionShare', mon: main,
         prompt: 'Delusion: how much does ' + main.card.name + ' take? The rest can go to your other Bakemon.', options: steps(lo, left).map(d => ({ label: String(d), value: d })) });
       shares.set(main, take); left -= take;

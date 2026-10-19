@@ -101,3 +101,4 @@ Four reports from Cameron, about Tytania and Elfdyr. Checked each against the pr
 - **Delusion works on Liquidation** (2b5a18c6). It only triggered on an attack's main hit. Liquidation's 20 to each Bakemon is damage from the opponent too, so now Elfdyr can bend that. `battle.js`.
 - Not changed: **Starfall reduces damage by 1–6** (9f194776). The printed card says "reduce that incoming damage by the rolled number," and that's what the engine does. Passed to Bryan as a balance question.
 - 2 new tests (both fail on the old code), 109 pass. The simulator runs with 0 crashes.
+- Morning, with Bryan: **Starfall cuts 10–60**, not 1–6 (9f194776, Bryan's ruling: dice damage is always in tens). Delusion's "at least half" rounds up to a ten. Bryan confirmed the Brigitte and Denticle calls, and ran the Boowhomp SQL. All three rulings are now in `rulings.md`. 109 pass, and the simulator runs with 0 crashes.

@@ -184,12 +184,12 @@ await test('Hydrosurge: water attacks hit 20 harder, for BOTH sides', async () =
   ok(!act(G, 0).card.weak.includes('water'), 'test assumes Draquaduct is not weak to water');
   eq(hp - act(G, 0).hp, plain + 20, "the opponent's water attack");
 });
-await test('Starfall: damage to a fairy-type is cut by a D6', async () => {
+await test('Starfall: damage to a fairy-type is cut by a D6 x 10', async () => {
   const G = game({ active: 'Tytania' }, { active: 'Raizado' });
   G.weather = { name: 'starfall', source: act(G, 0) };
   const fairy = act(G, 0); ok(fairy.card.types.includes('fairy'), 'Tytania should be fairy');
-  rig(d(6, 4)); await ctx.dealDamage(G, null, fairy, 30, {});
-  eq(fairy.maxHp - fairy.hp, 26, 'damage after a roll of 4');
+  rig(d(6, 2)); await ctx.dealDamage(G, null, fairy, 30, {});
+  eq(fairy.maxHp - fairy.hp, 10, 'damage after a roll of 2');
   const other = act(G, 1); rig(d(6, 4)); await ctx.dealDamage(G, null, other, 30, {});
   eq(other.maxHp - other.hp, 30, 'non-fairy takes the full 30');
 });
@@ -828,16 +828,16 @@ await test('Denticle: its fighting damage counts against a fighting weakness', a
 });
 
 await test('Delusion: Starfall rolls first, and the kept damage can be split across your Bakemon', async () => {
-  const ex = { delusionAmount: () => 20, delusionOwn: (G, P, req) => req.options.find(m => m.card.name === 'Tytania'), delusionShare: (G, P, req) => req.options[0].value };
+  const ex = { delusionAmount: () => 0, delusionOwn: (G, P, req) => req.options.find(m => m.card.name === 'Tytania'), delusionShare: (G, P, req) => req.options[0].value };
   const G = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: 'Elfdyr', bench: ['Tytania'] }, [null, ex]);
   G.weather = { name: 'starfall', source: bn(G, 1) };
   act(G, 1).effects.push({ kind: 'delusion', expires: 99 });
   const big = { name: 'Big', damage: 60, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
-  rig(d(6, 5)); await ctx.resolveAttack(G, G.players[0], act(G, 0), big);
+  rig(d(6, 1)); await ctx.resolveAttack(G, G.players[0], act(G, 0), big);
   eq((log(G).match(/Starfall/g) || []).length, 1, 'one Starfall roll, before the split');
-  eq(act(G, 0).maxHp - act(G, 0).hp, 20, '20 back at the attacker');
-  eq(bn(G, 1).maxHp - bn(G, 1).hp, 28, 'Tytania takes the main share (at least half of 55)');
-  eq(act(G, 1).maxHp - act(G, 1).hp, 7, 'Elfdyr takes the rest');
+  eq(act(G, 0).maxHp - act(G, 0).hp, 0, 'nothing back at the attacker');
+  eq(bn(G, 1).maxHp - bn(G, 1).hp, 30, 'Tytania takes the main share (at least half of 50)');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 20, 'Elfdyr takes the rest');
 });
 await test('Delusion bends Liquidation\'s splash too', async () => {
   const G = game({ active: 'Bathygigas', big: ['Bathygigas'] }, { active: 'Elfdyr' }, [null, { delusionAmount: () => 10 }]);
