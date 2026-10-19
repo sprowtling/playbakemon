@@ -155,14 +155,14 @@ const PRACTICE_BOTS = [
   },
 
      {
-    id: 'Cmrn',
-    name: 'Cmrn',
+    id: 'Cameron',
+    name: 'Cameron',
     difficulty: 'Hard',
     mistakes: 0,
     blurb: "CIA Water Torture Techniques. You won't last long.",
-    hello: "Hope you brought your swimsuit.",
-    ifYouWin: "No fair. Umbrellas aren't allowed!",
-    ifYouLose: "I'm literally the best Bakemon player in the world. What did you expect?",
+    hello: "Howdy!",
+    ifYouWin: "Dang! GG! Now please go and challenge THE REAL ME",
+    ifYouLose: "The real me gets 20% of the profits I make from this win trust",
     cards: {
       '021': 2,  //Aquimp
       '063': 1, //Bathygigas
