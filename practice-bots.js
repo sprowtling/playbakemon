@@ -171,7 +171,7 @@ const PRACTICE_BOTS = [
       '022': 2, //Draquaduct
       '113': 1, //Floppy Disk
       '111': 3, //Humidifier
-      '026': 3 //Lobscorch
+      '026': 3, //Lobscorch
       '118': 3, //Moira
       '106': 3, //Nectar
       '112': 3, //Notepad
