@@ -135,9 +135,10 @@ function makeAI(style) {
           const aim = opts.filter(o => o.value.mon === other(G, P).active && !o.value.move.isAbility);
           return (aim.length ? aim : opts).slice().sort((a, b) => b.value.move.damage - a.value.move.damage)[0].value;
         }
-        case 'delusionAmount': return opts[opts.length - 1].value;
+        case 'delusionAmount': return opts[opts.length - 1].value;                    // hand back as much as allowed
+        case 'delusionShare': return opts[opts.length - 1].value;                     // keep the rest on the sturdiest one
         case 'energyCount': return opts[opts.length - 1].value;                       // Floppy Disk: move it all
-        case 'healAmount':  return opts[opts.length - 1].value;                       // Spore Bloom: as much as it needs                    // hand back as much as allowed
+        case 'healAmount':  return opts[opts.length - 1].value;                       // Spore Bloom: as much as it needs
         case 'delusionOwn': return opts.slice().sort((a, b) => b.hp - a.hp)[0];
         case 'purify': return (opts.filter(o => mine(o.value.mon))[0] || opts[0]).value;
         case 'discardFromHand': {                                                     // Moira: let go of what's least useful

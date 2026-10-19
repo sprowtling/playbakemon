@@ -184,12 +184,12 @@ await test('Hydrosurge: water attacks hit 20 harder, for BOTH sides', async () =
   ok(!act(G, 0).card.weak.includes('water'), 'test assumes Draquaduct is not weak to water');
   eq(hp - act(G, 0).hp, plain + 20, "the opponent's water attack");
 });
-await test('Starfall: damage to a fairy-type is cut by a D6', async () => {
+await test('Starfall: damage to a fairy-type is cut by a D6 x 10', async () => {
   const G = game({ active: 'Tytania' }, { active: 'Raizado' });
   G.weather = { name: 'starfall', source: act(G, 0) };
   const fairy = act(G, 0); ok(fairy.card.types.includes('fairy'), 'Tytania should be fairy');
-  rig(d(6, 4)); await ctx.dealDamage(G, null, fairy, 30, {});
-  eq(fairy.maxHp - fairy.hp, 26, 'damage after a roll of 4');
+  rig(d(6, 2)); await ctx.dealDamage(G, null, fairy, 30, {});
+  eq(fairy.maxHp - fairy.hp, 10, 'damage after a roll of 2');
   const other = act(G, 1); rig(d(6, 4)); await ctx.dealDamage(G, null, other, 30, {});
   eq(other.maxHp - other.hp, 30, 'non-fairy takes the full 30');
 });
@@ -792,6 +792,60 @@ await test('Brigitte only covers its wearer: Quake, Swift and Sporesprinkle reac
   const K = game({ active: 'Musherus' }, { active: 'Raizado', bench: ['Leapod'], equip: { Raizado: '104' }, big: ['Leapod'] }, yes);
   await attack(K, 0, 'Sporesprinkle');
   eq(act(K, 1).maxHp - act(K, 1).hp, 0, 'the wearer is shielded'); eq(bn(K, 1).maxHp - bn(K, 1).hp, 10, 'the bench still takes 10');
+});
+
+await test('Brigitte blocks the hit, but the attacker still passes energy on its own side', async () => {
+  const yes = [{}, { optional: () => true }];
+  const G = game({ active: 'Chiplum', bench: ['Poteplant'], energy: { Chiplum: ['psychic', 'normal'] } }, { active: 'Raizado', equip: { Raizado: '104' } }, yes);
+  await attack(G, 0, 'Swoop');
+  ok(/shield blocks/.test(log(G)), 'blocked'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'no damage');
+  eq(act(G, 0).energy.length, 1, 'Chiplum gave one away'); eq(bn(G, 0).energy.length, 1, 'the bench got it');
+  const H = game({ active: 'Bulbark', bench: ['Poteplant'], energy: { Bulbark: ['electric', 'electric'] } }, { active: 'Raizado', equip: { Raizado: '104' } }, yes);
+  await attack(H, 0, 'Voltage Surge');
+  eq(act(H, 1).energy.length, 0, 'nothing reaches the shielded target'); eq(bn(H, 0).energy.join(), 'electric', 'the bench still gets one');
+  eq(act(H, 0).energy.join(), 'electric', 'Bulbark keeps the other');
+});
+await test('Voltage Surge: with a full bench, both energy still move', async () => {
+  const G = game({ active: 'Bulbark', bench: ['Torshock', 'Mugini', 'Poteplant'], energy: { Bulbark: ['electric', 'electric'] } }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Voltage Surge');
+  eq(act(G, 0).energy.length, 0, 'gave both away'); eq(act(G, 1).energy.join(), 'electric', 'target');
+  eq(G.players[0].bench.reduce((n, m) => n + m.energy.length, 0), 1, 'one on the bench');
+});
+await test('Boowhomp: Fluff It Up haunts; Mister Fister after it does 30 less and confuses', async () => {
+  const G = game({ active: 'Boowhomp' }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Fluff It Up'); ok(act(G, 1).status.haunted, 'haunted');
+  const t = act(G, 1); t.hp = t.maxHp; t.status = {};
+  G.turnNumber += 2; await attack(G, 0, 'Mister Fister');
+  const after = t.maxHp - t.hp; ok(t.status.confused, 'confused after Fluff It Up');
+  t.hp = t.maxHp; t.status = {};
+  G.turnNumber += 2; await attack(G, 0, 'Mister Fister');
+  eq((t.maxHp - t.hp) - after, 30, 'the full 50 without Fluff It Up last turn'); ok(!t.status.confused, 'no confusion');
+});
+await test('Denticle: its fighting damage counts against a fighting weakness', async () => {
+  const G = game({ active: 'Finlesse' }, { active: 'Lemurk' });
+  rig(d(3, 2)); await attack(G, 0, 'Denticle');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 30, '20 rolled + 10 weakness');
+});
+
+await test('Delusion: Starfall rolls first, and the kept damage can be split across your Bakemon', async () => {
+  const ex = { delusionAmount: () => 0, delusionOwn: (G, P, req) => req.options.find(m => m.card.name === 'Tytania'), delusionShare: (G, P, req) => req.options[0].value };
+  const G = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: 'Elfdyr', bench: ['Tytania'] }, [null, ex]);
+  G.weather = { name: 'starfall', source: bn(G, 1) };
+  act(G, 1).effects.push({ kind: 'delusion', expires: 99 });
+  const big = { name: 'Big', damage: 60, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  rig(d(6, 1)); await ctx.resolveAttack(G, G.players[0], act(G, 0), big);
+  eq((log(G).match(/Starfall/g) || []).length, 1, 'one Starfall roll, before the split');
+  eq(act(G, 0).maxHp - act(G, 0).hp, 0, 'nothing back at the attacker');
+  eq(bn(G, 1).maxHp - bn(G, 1).hp, 30, 'Tytania takes the main share (at least half of 50)');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 20, 'Elfdyr takes the rest');
+});
+await test('Delusion bends Liquidation\'s splash too', async () => {
+  const G = game({ active: 'Bathygigas', big: ['Bathygigas'] }, { active: 'Elfdyr' }, [null, { delusionAmount: () => 10 }]);
+  act(G, 1).effects.push({ kind: 'delusion', expires: 99 });
+  await attack(G, 0, 'Liquidation');
+  ok(/Delusion bends/.test(log(G)), 'Delusion kicked in');
+  eq(act(G, 0).maxHp - act(G, 0).hp, 10, '10 back at Bathygigas'); eq(act(G, 1).maxHp - act(G, 1).hp, 10, 'Elfdyr keeps 10');
+  ok(act(G, 0).status.haunted, 'under 30 sent back haunts');
 });
 
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {

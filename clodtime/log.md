@@ -85,3 +85,20 @@ Four reports, all from Bryan testing against Nyx.
 - **Brigitte can't block Wǔtái** (59016172). It reaches the bench, not the shield's wearer. `battle.js`.
 - 3 new tests, 102 pass, and the simulator runs with 0 crashes. `rulings.md` updated.
 - Follow-up from Bryan: **moves that reach the bench get past Brigitte.** Quake, Swift and Ivyconstrictor already did, because they switch targets before the shield is checked; the new test confirms it. Sporesprinkle's bench damage and Calming Focus used to be cancelled when the active's shield blocked. Now they still land. Swift's damage is unavoidable, so the shield can't block it on the active either. 103 pass.
+
+## 2026-10-18
+Five reports from Cameron, all against Nyx. Each checked against the printed card.
+- **Brigitte doesn't stop the attacker passing its own energy** (8329448b, 41f100f1). When the shield blocked Swoop or Voltage Surge, the energy move to the bench was cancelled along with the hit. Now the energy still moves on the attacker's side. Voltage Surge's energy for the target doesn't go anywhere, so Bulbark keeps it. A blocked attack also now counts as "used" for moves that check what happened last turn. `battle.js`.
+- **Voltage Surge when it isn't blocked** (39b76008): the engine does both moves (new test with a full bench). The report's log ends right after the energy reaches Gloomgoyle, while Bulbark still had its second electric. That fits the game waiting on "Move it to which Bakemon?" for the bench. No change. Worth asking Cameron whether the prompt was easy to miss.
+- **Boowhomp is wired** (4346801e). Fluff It Up haunts. Mister Fister does 30 less and confuses if Boowhomp used Fluff It Up on its own last turn. Boowhomp was also missing from `cards.js`. New `ifUsedLastTurn` option. `moves.js`. The Supabase text says "Fluff Up" and "Inflicts Haunt."; the printed card says "Fluff It Up" and "Inflicts haunt upon target."
+- **Denticle counts as fighting for weakness** (05e66149). The cost is one normal, but the text says "fighting damage," so against Lemurk it now gets +10, as if it had one fighting symbol. New `damageType` field on a move. `battle.js`, `moves.js`. Flagged for Bryan, since it bends the "bonuses come from the printed cost" ruling.
+- 4 new tests (3 fail on the old code), 107 pass. The simulator runs with 0 crashes.
+
+## 2026-10-19
+Four reports from Cameron, about Tytania and Elfdyr. Checked each against the printed card. Added to PR #43, which isn't merged yet.
+- **Starfall rolls before Delusion bends the blow** (81ac7cc6). Elfdyr is fairy-type, so Starfall now cuts the hit first, and the pieces Delusion sends elsewhere aren't rolled for again. `battle.js`.
+- **Delusion can split the damage you keep** (f00a1215). The card says "any portion," and "at least half … to one of your own Bakemon." You still send up to half back at the attacker. Then one of your Bakemon takes the main share (at least half), and the rest can go to your other Bakemon in any amounts. Before, all of it had to land on one. `battle.js`, `battle-ai.js`.
+- **Delusion works on Liquidation** (2b5a18c6). It only triggered on an attack's main hit. Liquidation's 20 to each Bakemon is damage from the opponent too, so now Elfdyr can bend that. `battle.js`.
+- Not changed: **Starfall reduces damage by 1–6** (9f194776). The printed card says "reduce that incoming damage by the rolled number," and that's what the engine does. Passed to Bryan as a balance question.
+- 2 new tests (both fail on the old code), 109 pass. The simulator runs with 0 crashes.
+- Morning, with Bryan: **Starfall cuts 10–60**, not 1–6 (9f194776, Bryan's ruling: dice damage is always in tens). Delusion's "at least half" rounds up to a ten. Bryan confirmed the Brigitte and Denticle calls, and ran the Boowhomp SQL. All three rulings are now in `rulings.md`. 109 pass, and the simulator runs with 0 crashes.

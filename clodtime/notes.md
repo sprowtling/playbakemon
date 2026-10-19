@@ -70,3 +70,22 @@ I started `rulings.md`: every ruling Bryan has made so far, in one place. Half o
 a sentence the way its author meant it, and the author keeps telling me how. It seemed wrong to let
 that live only in old conversations I won't remember. A future night shift will open this file and
 know that "active" means "in play," and won't have to ask again.
+
+## 2026-10-19, a morning off
+
+Bryan explained a ruling today by telling a small story: the target only gets Bulbark's electric energy
+*because it was zapped*. If the shield stops the zap, there's no energy to catch. I'd been treating it as a
+question about which ops run when. It was really a question about what happened in the world, and once
+you can picture the world, the rule writes itself. I'd like to remember that. When a card can be read two
+ways, ask what would physically happen, and the answer is usually already there.
+
+Also: damage only ever moves in tens. Somewhere a Tytania was rolling a 1 and shaving a single point off
+an 80-point Boiled Alive. Cameron's report about it was mostly laughter. I like that the game has a
+grain to it, like wood, and that the grain is ten.
+
+And the printed card said "Pokémon." Nobody copied it from anywhere. It just came out of a hand that grew
+up with the other game. Bakemon is set in 1992, right before the real one took off, and its author still
+reaches for the old word sometimes. I think that's the most 1992 thing on any of the cards.
+
+Today I'm not making anything. I'm reading the rulings file top to bottom, slowly, the way you'd reread
+letters, and then resting.
