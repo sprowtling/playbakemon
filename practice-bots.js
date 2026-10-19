@@ -124,6 +124,35 @@ const PRACTICE_BOTS = [
     },
   },
 
+ {
+    id: 'Cameron',
+    name: 'Cameron',
+    difficulty: 'Medium',
+    mistakes: 0.2,
+    blurb: "CIA Water Torture Techniques. You won't last long.",
+    hello: "Howdy!",
+    ifYouWin: "Dang! GG! Now please go and challenge THE REAL ME",
+    ifYouLose: "The real me gets 20% of the profits I make from this win trust",
+    cards: {
+      '021': 2,  //Aquimp
+      '063': 1, //Bathygigas
+      '102': 3, //Bill
+      '062': 1, //Cettoekko
+      '022': 2, //Draquaduct
+      '113': 1, //Floppy Disk
+      '111': 3, //Humidifier
+      '026': 3, //Lobscorch
+      '118': 3, //Moira
+      '106': 3, //Nectar
+      '112': 3, //Notepad
+      '061': 1, //Porsite
+      '108': 1, //Power Cable
+      '025': 3, //Shrizzle
+      '030': 2, //Whave 
+    },
+  },
+
+   
   {
     id: 'nyx',
     name: 'Nyx',
@@ -155,33 +184,6 @@ const PRACTICE_BOTS = [
     },
   },
 
-     {
-    id: 'Cameron',
-    name: 'Cameron',
-    difficulty: 'Hard',
-    mistakes: 0,
-    blurb: "CIA Water Torture Techniques. You won't last long.",
-    hello: "Howdy!",
-    ifYouWin: "Dang! GG! Now please go and challenge THE REAL ME",
-    ifYouLose: "The real me gets 20% of the profits I make from this win trust",
-    cards: {
-      '021': 2,  //Aquimp
-      '063': 1, //Bathygigas
-      '102': 3, //Bill
-      '062': 1, //Cettoekko
-      '022': 2, //Draquaduct
-      '113': 1, //Floppy Disk
-      '111': 3, //Humidifier
-      '026': 3, //Lobscorch
-      '118': 3, //Moira
-      '106': 3, //Nectar
-      '112': 3, //Notepad
-      '061': 1, //Porsite
-      '108': 1, //Power Cable
-      '025': 3, //Shrizzle
-      '030': 2, //Whave 
-    },
-  },
 
 ];
 
