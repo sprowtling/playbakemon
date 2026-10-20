@@ -38,6 +38,7 @@
     flex-wrap: wrap;
     text-decoration: none;
     color: inherit;
+    overflow: hidden;   /* the favorite-card strip bleeds to the row's edges */
   }
   .player-row:hover { background: color-mix(in srgb, var(--accent-2) 55%, var(--row-bg)); }
   .player-row.ranked { border-left-color: var(--accent); }
@@ -76,6 +77,33 @@
     white-space: nowrap;
   }
   .player-winrate.no-rate { background: var(--mat-green-light); color: var(--text-muted); }
+
+  /* A quiet peek at each player's favorite cards (from their profile), cropped to the art
+     and faded so the row still reads as name + win rate first. Brightens on hover. */
+  .fav-strip {
+    display: flex;
+    gap: 4px;
+    align-self: stretch;
+    margin: -10px 0;
+    flex-shrink: 0;
+  }
+  /* Each card is pinned inside its slot, so the row's text decides how tall the row is. */
+  .fav-strip .fav { position: relative; width: 68px; }
+  .fav-strip img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 28%;
+    opacity: 0.38;
+    filter: saturate(0.8);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+            mask-image: linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);
+    transition: opacity 0.15s ease, filter 0.15s ease;
+  }
+  .player-row:hover .fav-strip img { opacity: 0.85; filter: none; }
+  @media (max-width: 560px) { .fav-strip { display: none; } }
 </style>
 </head>
 <body>
@@ -112,6 +140,7 @@ const SUPABASE_ANON_KEY = "sb_publishable_eyQa19eT_dhAEKFxTLNX5Q_AqsL7HSl";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const RANKED_MIN_MATCHES = 5;
+const CARD_IMAGE_BASE = "https://hxa.neocities.org/bakemon/cards/";
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -123,10 +152,18 @@ let allPlayers = []; // [{ id, display_name, wins, total, rate }]
 let currentSort = "name"; // "name" | "winrate"
 
 async function init() {
-  const [{ data: players, error: playersErr }, { data: matches, error: matchesErr }] = await Promise.all([
+  const [{ data: players, error: playersErr }, { data: matches, error: matchesErr }, { data: favorites }] = await Promise.all([
     supabaseClient.from("players").select("id, display_name, status_message").order("display_name"),
-    supabaseClient.from("match_history").select("player_1_id, player_2_id, winner_id")
+    supabaseClient.from("match_history").select("player_1_id, player_2_id, winner_id"),
+    supabaseClient.from("player_favorite_cards").select("player_id, sort_order, cards ( name, image_filename )").order("sort_order")
   ]);
+
+  // Favorite cards per player, in their profile's slot order. If this fails the rows just go without.
+  const favsById = {};
+  (favorites || []).forEach(f => {
+    if (!f.cards || !f.cards.image_filename) return;
+    (favsById[f.player_id] = favsById[f.player_id] || []).push(f.cards);
+  });
 
   if (playersErr) {
     console.error(playersErr);
@@ -162,6 +199,7 @@ async function init() {
       id: p.id,
       display_name: p.display_name,
       status_message: p.status_message,
+      favorites: favsById[p.id] || [],
       wins: stats.wins,
       total: stats.total,
       rate: stats.total ? stats.wins / stats.total : 0
@@ -231,6 +269,8 @@ function playerRowHtml(p, rank, ranked) {
         <div class="player-meta">${metaLabel}</div>
         ${p.status_message ? `<div class="player-status">${escapeHtml(p.status_message)}</div>` : ''}
       </div>
+      ${p.favorites.length ? `<div class="fav-strip" aria-hidden="true">${p.favorites.map(c =>
+        `<span class="fav"><img src="${CARD_IMAGE_BASE}${encodeURIComponent(c.image_filename)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>`).join("")}</div>` : ''}
       <div class="player-winrate${p.total === 0 ? ' no-rate' : ''}">${winRateLabel}</div>
     </a>
   `;
