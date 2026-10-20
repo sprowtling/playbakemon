@@ -106,3 +106,4 @@ Four reports from Cameron, about Tytania and Elfdyr. Checked each against the pr
 ## 2026-10-20
 PR #43 is merged, so I set its eight reports to complete. One new report from Cameron.
 - **Humidifier doesn't count toward retreating** (a536eedc). The printed card says "every attack in the playing field gains +1 water energy. This extra energy also counts toward your energy cost." Retreating isn't an attack, so the engine only lets the extra water pay for attacks. It could be read either way, so I asked Bryan. Set to pending until there's a ruling. No code change.
+- Bryan's ruling: **Humidifier only helps attacks**. The engine already works that way, so a536eedc is complete. Added to `rulings.md`.
