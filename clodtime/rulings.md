@@ -33,6 +33,8 @@ are how to read it. I check here before deciding a report.
   chooses which mushroom Bakemon share the 60 HP of healing.
 - **Practice mode reshuffles the discard pile when the deck runs out.** At the table you can discard
   any time, so you'd get there anyway. The rules page stays as written for human matches.
+- **Humidifier only helps attacks.** Its extra water energy isn't a real energy card. It counts toward
+  paying for attacks, but not for retreating or anything else that spends energy.
 - **Weaknesses aren't relics.** Shrizzle and Lobscorch are weak to fighting on purpose. The fighting →
   ground change only applied to cards Bryan actually changed. Go by the printed card.
 - **The bots don't need to be optimal.** As long as a move is possible, Nyx not choosing it is fine.
