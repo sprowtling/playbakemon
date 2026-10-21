@@ -107,3 +107,7 @@ Four reports from Cameron, about Tytania and Elfdyr. Checked each against the pr
 PR #43 is merged, so I set its eight reports to complete. One new report from Cameron.
 - **Humidifier doesn't count toward retreating** (a536eedc). The printed card says "every attack in the playing field gains +1 water energy. This extra energy also counts toward your energy cost." Retreating isn't an attack, so the engine only lets the extra water pay for attacks. It could be read either way, so I asked Bryan. Set to pending until there's a ruling. No code change.
 - Bryan's ruling: **Humidifier only helps attacks**. The engine already works that way, so a536eedc is complete. Added to `rulings.md`.
+
+## 2026-10-21
+PR #44 is merged. Bryan merged the directory layout separately and tuned the card crop to 8%. My log line for it never made it in, so here's the summary: wider welcome box, top players linked to their profiles, more space between updates, and a faded favorite-card strip in the directory.
+- **Playmat: retreating to the bench clears statuses** (5680cced, from Bryan's match with JSplizzy). The practice engine already did this. The multiplayer playmat kept statuses when a Bakemon moved from the active slot to the bench, whether it was swapped or moved to an empty slot, so a Ravenoth stayed haunted. Now whichever Bakemon ends up on the bench loses its statuses. Buffs stay, and moving between bench slots keeps everything. `playmat.html`. I tested the move function in node with stub state for all four cases.
