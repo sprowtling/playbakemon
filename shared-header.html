@@ -153,8 +153,9 @@
   .bakemon-theme-option:hover { background: rgba(255,255,255,0.08); }
   .bakemon-theme-option.current { color: var(--accent-2, var(--accent, #d8e04a)); }
 
-  /* Match challenge count — hidden entirely (see updateChallengeBadge() in
-     shared-header.js) until there's actually one needing a decision. Sits
+  /* Match challenge count — hidden entirely (see refreshChallengeBadge() in
+     shared-header.js) until a challenge needs a decision, or one you sent got
+     a reply you haven't seen yet. Sits
      right in the "Playing as [name]" identity link, which goes to your own
      profile — that's where the "View Challenges" button lives that opens
      the drawer below. */
