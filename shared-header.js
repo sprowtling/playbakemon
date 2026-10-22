@@ -319,12 +319,18 @@ function bakemonEscapeHtml(str) {
 let bakemonChallengesSb = null; // one shared client, created once the CDN lib is ready
 let bakemonPlayer = null;
 
-// A count only — how many received challenges genuinely still need a
-// decision (no response yet, not hidden). The full list — sent and
-// received, with message/room code/response state, Join, Accept/Reject,
-// and a per-side "remove from my list" — lives in the Challenges drawer
-// (see wireChallengesDrawer), opened via window.openChallengesDrawer()
-// from the "View Challenges" button on your own profile page.
+// The red badge next to "Playing as [name]". It counts two things that are
+// waiting for you to go look:
+//   - received challenges that still need a decision (no response yet, not hidden)
+//   - challenges you sent that were since accepted or rejected, which you
+//     haven't seen yet (sender_seen_response = false; cleared when you open
+//     the Challenges drawer)
+// The full list — sent and received, with message/room code/response state,
+// Join, Accept/Reject, and a per-side "remove from my list" — lives in the
+// Challenges drawer (see wireChallengesDrawer), opened via
+// window.openChallengesDrawer() from the "View Challenges" button on your own
+// profile page. A Supabase Realtime subscription (watchChallenges) refreshes
+// the badge the moment anything changes, so nobody has to reload.
 async function updateChallengeBadge() {
   const player = getBakemonPlayer();
   if (!player) return;
@@ -337,20 +343,53 @@ async function updateChallengeBadge() {
   if (!ready) return; // a missed notification badge isn't worth failing the page over
   bakemonChallengesSb = bakemonChallengesSb || window.supabase.createClient(BAKEMON_SUPABASE_URL, BAKEMON_SUPABASE_ANON_KEY);
 
-  const { count, error } = await bakemonChallengesSb
-    .from("challenges")
-    .select("id", { count: "exact", head: true })
-    .eq("to_player_id", player.id)
-    .eq("hidden_by_recipient", false)
-    .is("response", null);
-  if (error) { console.error("shared-header.js: failed to count challenges", error); return; }
-
-  if (count > 0) {
-    badge.textContent = String(count);
-    badge.style.display = "inline-block";
-  }
-
+  await refreshChallengeBadge();
   wireChallengesDrawer();
+  watchChallenges();
+}
+
+async function refreshChallengeBadge() {
+  const badge = document.getElementById("bakemon-identity-badge");
+  if (!badge || !bakemonChallengesSb || !bakemonPlayer) return;
+  const sb = bakemonChallengesSb, id = bakemonPlayer.id;
+
+  const [{ count: waiting, error }, { count: answered, error: answeredErr }] = await Promise.all([
+    sb.from("challenges").select("id", { count: "exact", head: true })
+      .eq("to_player_id", id).eq("hidden_by_recipient", false).is("response", null),
+    sb.from("challenges").select("id", { count: "exact", head: true })
+      .eq("from_player_id", id).eq("hidden_by_sender", false).eq("sender_seen_response", false).not("response", "is", null),
+  ]);
+  if (error) { console.error("shared-header.js: failed to count challenges", error); return; }
+  // If the sender_seen_response column doesn't exist yet, just count received challenges.
+  if (answeredErr) console.warn("shared-header.js: couldn't count answered challenges", answeredErr.message);
+
+  const total = (waiting || 0) + (answeredErr ? 0 : (answered || 0));
+  badge.textContent = total > 0 ? String(total) : "";
+  badge.style.display = total > 0 ? "inline-block" : "none";
+}
+
+// One Realtime channel per page: anything that changes a challenge to or from
+// you (a new challenge, an accept/reject, a hide) re-counts the badge, and
+// reloads the drawer if it's open. Needs the challenges table in the
+// supabase_realtime publication; without it this just never fires.
+let bakemonChallengesChannel = null;
+let bakemonBadgeTimer = null;
+function watchChallenges() {
+  if (bakemonChallengesChannel || !bakemonChallengesSb || !bakemonPlayer) return;
+  const id = bakemonPlayer.id;
+  const onChange = () => {
+    clearTimeout(bakemonBadgeTimer);            // a burst of changes only needs one re-count
+    bakemonBadgeTimer = setTimeout(() => {
+      const drawer = document.getElementById("challenges-drawer");
+      if (drawer && drawer.classList.contains("open")) loadChallengesDrawer();
+      else refreshChallengeBadge();
+    }, 250);
+  };
+  bakemonChallengesChannel = bakemonChallengesSb
+    .channel(`challenges_${id}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "challenges", filter: `to_player_id=eq.${id}` }, onChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "challenges", filter: `from_player_id=eq.${id}` }, onChange)
+    .subscribe();
 }
 
 function wireChallengesDrawer() {
@@ -405,6 +444,13 @@ async function loadChallengesDrawer() {
 
   renderReceivedPanel(received || [], nameFor);
   renderSentPanel(sent || [], nameFor);
+
+  // You've now seen every reply to the challenges you sent, so they stop counting toward the badge.
+  // (Only rows still unseen are touched, so this doesn't set off another Realtime event when there's nothing new.)
+  const { error: seenErr } = await sb.from("challenges").update({ sender_seen_response: true })
+    .eq("from_player_id", player.id).eq("sender_seen_response", false).not("response", "is", null);
+  if (seenErr) console.warn("shared-header.js: couldn't mark replies as seen", seenErr.message);
+  refreshChallengeBadge();
 }
 
 function bakemonResponseTag(response) {
@@ -481,7 +527,6 @@ function wireDrawerItemButtons(panel, side) {
       const field = side === "sender" ? "hidden_by_sender" : "hidden_by_recipient";
       await bakemonChallengesSb.from("challenges").update({ [field]: true }).eq("id", btn.dataset.hide);
       loadChallengesDrawer();
-      updateChallengeBadge();
     });
   });
   panel.querySelectorAll("[data-join]").forEach(btn => {
