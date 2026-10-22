@@ -1596,7 +1596,10 @@ function moveSelectedCardTo(destZone, destIndex) {
     const sourceSlot = getSlot(myState, selection.zone, selection.index);
     const destSlot = getSlot(myState, destZone, destIndex);
     if (destSlot) {
-      // Straight swap: each card keeps its own damage/energy/status/evolution chain, just trades places
+      // Straight swap: each card keeps its own damage/energy/evolution chain, just trades places.
+      // Whichever one leaves the active slot for the bench sheds its statuses (retreating cures them).
+      if (selection.zone === "active" && destZone === "bench") clearStatuses(sourceSlot);
+      if (selection.zone === "bench" && destZone === "active") clearStatuses(destSlot);
       setSlot(myState, selection.zone, selection.index, destSlot);
       setSlot(myState, destZone, destIndex, sourceSlot);
       selection = null;
@@ -1700,8 +1703,10 @@ function moveSelectedCardTo(destZone, destIndex) {
       return;
     } else {
       // Slot is empty — place freely
+      // Retreating from the active slot to the bench cures statuses; any other move keeps them.
+      const keepStatus = !(selection.zone === "active" && destZone === "bench");
       const newSlot = movingSlot
-        ? { card_id: cardId, evolved_from: movingSlot.evolved_from || [], damage: movingSlot.damage || 0, energy: movingSlot.energy || [], status: movingSlot.status || [], buffs: movingSlot.buffs || [] }
+        ? { card_id: cardId, evolved_from: movingSlot.evolved_from || [], damage: movingSlot.damage || 0, energy: movingSlot.energy || [], status: keepStatus ? (movingSlot.status || []) : [], buffs: movingSlot.buffs || [] }
         : { card_id: cardId, evolved_from: [], damage: 0, energy: [], status: [], buffs: [] };
       setSlot(myState, destZone, destIndex, newSlot);
     }
@@ -1801,6 +1806,9 @@ function removeEnergy(panelEl, energyIndex) {
   slot.energy.splice(energyIndex, 1);
   pushState(newState);
 }
+
+// A Bakemon that retreats to the bench loses its statuses (asleep, haunted, ...). Buffs are left alone.
+function clearStatuses(slot) { if (slot) slot.status = []; }
 
 let statusPickerTarget = null;
 function openStatusPicker(panelEl) {
