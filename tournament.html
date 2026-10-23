@@ -529,13 +529,16 @@ function renderSlotGrid() {
 function openSlotPicker(slotIndex) {
   activeSlotIndex = slotIndex;
   document.getElementById("slot-picker-title").textContent = `Slot #${slotIndex + 1}`;
-  const alreadyUsedIds = new Set(slotAssignments.filter(a => a).map(a => a.id));
+  const slotOf = (id) => slotAssignments.findIndex(a => a && a.id === id);
 
   const listEl = document.getElementById("slot-picker-list");
   const emptyBtn = `<button type="button" data-clear="1">— Leave empty (bye) —</button>`;
+  // Someone already placed in another slot can still be picked: the two slots trade places,
+  // so the host can rearrange matchups without clearing slots first.
   const playerBtns = allPlayersForPicker.map(p => {
-    const usedElsewhere = alreadyUsedIds.has(p.id) && slotAssignments[slotIndex]?.id !== p.id;
-    return `<button type="button" data-player-id="${p.id}" ${usedElsewhere ? 'disabled title="Already assigned to another slot"' : ''}>${escapeHtml(p.display_name)}</button>`;
+    const at = slotOf(p.id);
+    const note = at === -1 || at === slotIndex ? "" : ` <span style="opacity:0.6;">(in slot #${at + 1}, swap)</span>`;
+    return `<button type="button" data-player-id="${p.id}">${escapeHtml(p.display_name)}${note}</button>`;
   }).join("");
   listEl.innerHTML = emptyBtn + playerBtns;
 
@@ -544,9 +547,11 @@ function openSlotPicker(slotIndex) {
     closeSlotPicker();
     renderSlotGrid();
   });
-  listEl.querySelectorAll("[data-player-id]:not([disabled])").forEach(btn => {
+  listEl.querySelectorAll("[data-player-id]").forEach(btn => {
     btn.addEventListener("click", () => {
       const player = allPlayersForPicker.find(p => p.id === btn.dataset.playerId);
+      const from = slotOf(player.id);
+      if (from !== -1 && from !== activeSlotIndex) slotAssignments[from] = slotAssignments[activeSlotIndex];   // whoever was here moves to their old slot (or it becomes a bye)
       slotAssignments[activeSlotIndex] = { id: player.id, name: player.display_name };
       closeSlotPicker();
       renderSlotGrid();
