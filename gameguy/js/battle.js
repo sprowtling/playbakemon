@@ -54,7 +54,9 @@ function cardMoves(card) {
 // Humidifier: while anyone wears one, every attack in play counts as having one more water energy.
 const humidifierOn = G => !!G && G.players.some(Q => zone(Q).some(m => equipTag(m) === 'humidifier'));
 const costCount    = (move, type) => (move.cost.types[type] || 0) + (type === 'water' && humidifierOn(ACTIVE_G) ? 1 : 0);
-const costIncludes = (move, type) => !!(move && costCount(move, type));
+// A move whose text names its damage type (Denticle: "in fighting damage") counts as that type everywhere damage
+// cares about type: weakness, Eclidyr's Celestial Bodies, Aqua Ring, and so on (Bryan's ruling).
+const costIncludes = (move, type) => !!(move && (costCount(move, type) || (move.fx && move.fx.damageType === type)));
 
 // The battle being played right now. Only used by rules that reach across the whole
 // table without being handed G (Heat Lightning's "interchangeable" energy).
@@ -308,10 +310,14 @@ const needsSameTurnPass = (G, mon) => mon.playedTurn === G.turnNumber || mon.evo
 // active" means while it's in play, benched or not: abilities work from the bench.
 const lifeCycleCovers = (P, mon) => zone(P).some(m => hasTag(m, 'grassEvolvesSameTurn')) && mon.card.types.includes('grass') && !ACTIVE_G.t.lifeCycleUsed;
 
+// Silooper's Tail Lasso: "they may not add energy to that Bakemon", whether by attaching, an ability (Soak),
+// or moving energy over from somewhere else.
+const energyLocked = mon => mon.effects.some(e => e.kind === 'noEnergy');
+
 function energyTargets(G, P) {
   if (G.t.lockTurn || G.t.noEnergy) return [];
   return zone(P).filter(mon => {
-    if (mon.effects.some(e => e.kind === 'noEnergy')) return false;
+    if (energyLocked(mon)) return false;
     if (G.t.energyUsed < G.rules.energyPerTurn) return true;
     return equipTag(mon) === 'extraEnergy' && !G.t.cableUsed[mon.uid];     // Power Cable
   });
@@ -868,6 +874,7 @@ function candidates(G, P, self, selector, op) {
   if (op && op.ofType)     list = list.filter(m => m.card.types.includes(op.ofType));
   if (op && op.activeOnly) list = list.filter(m => G.players.some(Q => Q.active === m));
   if (op && op.withStatus) list = list.filter(m => op.withStatus === 'any' ? Object.keys(m.status).length : m.status[op.withStatus]);
+  if (op && (op.addEnergy || op.receivesEnergy)) list = list.filter(m => !energyLocked(m));
   return list;
 }
 
@@ -1029,8 +1036,8 @@ async function runOps(G, ctx, ops) {
     else if (op.moveEnergy) {
       const hasIt = m => m.energy.some(e => !op.type || e === op.type);
       const from = op.from === 'self' ? me : await pick(G, P, candidates(G, P, me, op.from, op).filter(hasIt), 'energyFrom', 'Take energy from which Bakemon?');
-      const to = op.to === 'target' ? ctx.target : op.to === 'self' ? me : await pick(G, P, candidates(G, P, me, op.to, {}).filter(m => m !== from), 'energyTo', 'Move it to which Bakemon?');
-      if (!from || !to || !hasIt(from) || to.hp <= 0) continue;
+      const to = op.to === 'target' ? ctx.target : op.to === 'self' ? me : await pick(G, P, candidates(G, P, me, op.to, { receivesEnergy: true }).filter(m => m !== from), 'energyTo', 'Move it to which Bakemon?');
+      if (!from || !to || !hasIt(from) || to.hp <= 0 || energyLocked(to)) continue;
       const kinds = [...new Set(from.energy)];
       const type = op.type || (kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon: to,
         prompt: 'Take which energy from ' + from.card.name + '?', options: kinds.map(k => ({ label: k, value: k, energy: k })) }));
@@ -1039,11 +1046,15 @@ async function runOps(G, ctx, ops) {
       await attachEnergySilently(G, to, type);
     }
     else if (op.stealEnergy) {
+      // Growlbud's Drain Punch: "steal an energy", so the attacker picks which one.
       if (!ctx.target || !ctx.target.energy.length) continue;
-      const type = ctx.target.energy.pop();
-      const to = await pick(G, P, zone(P), 'energyTo', 'Give the stolen ' + type + ' energy to which Bakemon?');
+      const kinds = [...new Set(ctx.target.energy)];
+      const type = kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'stealType', mon: ctx.target,
+        prompt: 'Steal which energy from ' + ctx.target.card.name + '?', options: kinds.map(k => ({ label: k, value: k, energy: k })) });
+      ctx.target.energy.splice(ctx.target.energy.lastIndexOf(type), 1);
       await say2(G, me.card.name + ' steals ' + type + ' energy!');
-      await attachEnergySilently(G, to, type);
+      const to = await pick(G, P, zone(P).filter(m => !energyLocked(m)), 'energyTo', 'Give the stolen ' + type + ' energy to which Bakemon?');
+      if (to) await attachEnergySilently(G, to, type);
     }
     else if (op.convertEnergy) {
       const mon = await pick(G, P, candidates(G, P, me, op.on, {}).filter(m => m.energy.length), 'convert', 'Change energy on which Bakemon?');
@@ -1064,7 +1075,7 @@ async function runOps(G, ctx, ops) {
     }
     else if (op.moveSomeEnergy) {
       const from = await pick(G, P, zone(P).filter(m => m.energy.length), 'energyFrom', 'Move energy from which Bakemon?');
-      const to = from && await pick(G, P, zone(P).filter(m => m !== from), 'energyTo', 'Give it to which Bakemon?');
+      const to = from && await pick(G, P, zone(P).filter(m => m !== from && !energyLocked(m)), 'energyTo', 'Give it to which Bakemon?');
       if (!from || !to) continue;
       const n = from.energy.length === 1 ? 1 : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyCount', mon: from, prompt: 'Move how much energy?',
         options: from.energy.map((_, i) => ({ label: String(i + 1), value: i + 1 })) });
@@ -1079,7 +1090,7 @@ async function runOps(G, ctx, ops) {
     }
     else if (op.moveAllEnergy) {
       const from = await pick(G, P, zone(P).filter(m => m.energy.length), 'energyFrom', 'Take all the energy from which Bakemon?');
-      const to = await pick(G, P, zone(P).filter(m => m !== from), 'energyTo', 'Give it to which Bakemon?');
+      const to = await pick(G, P, zone(P).filter(m => m !== from && !energyLocked(m)), 'energyTo', 'Give it to which Bakemon?');
       if (!from || !to) continue;
       await say2(G, 'All of ' + from.card.name + "'s energy moves to " + to.card.name + '.');
       for (const e of from.energy.splice(0)) await attachEnergySilently(G, to, e);
@@ -1291,7 +1302,7 @@ async function runOps(G, ctx, ops) {
     }
     else if (op.hydraulic) {
       if (!me.energy.includes('steel')) continue;
-      const to = await pick(G, P, candidates(G, P, me, 'any_other', {}), 'energyTo', 'Send the energy to which Bakemon?');
+      const to = await pick(G, P, candidates(G, P, me, 'any_other', { receivesEnergy: true }), 'energyTo', 'Send the energy to which Bakemon?');
       if (!to) continue;
       const type = await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon: to, prompt: 'Turn the steel energy into what?', options: Object.keys(ENERGY_COLORS).map(t => ({ label: t, value: t, energy: t })) });
       me.energy.splice(me.energy.indexOf('steel'), 1);

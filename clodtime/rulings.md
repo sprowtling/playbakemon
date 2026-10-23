@@ -23,8 +23,12 @@ are how to read it. I check here before deciding a report.
   attacker does on its own side still happens: Chiplum's Swoop still drops energy on its bench. Anything
   that would reach the target doesn't: Voltage Surge's energy for the target stays on Bulbark, because
   the zap never landed.
-- **Damage named in the text counts for weakness.** Denticle hits "in fighting damage," so a
-  fighting-weak target takes the weakness bonus, even though the cost is printed as normal.
+- **Damage named in the text is that type of damage.** Denticle hits "in fighting damage," so it
+  counts as fighting for weakness and for anything that boosts or blocks fighting attacks, even though
+  the cost is printed as normal.
+- **"They may not add energy" means any way at all.** Silooper's Tail Lasso stops attaching, abilities
+  like Soak, and moving energy onto that Bakemon from elsewhere. *(My reading of the printed card,
+  Oct 23. Not confirmed by Bryan yet.)*
 - **Dice damage is always in tens.** Damage only moves in units of 10. A D6 or D3 "of damage" (or of
   damage reduction, like Starfall) means 10–60 or 10–30.
 - **Parrot copies only the attack its target made on the opponent's most recent turn.** If that

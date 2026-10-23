@@ -848,6 +848,30 @@ await test('Delusion bends Liquidation\'s splash too', async () => {
   ok(act(G, 0).status.haunted, 'under 30 sent back haunts');
 });
 
+await test('Graze restores 40 (printed card)', async () => {
+  const G = game({ active: 'Jeremo♀', hp: { 'Jeremo♀': 40 } }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Graze'); eq(act(G, 0).hp, 80, '40 back');
+});
+await test("Tail Lasso: the locked Bakemon can't get energy from an ability either (Soak)", async () => {
+  const G = game({ active: 'Aquimp', bench: ['Draquaduct'] }, { active: 'Raizado' },
+    [{ energyTo: (G, P, req) => req.options.find(m => m.card.name === 'Draquaduct') || req.options[0] }, null]);
+  bn(G, 0).effects.push({ kind: 'noEnergy', expires: 99 });
+  await ability(G, 0, act(G, 0), 'Soak');
+  eq(bn(G, 0).energy.length, 0, 'Draquaduct stays dry'); eq(act(G, 0).energy.join(), 'water', 'Aquimp got it instead');
+});
+await test('Drain Punch: the attacker chooses which energy to steal', async () => {
+  const G = game({ active: 'Growlbud' }, { active: 'Raizado', big: ['Raizado'], energy: { Raizado: ['fire', 'water'] } },
+    [{ stealType: (G, P, req) => 'fire' }, null]);
+  await attack(G, 0, 'Drain Punch');
+  eq(act(G, 1).energy.join(), 'water', 'the fire was taken, not the last one attached'); eq(act(G, 0).energy.join(), 'fire', 'Growlbud has it');
+});
+await test('Denticle counts as fighting for type boosts too, not just weakness', async () => {
+  const G = game({ active: 'Finlesse' }, { active: 'Raizado', big: ['Raizado'] });
+  G.t.amp = { types: ['fighting'], amount: 20 };
+  rig(d(3, 2)); await attack(G, 0, 'Denticle');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 40, '20 rolled + 20 for fighting attacks');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];
