@@ -41,6 +41,8 @@
   }
   .tournament-status.completed { background: var(--success-bg); color: var(--success-text); }
   .tournament-status.active { background: #3a3a3a; color: var(--text-muted); }
+  .tournament-status.signup { background: var(--accent); color: var(--button-text); }
+  .tournament-row.signup { border-left-color: var(--accent-2, var(--accent)); }
 
 </style>
 </head>
@@ -56,6 +58,7 @@
 
   <div id="new-tournament-row">
     <a href="tournament.html"><button class="primary">+ New Tournament</button></a>
+    <div style="font-size:12px; color:var(--text-muted); margin-top:8px;">Post your rules, open sign-ups, then build the bracket from whoever signs up.</div>
   </div>
 
   <div id="tournament-list"></div>
@@ -98,7 +101,9 @@ async function loadTournaments() {
     return;
   }
 
-  document.getElementById("subheading").textContent = `${tournaments.length} tournament${tournaments.length === 1 ? '' : 's'} played`;
+  const open = tournaments.filter(t => t.status === "signup").length;
+  document.getElementById("subheading").textContent = `${tournaments.length} tournament${tournaments.length === 1 ? '' : 's'}`
+    + (open ? ` · ${open} open for sign-ups` : '');
 
   // Get champion name for each completed tournament — the final round's single
   // match's winner. One query for all of it rather than per-tournament round-trips.
@@ -127,7 +132,7 @@ async function loadTournaments() {
           <div class="tournament-name">${escapeHtml(t.name)}</div>
           <div class="tournament-meta">${metaLabel}</div>
         </div>
-        <div class="tournament-status ${t.status}">${t.status === 'completed' ? 'Completed' : 'In Progress'}</div>
+        <div class="tournament-status ${t.status}">${t.status === 'completed' ? 'Completed' : t.status === 'signup' ? 'Sign-ups open' : 'In Progress'}</div>
       </a>
     `;
   }).join("");

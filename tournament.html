@@ -21,7 +21,7 @@
   }
 
   /* ---- Create screen ---- */
-  #create-screen {
+  #create-screen, #builder-screen {
     max-width: 640px;
     margin: 20px auto;
     background: var(--mat-green);
@@ -29,14 +29,60 @@
     border-radius: 12px;
     box-shadow: var(--panel-shadow);
   }
-  #create-screen label { display: block; font-size: 13px; color: var(--text-light); margin: 14px 0 6px; }
-  #create-screen input[type="text"] {
+  #create-screen label, #builder-screen label { display: block; font-size: 13px; color: var(--text-light); margin: 14px 0 6px; }
+  #create-screen input[type="text"], .info-textarea {
     width: 100%;
     padding: 8px 10px;
     border-radius: 6px;
     border: 1px solid var(--card-border);
     box-sizing: border-box;
   }
+  .info-textarea {
+    min-height: 140px;
+    resize: vertical;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    background: var(--card-cream);
+    color: var(--button-text);
+  }
+  .field-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  /* ---- Sign-up screen ---- */
+  #signup-screen { max-width: 640px; margin: 0 auto; }
+  #signup-screen h2 { margin-bottom: 2px; }
+  .host-line { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 18px; }
+  .host-line a { color: var(--accent); }
+  .panel {
+    background: var(--mat-green);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: var(--panel-shadow);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .panel h3 { color: var(--accent); font-size: 14px; margin: 0 0 10px; }
+  /* Hosts write their rules with line breaks; keep them. */
+  .info-text { white-space: pre-line; font-size: 14px; line-height: 1.55; color: var(--text-light); overflow-wrap: anywhere; }
+  .info-text.empty { color: var(--text-muted); font-style: italic; }
+  #signup-action { text-align: center; }
+  #signup-action button { font-size: 15px; padding: 10px 26px; }
+  #signup-action .note { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+  #signup-list { display: flex; flex-direction: column; gap: 6px; }
+  .signup-row {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    background: var(--row-bg); border-radius: 6px; padding: 7px 12px; font-size: 13px;
+  }
+  .signup-row a { color: var(--text-light); }
+  .signup-row a:hover { color: var(--accent); }
+  .signup-row .num { color: var(--text-muted); font-size: 11px; margin-right: 8px; }
+  .signup-row.me { outline: 1px solid var(--accent); }
+  .host-tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+  /* Rules & info shown above a running or finished bracket */
+  #bracket-info { max-width: 900px; margin: 0 auto 20px; }
+  #bracket-info summary { cursor: pointer; color: var(--accent); font-weight: 700; font-size: 14px; }
+  #bracket-info .info-text { margin-top: 10px; }
   #bracket-size-row { display: flex; gap: 8px; }
   #bracket-size-row button { flex: 1; }
   #bracket-size-row button.selected { background: var(--accent); border-color: #a8b32e; }
@@ -60,7 +106,7 @@
   .slot-btn:hover { background: rgba(255,255,255,0.05); }
   .slot-btn.filled { background: var(--mat-green-light); color: var(--accent); font-weight: 600; }
   .slot-btn .slot-num { color: var(--text-muted); font-size: 11px; margin-right: 6px; }
-  #create-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; }
+  #create-status, #builder-status { font-size: 13px; color: var(--text-muted); min-height: 18px; margin-top: 10px; }
 
   #slot-picker-backdrop {
     display: none;
@@ -150,10 +196,54 @@
 <div id="content">
   <a id="back-link" href="tournaments.html">← All tournaments</a>
 
-  <div id="create-screen">
+  <div id="create-screen" style="display:none;">
     <h2 style="margin-top:0;">New Tournament</h2>
     <label for="tournament-name-input">Tournament name</label>
     <input type="text" id="tournament-name-input" placeholder="e.g. Weekly Bakematch">
+
+    <label for="tournament-info-input">Rules &amp; info</label>
+    <textarea id="tournament-info-input" class="info-textarea" placeholder="When does it start? Any cards that are banned or required? Deck rules? Prizes? Anything players should know before signing up."></textarea>
+    <div class="field-hint">Everyone sees this on the sign-up page, and above the bracket once it starts. You can edit it while sign-ups are open.</div>
+
+    <div id="create-status"></div>
+    <button class="primary" id="create-btn" style="margin-top:14px; width:100%;">Open Sign-ups</button>
+  </div>
+
+  <div id="signup-screen" style="display:none;">
+    <h2 id="signup-title"></h2>
+    <div class="host-line" id="signup-host"></div>
+
+    <div class="panel">
+      <h3>Rules &amp; info</h3>
+      <div id="signup-info" class="info-text"></div>
+      <div id="signup-info-editor" style="display:none;">
+        <textarea id="signup-info-input" class="info-textarea"></textarea>
+        <div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end;">
+          <button class="small" id="info-cancel-btn">Cancel</button>
+          <button class="small primary" id="info-save-btn">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="signup-action"></div>
+
+    <div class="panel">
+      <h3 id="signup-count">Signed up</h3>
+      <div id="signup-list"></div>
+    </div>
+
+    <div class="panel" id="host-panel" style="display:none;">
+      <h3>Host tools</h3>
+      <div class="host-tools">
+        <button class="small" id="edit-info-btn">Edit rules &amp; info</button>
+        <button class="small primary" id="close-signups-btn">Close sign-ups &amp; build bracket</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="builder-screen" style="display:none;">
+    <h2 style="margin-top:0;" id="builder-title">Build the bracket</h2>
+    <div class="field-hint" id="builder-hint"></div>
 
     <label>Bracket size</label>
     <div id="bracket-size-row">
@@ -163,10 +253,12 @@
     </div>
 
     <label>Assign each slot. Click to pick a player, or leave empty for a "bye" (an uncontested match that lets an odd-numbered player to advance to the next round).</label>
+    <div style="margin-top:8px;"><button type="button" class="small" id="fill-order-btn" style="display:none;">Fill slots in sign-up order</button></div>
     <div id="slot-grid"></div>
 
-    <div id="create-status"></div>
-    <button class="primary" id="create-btn" style="margin-top:14px; width:100%;">Create Bracket</button>
+    <div id="builder-status"></div>
+    <button class="primary" id="build-btn" style="margin-top:14px; width:100%;">Start Tournament</button>
+    <button id="builder-back-btn" style="margin-top:8px; width:100%;">Back to sign-ups</button>
   </div>
 
   <div id="slot-picker-backdrop">
@@ -184,6 +276,10 @@
       <div class="crown">🏆</div>
       <div class="name" id="champion-name"></div>
     </div>
+    <details id="bracket-info" class="panel" style="display:none;">
+      <summary>Rules &amp; info</summary>
+      <div class="info-text" id="bracket-info-text"></div>
+    </details>
     <div id="bracket"></div>
   </div>
 </div>
@@ -202,36 +298,189 @@ function escapeHtml(str) {
 }
 
 const tournamentId = new URLSearchParams(location.search).get("id");
-let allPlayersForPicker = [];
+let allPlayersForPicker = []; // the bracket builder's choices: [{ id, display_name }] — only people who signed up
 let bracketSize = null;
 let slotAssignments = []; // array of length bracketSize, each entry: { id, name } or null (bye)
 let activeSlotIndex = null;
+let currentTournament = null;
+let currentSignups = [];    // [{ id, player_id, display_name_snapshot, created_at }], in sign-up order
+
+// A tournament goes: "signup" (rules posted, people sign up) → "active" (bracket
+// built, matches being played) → "completed". Older tournaments, made before
+// sign-ups existed, start straight at "active".
+function showScreen(id) {
+  ["create-screen", "signup-screen", "builder-screen", "bracket-screen"].forEach(s => {
+    document.getElementById(s).style.display = s === id ? "block" : "none";
+  });
+}
 
 async function init() {
-  if (tournamentId) {
-    document.getElementById("create-screen").style.display = "none";
-    document.getElementById("bracket-screen").style.display = "block";
-    await loadBracket();
+  if (!tournamentId) { showScreen("create-screen"); return; }
+
+  const { data: tournament, error } = await supabaseClient.from("tournaments").select("*").eq("id", tournamentId).maybeSingle();
+  if (error || !tournament) {
+    showScreen("bracket-screen");
+    document.getElementById("tournament-title").textContent = "Tournament not found";
+    return;
+  }
+  currentTournament = tournament;
+  if (tournament.status === "signup") {
+    showScreen("signup-screen");
+    await loadSignupPage();
   } else {
-    document.getElementById("create-screen").style.display = "block";
-    document.getElementById("bracket-screen").style.display = "none";
-    await loadPlayerPicker();
-    wireBracketSizeButtons();
+    showScreen("bracket-screen");
+    await loadBracket();
   }
 }
 
-async function loadPlayerPicker() {
-  const { data: players, error } = await supabaseClient
-    .from("players")
-    .select("id, display_name")
-    .order("display_name");
-  if (error) {
-    console.error(error);
-    document.getElementById("create-status").textContent = "Couldn't load players.";
+const isHost = () => {
+  const me = window.getBakemonPlayer();
+  return !!(me && currentTournament && currentTournament.created_by && me.id === currentTournament.created_by);
+};
+
+/* ---------------- Step 1: create (name + rules), sign-ups open ---------------- */
+
+document.getElementById("create-btn").addEventListener("click", createTournament);
+
+async function createTournament() {
+  const name = document.getElementById("tournament-name-input").value.trim();
+  const info = document.getElementById("tournament-info-input").value.trim();
+  const statusEl = document.getElementById("create-status");
+
+  const loggedInPlayer = window.getBakemonPlayer();
+  if (!loggedInPlayer) { statusEl.textContent = "Log in first so we know who's running this tournament."; return; }
+  if (!name) { statusEl.textContent = "Give the tournament a name."; return; }
+
+  statusEl.textContent = "Opening sign-ups...";
+  const { data: tournament, error } = await supabaseClient
+    .from("tournaments")
+    .insert({ name, info: info || null, status: "signup", created_by: loggedInPlayer.id })
+    .select()
+    .single();
+  if (error) { console.error(error); statusEl.textContent = "Couldn't create the tournament."; return; }
+
+  location.href = `tournament.html?id=${tournament.id}`;
+}
+
+/* ---------------- Step 2: the sign-up page ---------------- */
+
+async function loadSignupPage() {
+  const t = currentTournament;
+  document.getElementById("signup-title").textContent = t.name;
+  document.title = `${t.name} · Bakemon Tournament`;
+
+  const [{ data: host }, { data: signups, error }] = await Promise.all([
+    t.created_by ? supabaseClient.from("players").select("id, display_name").eq("id", t.created_by).maybeSingle() : Promise.resolve({ data: null }),
+    supabaseClient.from("tournament_signups").select("*").eq("tournament_id", t.id).order("created_at")
+  ]);
+  if (error) console.error(error);
+  currentSignups = signups || [];
+
+  document.getElementById("signup-host").innerHTML = host
+    ? `Hosted by <a href="player.html?id=${host.id}">${escapeHtml(host.display_name)}</a> · sign-ups are open`
+    : "Sign-ups are open";
+
+  renderInfo(document.getElementById("signup-info"), t.info);
+  renderSignupAction();
+  renderSignupList();
+  document.getElementById("host-panel").style.display = isHost() ? "block" : "none";
+}
+
+function renderInfo(el, info) {
+  el.textContent = info || "The host hasn't posted any rules yet.";
+  el.classList.toggle("empty", !info);
+}
+
+function renderSignupAction() {
+  const el = document.getElementById("signup-action");
+  const me = window.getBakemonPlayer();
+  if (!me) {
+    el.innerHTML = `<div>Want to play? <a href="index.html" style="color:var(--accent);">Log in on the home page</a> to sign up.</div>`;
     return;
   }
-  allPlayersForPicker = players || [];
+  const mine = currentSignups.find(s => s.player_id === me.id);
+  el.innerHTML = mine
+    ? `<div style="font-weight:700; color:var(--accent); margin-bottom:10px;">You're signed up! ✓</div>
+       <button id="withdraw-btn" class="small">Withdraw</button>
+       <div class="note">The host will build the bracket when sign-ups close.</div>`
+    : `<button id="signup-btn" class="primary">Sign up</button>
+       <div class="note">Signing up as ${escapeHtml(me.display_name)}.</div>`;
+  document.getElementById("signup-btn")?.addEventListener("click", signUp);
+  document.getElementById("withdraw-btn")?.addEventListener("click", () => removeSignup(mine.id));
 }
+
+function renderSignupList() {
+  const me = window.getBakemonPlayer();
+  const host = isHost();
+  document.getElementById("signup-count").textContent = `Signed up (${currentSignups.length})`;
+  const list = document.getElementById("signup-list");
+  if (!currentSignups.length) {
+    list.innerHTML = `<div class="info-text empty">Nobody yet. Be the first!</div>`;
+    return;
+  }
+  list.innerHTML = currentSignups.map((s, i) => `
+    <div class="signup-row${me && s.player_id === me.id ? ' me' : ''}">
+      <span><span class="num">${i + 1}.</span><a href="player.html?id=${s.player_id}">${escapeHtml(s.display_name_snapshot)}</a></span>
+      ${host ? `<button class="small" data-remove-signup="${s.id}" title="Remove from this tournament">✕</button>` : ''}
+    </div>
+  `).join("");
+  list.querySelectorAll("[data-remove-signup]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const s = currentSignups.find(x => x.id === btn.dataset.removeSignup);
+      if (s && confirm(`Remove ${s.display_name_snapshot} from this tournament?`)) removeSignup(s.id);
+    });
+  });
+}
+
+async function signUp() {
+  const me = window.getBakemonPlayer();
+  if (!me) return;
+  const { error } = await supabaseClient.from("tournament_signups")
+    .insert({ tournament_id: currentTournament.id, player_id: me.id, display_name_snapshot: me.display_name });
+  // A duplicate just means you're already on the list (double-click, two tabs) — nothing to report.
+  if (error && error.code !== "23505") { console.error(error); alert("Couldn't sign you up. Try again?"); }
+  await loadSignupPage();
+}
+
+async function removeSignup(signupId) {
+  const { error } = await supabaseClient.from("tournament_signups").delete().eq("id", signupId);
+  if (error) { console.error(error); alert("Couldn't remove that sign-up. Try again?"); }
+  await loadSignupPage();
+}
+
+// Host: edit the rules while sign-ups are open.
+document.getElementById("edit-info-btn").addEventListener("click", () => {
+  document.getElementById("signup-info-input").value = currentTournament.info || "";
+  document.getElementById("signup-info").style.display = "none";
+  document.getElementById("signup-info-editor").style.display = "block";
+});
+document.getElementById("info-cancel-btn").addEventListener("click", () => {
+  document.getElementById("signup-info").style.display = "block";
+  document.getElementById("signup-info-editor").style.display = "none";
+});
+document.getElementById("info-save-btn").addEventListener("click", async () => {
+  const info = document.getElementById("signup-info-input").value.trim() || null;
+  const { error } = await supabaseClient.from("tournaments").update({ info }).eq("id", currentTournament.id);
+  if (error) { console.error(error); alert("Couldn't save. Try again?"); return; }
+  currentTournament.info = info;
+  renderInfo(document.getElementById("signup-info"), info);
+  document.getElementById("info-cancel-btn").click();
+});
+
+/* ---------------- Step 3: host closes sign-ups and builds the bracket ---------------- */
+
+document.getElementById("close-signups-btn").addEventListener("click", () => {
+  if (currentSignups.length < 2) { alert("You need at least 2 people signed up to build a bracket."); return; }
+  allPlayersForPicker = currentSignups.map(s => ({ id: s.player_id, display_name: s.display_name_snapshot }));
+  document.getElementById("builder-title").textContent = `Build the bracket: ${currentTournament.name}`;
+  document.getElementById("builder-hint").textContent =
+    `${currentSignups.length} people signed up. Pick a bracket size, then place them, or use "Fill slots in sign-up order".`;
+  // Start on the smallest bracket that fits everyone.
+  const fits = [4, 8, 16].find(n => n >= currentSignups.length) || 16;
+  document.querySelector(`#bracket-size-row [data-size="${fits}"]`).click();
+  showScreen("builder-screen");
+});
+document.getElementById("builder-back-btn").addEventListener("click", () => showScreen("signup-screen"));
 
 function wireBracketSizeButtons() {
   document.querySelectorAll("#bracket-size-row [data-size]").forEach(btn => {
@@ -239,10 +488,30 @@ function wireBracketSizeButtons() {
       bracketSize = parseInt(btn.dataset.size);
       slotAssignments = new Array(bracketSize).fill(null);
       document.querySelectorAll("#bracket-size-row [data-size]").forEach(b => b.classList.toggle("selected", b === btn));
+      document.getElementById("fill-order-btn").style.display = "inline-block";
+      document.getElementById("builder-status").textContent = "";
       renderSlotGrid();
     });
   });
 }
+wireBracketSizeButtons();
+
+// One player per match first (slots 1, 3, 5, ...), then the second seat of each
+// match. That way every match has someone in it, and any byes are spread out
+// instead of piling up at the bottom of the bracket.
+document.getElementById("fill-order-btn").addEventListener("click", () => {
+  if (!bracketSize) return;
+  slotAssignments = new Array(bracketSize).fill(null);
+  const order = [];
+  for (let i = 0; i < bracketSize; i += 2) order.push(i);
+  for (let i = 1; i < bracketSize; i += 2) order.push(i);
+  allPlayersForPicker.slice(0, bracketSize).forEach((p, k) => { slotAssignments[order[k]] = { id: p.id, name: p.display_name }; });
+  renderSlotGrid();
+  const left = allPlayersForPicker.length - bracketSize;
+  document.getElementById("builder-status").textContent = left > 0
+    ? `${left} ${left === 1 ? "person doesn't" : "people don't"} fit in a ${bracketSize}-player bracket (the last to sign up).`
+    : "";
+});
 
 function renderSlotGrid() {
   const grid = document.getElementById("slot-grid");
@@ -296,17 +565,12 @@ document.getElementById("slot-picker-backdrop").addEventListener("click", (e) =>
   if (e.target.id === "slot-picker-backdrop") closeSlotPicker();
 });
 
-document.getElementById("create-btn").addEventListener("click", createTournament);
+document.getElementById("build-btn").addEventListener("click", buildBracket);
 
-async function createTournament() {
-  const nameInput = document.getElementById("tournament-name-input");
-  const name = nameInput.value.trim();
-  const statusEl = document.getElementById("create-status");
+async function buildBracket() {
+  const statusEl = document.getElementById("builder-status");
 
-  const loggedInPlayer = window.getBakemonPlayer();
-  if (!loggedInPlayer) { statusEl.textContent = "Log in first so we know who's running this tournament."; return; }
-
-  if (!name) { statusEl.textContent = "Give the tournament a name."; return; }
+  if (!isHost()) { statusEl.textContent = "Only the host can start the tournament."; return; }
   if (!bracketSize) { statusEl.textContent = "Pick a bracket size."; return; }
 
   const filledSlots = slotAssignments.filter(a => a);
@@ -326,14 +590,13 @@ async function createTournament() {
     }
   }
 
-  statusEl.textContent = "Creating bracket...";
-
-  const { data: tournament, error: tErr } = await supabaseClient
-    .from("tournaments")
-    .insert({ name, created_by: loggedInPlayer.id })
-    .select()
-    .single();
-  if (tErr) { console.error(tErr); statusEl.textContent = "Couldn't create the tournament."; return; }
+  statusEl.textContent = "Building the bracket...";
+  const tournament = currentTournament;
+  // A double-click must not build the bracket twice.
+  const buildBtn = document.getElementById("build-btn");
+  if (buildBtn.disabled) return;
+  buildBtn.disabled = true;
+  const fail = (msg, err) => { console.error(err); statusEl.textContent = msg; buildBtn.disabled = false; };
 
   const playerRows = filledSlots.map((assignment, i) => ({
     tournament_id: tournament.id,
@@ -342,11 +605,11 @@ async function createTournament() {
     seed_position: i + 1
   }));
   const { error: pErr } = await supabaseClient.from("tournament_players").insert(playerRows);
-  if (pErr) { console.error(pErr); statusEl.textContent = "Couldn't save the player list."; return; }
+  if (pErr) return fail("Couldn't save the player list.", pErr);
 
   const matchRows = buildBracketMatches(tournament.id, slotAssignments, bracketSize);
   const { error: mErr } = await supabaseClient.from("tournament_matches").insert(matchRows);
-  if (mErr) { console.error(mErr); statusEl.textContent = "Couldn't generate the bracket."; return; }
+  if (mErr) return fail("Couldn't generate the bracket.", mErr);
 
   // Byes are decided immediately (their winner_id is set at creation), but
   // nothing has pushed that winner into the next round yet — the normal
@@ -366,6 +629,10 @@ async function createTournament() {
       .eq("match_position", bye.advances_to_match_position);
     if (advanceErr) console.error("Failed to advance a bye winner:", advanceErr);
   }
+
+  // Sign-ups are closed: from here on it's the normal bracket.
+  const { error: sErr } = await supabaseClient.from("tournaments").update({ status: "active" }).eq("id", tournament.id);
+  if (sErr) { console.error(sErr); statusEl.textContent = "The bracket was made, but the tournament couldn't be marked as started. Refresh and try again."; return; }
 
   location.href = `tournament.html?id=${tournament.id}`;
 }
@@ -468,6 +735,15 @@ async function loadBracket() {
   }
 
   document.getElementById("tournament-title").textContent = tournament.name;
+  document.title = `${tournament.name} · Bakemon Tournament`;
+  const infoBox = document.getElementById("bracket-info");
+  if (tournament.info) {
+    document.getElementById("bracket-info-text").textContent = tournament.info;
+    infoBox.style.display = "block";
+    infoBox.open = tournament.status !== "completed";   // open while it's being played, tucked away once it's over
+  } else {
+    infoBox.style.display = "none";
+  }
 
   const loggedInPlayer = window.getBakemonPlayer();
   const isOwner = !!(loggedInPlayer && tournament.created_by && loggedInPlayer.id === tournament.created_by);
