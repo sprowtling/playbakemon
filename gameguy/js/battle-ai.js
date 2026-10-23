@@ -122,6 +122,11 @@ function makeAI(style) {
           const want = req.mon && neededType(req.mon);
           return (opts.find(o => o.value === want) || opts.find(o => req.mon && req.mon.card.types.includes(o.value)) || rand(opts)).value;
         }
+        case 'stealType': {                                                           // Drain Punch: something we can use, else what they have most of
+          const want = P.active && neededType(P.active);
+          const held = t => req.mon.energy.filter(e => e === t).length;
+          return (opts.find(o => o.value === want) || opts.slice().sort((a, b) => held(b.value) - held(a.value))[0]).value;
+        }
         case 'energyFrom': {                                                          // take from the other side when we can
           const theirs = opts.filter(m => !mine(m));
           return (theirs.length ? theirs : opts).slice().sort((a, b) => b.energy.length - a.energy.length)[0];

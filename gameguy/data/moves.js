@@ -143,7 +143,7 @@ const MOVES = {
   '023': { 'Twinship':        { ability: 'passive', tag: 'twinshipBonus' },
            'Prance':          { ops: [{ shield: 'all', lasts: 'nextHit', who: 'own_any', names: ['Jeremo♀'] }] } },
   '024': { 'Twinship':        { ability: 'activated', oncePerTurn: false, ops: [{ swapPartner: { names: ['Jeremo♂'] } }] },
-           'Graze':           { ops: [{ heal: 30, who: 'own_any', names: ['Jeremo♀', 'Jeremo♂'] }] } },
+           'Graze':           { ops: [{ heal: 40, who: 'own_any', names: ['Jeremo♀', 'Jeremo♂'] }] } },
   '025': { 'Singe':           { ops: [{ flip: 1, heads: [{ status: 'burned' }] }] } },
   '026': { 'Dunk':            { ops: [{ shield: 'all', lasts: 'nextTurn' }] } },
   '027': { 'Waste Disposal':  { ability: 'activated', oncePerTurn: false, ops: [{ moveEnergy: 1, from: 'self', to: 'own_other' }] } },
