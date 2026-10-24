@@ -51,9 +51,11 @@ function cardMoves(card) {
   return movesCache[card.id];
 }
 
-// Humidifier: while anyone wears one, every attack in play counts as having one more water energy.
+// Humidifier: while anyone wears one, every attack in play gets one free water energy toward its cost (see canPay).
+// It doesn't change what type an attack is: only the symbols printed on the move do that (Bryan's ruling), so it
+// never counts for weakness, Umbrella, Hydrosurge or anything else that asks about an attack's type.
 const humidifierOn = G => !!G && G.players.some(Q => zone(Q).some(m => equipTag(m) === 'humidifier'));
-const costCount    = (move, type) => (move.cost.types[type] || 0) + (type === 'water' && humidifierOn(ACTIVE_G) ? 1 : 0);
+const costCount    = (move, type) => move.cost.types[type] || 0;
 // A move whose text names its damage type (Denticle: "in fighting damage") counts as that type everywhere damage
 // cares about type: weakness, Eclidyr's Celestial Bodies, Aqua Ring, and so on (Bryan's ruling).
 const costIncludes = (move, type) => !!(move && (costCount(move, type) || (move.fx && move.fx.damageType === type)));

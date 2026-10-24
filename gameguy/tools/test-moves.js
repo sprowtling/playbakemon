@@ -461,18 +461,23 @@ await test('Purify: confusion becomes a random energy', async () => {
   await ability(G, 0, act(G, 0), 'Purify');
   eq(E.zone(G.players[0]).concat(E.zone(G.players[1])).flatMap(m => m.energy).length, 1, 'one energy of some type');
 });
-await test('Humidifier: every attack counts as having one more water energy', async () => {
+await test('Humidifier: one free water toward every cost, but it never makes an attack water-type', async () => {
   const cost = { types: { water: 2 }, any: 0, total: 2 };
   let G = game({ active: 'Poteplant', energy: { Poteplant: ['water'] } }, { active: 'Raizado' });
   eq(E.canPay(act(G, 0), cost), false, 'one water is not enough');
   G = game({ active: 'Poteplant', energy: { Poteplant: ['water'] } }, { active: 'Raizado', equip: { Raizado: '111' } });
   eq(E.canPay(act(G, 0), cost), true, 'with a Humidifier anywhere, one water is enough');
-  // ...and weakness counts the extra water symbol: Draquaduct-style check against a water-weak target.
+  // ...but it doesn't make the attack water-type (Bryan's ruling): no water weakness bonus.
   const weakToWater = E.CARDS.find(c => c.kind === 'bakemon' && c.weak.includes('water'));
   const hit = { name: 'Plain', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
   const A = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: weakToWater.name, big: [weakToWater.name], equip: { [weakToWater.name]: '111' } });
   await ctx.resolveAttack(A, A.players[0], act(A, 0), hit);
-  eq(act(A, 1).maxHp - act(A, 1).hp, 40, 'plain attack gets +10 against a water-weak target while a Humidifier is out');
+  eq(act(A, 1).maxHp - act(A, 1).hp, 30, 'no water weakness bonus from the Humidifier');
+  // ...and Leapol's Umbrella ("avoid water-type damage") doesn't block a non-water attack just because a Humidifier is out.
+  const U = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: 'Leapol', big: ['Leapol'], equip: { Leapol: '111' } });
+  act(U, 1).effects.push({ kind: 'shield', amount: 'all', lasts: 'nextTurn', onlyFrom: 'water', expires: 99 });
+  await ctx.resolveAttack(U, U.players[0], act(U, 0), hit);
+  eq(act(U, 1).maxHp - act(U, 1).hp, 30, 'Umbrella lets a non-water attack through');
 });
 await test('Notepad: copy a move, use it for the same NUMBER of energy, then it is used up', async () => {
   const G = game({ active: 'Poteplant', energy: { Poteplant: ['grass', 'grass'] }, hand: ['112'] }, { active: 'Lemurk', big: ['Lemurk'] });
