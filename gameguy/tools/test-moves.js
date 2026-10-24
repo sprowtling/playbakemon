@@ -946,11 +946,12 @@ await test('Lullaby is an attack that puts the target to sleep; Phantasia does 3
   const t = act(G, 1); t.hp = t.maxHp; await attack(G, 0, 'Phantasia'); eq(t.maxHp - t.hp, 90, '60 + 30');
   t.hp = t.maxHp; delete t.status.asleep; await attack(G, 0, 'Phantasia'); eq(t.maxHp - t.hp, 60, 'just 60 awake');
 });
-await test('Mischief: any Bakemon discards an energy; grass goes to Kidding instead', async () => {
+await test('Mischief: any Bakemon, either side, takes the 10 and discards an energy; grass goes to Kidding instead', async () => {
   const G = game({ active: 'Kidding', bench: ['Poteplant'], energy: { Poteplant: ['grass'] } }, { active: 'Raizado', big: ['Raizado'], energy: { Raizado: ['fire'] } },
     [{ mischief: (G, P, req) => req.options.find(m => m.card.name === 'Poteplant') }, null]);
   await attack(G, 0, 'Mischief');
   eq(bn(G, 0).energy.length, 0, 'Poteplant lost it'); eq(act(G, 0).energy.join(), 'grass', 'Kidding ate it');
+  eq(bn(G, 0).maxHp - bn(G, 0).hp, 10, 'and the 10 damage went to the chosen Bakemon'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'not the opposing active');
   const H = game({ active: 'Kidding' }, { active: 'Raizado', big: ['Raizado'], energy: { Raizado: ['fire'] } });
   await attack(H, 0, 'Mischief'); eq(act(H, 1).energy.length, 0, 'fire discarded'); eq(act(H, 0).energy.length, 0, "Kidding keeps its own energy now");
 });

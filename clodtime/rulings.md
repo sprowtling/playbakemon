@@ -54,6 +54,9 @@ are how to read it. I check here before deciding a report.
   doesn't make it a water attack either.
 - **Retreating to the bench clears statuses.** Buffs stay for now. Once the weather system is
   finished, only buffs that give the table its weather should stay when a Bakemon retreats.
+- **"Choose any target in the play area" means either side, and the attack goes to that target.**
+  Kidding's Mischief can pick one of your own Bakemon (to eat its grass); the 10 damage goes there too.
+  (Bryan, Oct 24.)
 - **Weaknesses aren't relics.** Shrizzle and Lobscorch are weak to fighting on purpose. The fighting →
   ground change only applied to cards Bryan actually changed. Go by the printed card.
 - **The bots don't need to be optimal.** As long as a move is possible, Nyx not choosing it is fine.

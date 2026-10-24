@@ -160,7 +160,7 @@ function makeAI(style) {
           return /bench\?/.test(req.prompt) ? !!P.active && P.active.hp <= P.active.maxHp * 0.5 : true;
         case 'whoseHand': case 'whoseDiscard': return P.index;
         case 'mischief': {                                                            // eat our own grass if we have some, else strip their best-fed Bakemon
-          const grassy = opts.filter(m => mine(m) && m.energy.includes('grass'));
+          const grassy = opts.filter(m => mine(m) && m.energy.includes('grass') && m.hp > 20);          // it takes the 10 too
           return grassy[0] || opts.filter(m => !mine(m)).sort((a, b) => b.energy.length - a.energy.length)[0] || opts[0];
         }
         case 'acidRainOn': return opts.slice().sort((a, b) => (b === other(G, P).active) - (a === other(G, P).active))[0];   // their active first

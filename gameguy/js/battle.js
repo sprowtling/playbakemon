@@ -1034,7 +1034,7 @@ async function runOps(G, ctx, ops) {
     }
 
     else if (op.retarget) {
-      const mon = await selectMon(G, ctx, op.retarget, op, 'hurt', 'Hit which Bakemon?');
+      const mon = await selectMon(G, ctx, op.retarget, op, op.purpose || 'hurt', op.prompt || 'Hit which Bakemon?');
       if (mon) ctx.target = mon;               // with nobody on the bench, it just hits the active one
       if (op.unavoidable) ctx.unavoidable = true;
     }
@@ -1258,9 +1258,9 @@ async function runOps(G, ctx, ops) {
         await say2(G, 'One of ' + mon.card.name + "'s " + type + ' energy turns dark.', { mon });
       }
     }
-    else if (op.mischief) {                                // Kidding: any Bakemon discards one energy; grass goes to Kidding instead
-      const mon = await pick(G, P, zone(P).concat(zone(enemy)).filter(m => m.energy.length && m !== me), 'mischief', 'Mischief: which Bakemon discards an energy?');
-      if (!mon) continue;
+    else if (op.mischief) {                                // Kidding: the target discards one energy; grass goes to Kidding instead
+      const mon = ctx.target;
+      if (!mon || mon === me || !mon.energy.length) continue;
       const kinds = [...new Set(mon.energy)];
       const type = kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'stealType', mon, prompt: 'Which energy does ' + mon.card.name + ' discard?', options: kinds.map(k => ({ label: k, value: k, energy: k })) });
       mon.energy.splice(mon.energy.lastIndexOf(type), 1);

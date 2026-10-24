@@ -143,7 +143,8 @@ const MOVES = {
            'Phantasia':       { ops: [{ bonusIfTargetStatus: 'asleep', damage: 30 }] } },
   '016': { 'Stare at Sky':    { ability: 'activated', oncePerTurn: false, ops: [{ clearWeather: true }] },
            'Slither':         { ops: [{ status: 'asleep' }] } },
-  '017': { 'Mischief':        { ops: [{ mischief: true }] } },
+  // "Choose any target in the play area": either side, and the 10 damage goes to whoever Kidding picks (Bryan's ruling).
+  '017': { 'Mischief':        { ops: [{ pre: true, retarget: 'any_other', purpose: 'mischief', prompt: 'Mischief: which Bakemon?' }, { mischief: true }] } },
   '018': { 'Graze':           { ops: [{ healPerEnergy: 20, type: 'grass' }] },
            'Headbutt':        { ops: [{ ifTargetWeakTo: 'fire', then: [{ status: 'burned' }] }] } },
   // Leap does two things: fire-type Bakemon in play (both sides) hit 10 harder while Flairees is in play,
