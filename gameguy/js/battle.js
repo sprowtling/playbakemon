@@ -148,13 +148,19 @@ async function roll(G, sides, why) {
   return value;
 }
 
-// Weather lasts as long as the Bakemon that made it stays in play (benched still counts).
-// A newer weather simply replaces the old one.
+// Weather lasts as long as the Bakemon that made it stays in play (benched still counts), or, for a
+// weather left behind by a Bakemon that's gone (Quetzalil's Fire Watch), until its last turn passes.
+// A newer weather simply replaces the old one. No weather at all is Blue Sky.
+// The weather belongs to whoever called it: some only hit "your opponent" (Bryan's ruling).
 function currentWeather(G) {
-  if (G.weather && !G.players.some(Q => zone(Q).includes(G.weather.source))) G.weather = null;
+  const w = G.weather;
+  if (w && w.source && !G.players.some(Q => zone(Q).includes(w.source))) G.weather = null;
+  else if (w && w.until !== undefined && G.turnNumber > w.until) G.weather = null;
   return G.weather;
 }
 const weatherIs = (G, name) => { const w = currentWeather(G); return !!w && w.name === name; };
+const weatherOwner = G => { const w = currentWeather(G); return !w ? null : w.owner !== undefined ? G.players[w.owner] : ownerOf(G, w.source); };
+const weatherLabel = name => WEATHER[name] ? WEATHER[name].label : name;
 // Hailstorm clears and prevents "elemental effects": every bonus that depends on an attack's element.
 const elementalOn = G => !weatherIs(G, 'hailstorm');
 
@@ -237,6 +243,11 @@ async function startTurn(G, P) {
 
   await runDelayed(G, P);
   if (G.winner) return;
+
+  const hadWeather = G.weather;
+  if (hadWeather && !currentWeather(G)) await say2(G, 'The ' + weatherLabel(hadWeather.name) + ' fades away.');
+  // Fire Watch burns whatever stands in the active slot across from whoever called it.
+  if (weatherIs(G, 'fireWatch') && weatherOwner(G) !== P && P.active && !P.active.status.burned) await applyStatus(G, P.active, 'burned');
 
   // Haunted: roll a D3. On a 1 the Bakemon slinks back to the bench and loses all its energy.
   if (P.active && P.active.status.haunted && bench(P).length) {
@@ -568,7 +579,9 @@ async function switchActive(G, P, incoming) {
   if (quake) await dealDamage(G, null, incoming, 10 * (await roll(G, 3, 'The quake')), { why: 'the quake' });
   // Cryodyr's Glaciabolt: the frost freezes whatever the other side puts in the active slot.
   const w = currentWeather(G);
-  if (w && w.name === 'frost' && ownerOf(G, w.source) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 3) await applyStatus(G, incoming, 'frozen');
+  if (w && w.name === 'frost' && weatherOwner(G) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 3) await applyStatus(G, incoming, 'frozen');
+  // Fire Watch: whatever the other side puts in the active slot catches fire.
+  if (w && w.name === 'fireWatch' && weatherOwner(G) !== P && incoming.hp > 0 && !incoming.status.burned) await applyStatus(G, incoming, 'burned');
 }
 
 // Gambarue's Rascal borrows an item "until the target retreats or is KO'd". Then it goes to the discard pile.
@@ -599,6 +612,7 @@ async function resolveAttack(G, P, attacker, move, copied) {
   const mustFlip = attacker.effects.find(e => e.kind === 'mustFlip');
   if (mustFlip) { attacker.effects.splice(attacker.effects.indexOf(mustFlip), 1); if (!(await flip(G, 'Can it attack'))) return say2(G, 'It fails!'); }
   if (enemy.active && equipTag(enemy.active) === 'attackersMustFlip' && !(await flip(G, 'Maced! Does the attack land'))) return say2(G, 'It misses!');
+  if (weatherIs(G, 'overcast') && costIncludes(move, 'grass') && (await roll(G, 6, 'Overcast')) === 1) return say2(G, 'The clouds smother it. The attack fails!');
 
   // Using the same move turn after turn (Curl, Trample). Copied attacks don't count.
   const sameMove = !copied && attacker.lastMove === move.name && attacker.lastAttackTurn === G.turnNumber - 2;
@@ -685,7 +699,8 @@ async function dealDamage(G, source, victim, amount, o) {
       if (victim.status.frozen && costIncludes(move, 'electric') && tagCount(G, 'ionCharge')) amount += 10 * move.cost.types.electric;   // Cryodyr
       if (G.t.amp && G.t.amp.types.some(t => costIncludes(move, t))) amount += G.t.amp.amount;                // Eclidyr's Celestial Bodies
     }
-    if (weatherIs(G, 'hydrosurge') && costIncludes(move, 'water')) amount += 20;                              // Draquaduct's weather
+    if (weatherIs(G, 'flood') && costIncludes(move, 'water')) amount += 20;                                   // Draquaduct's Flood
+    if (weatherIs(G, 'heatLightning') && costIncludes(move, 'electric')) amount += 20;                        // Heat Lightning
     // Weakness: +10 for every matching energy symbol in the attack's cost. (Not on the bench: the rules page.)
     // A move whose text names its damage type (Denticle: "in fighting damage") counts as one symbol of it.
     if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) {
@@ -846,7 +861,7 @@ async function checkKOs(G) {
       other(G, P).points += 1;
     }
   }
-  if (hadWeather && !currentWeather(G)) await say2(G, 'The ' + (WEATHER[hadWeather.name] ? WEATHER[hadWeather.name].label : hadWeather.name) + ' fades away.');
+  if (hadWeather && !currentWeather(G)) await say2(G, 'The ' + weatherLabel(hadWeather.name) + ' fades away.');
   // Whose turn it is wins ties, which can only happen when both sides go down at once.
   const order = [G.players[G.turn], G.players[1 - G.turn]];
   for (const P of order) if (P.points >= G.rules.pointsToWin) return declare(G, P, subj(P, 'reaches') + ' ' + P.points + ' points.');
@@ -1176,7 +1191,7 @@ async function runOps(G, ctx, ops) {
     }
     else if (op.weather) {
       G.weather = { name: op.weather, source: me };
-      await say2(G, 'The weather changes: ' + (WEATHER[op.weather] ? WEATHER[op.weather].label : op.weather) + '!', { kind: 'weather' });
+      await say2(G, 'The weather changes: ' + weatherLabel(op.weather) + '!', { kind: 'weather' });
     }
     else if (op.ifWeather) { if (weatherIs(G, op.ifWeather)) await runOps(G, ctx, op.then); }
     else if (op.ifTargetWeakTo) { if (ctx.target && ctx.target.hp > 0 && ctx.target.card.weak.includes(op.ifTargetWeakTo)) await runOps(G, ctx, op.then); }

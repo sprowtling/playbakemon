@@ -91,11 +91,16 @@
    ============================================================ */
 
 // Weather. One at a time; see the vocabulary above. The rules live in js/battle.js.
+// No weather at all is Blue Sky. The PvP playmat keeps the same list (PLAYMAT_WEATHER in playmat.html).
 const WEATHER = {
-  hailstorm:  { label: 'Hailstorm',  text: 'Clears and prevents elemental effects.' },
-  hydrosurge: { label: 'Hydrosurge', text: 'Water attacks do +20 damage.' },
-  starfall:   { label: 'Starfall',   text: 'Damage to fairy-types is reduced by a D6.' },
-  frost:      { label: 'Frost',      text: 'Bakemon put in the active slot may freeze.' },
+  flood:         { label: 'Flood',          text: 'Water attacks do +20 damage.' },
+  acidRain:      { label: 'Acid Rain',      text: "Once per turn, the caller may roll a D6 and turn that many of the opponent's water or ice energy into dark energy." },
+  heatLightning: { label: 'Heat Lightning', text: 'Electric attacks in the play field do +20 damage.' },
+  fireWatch:     { label: 'Fire Watch',     text: "Any Bakemon in the caller's opponent's active slot becomes burned." },
+  overcast:      { label: 'Overcast',       text: 'When using a grass-type move, roll a D6. On a 1, the attack fails.' },
+  hailstorm:     { label: 'Hailstorm',      text: 'Clears and prevents elemental effects.' },
+  starfall:      { label: 'Starfall',       text: 'Damage to fairy-types is reduced by a D6 × 10.' },
+  frost:         { label: 'Frost',          text: "Bakemon the caller's opponent puts in the active slot may freeze." },
 };
 
 // "Mushroom-based" Bakemon, for Mushmutt's Co-opt and Iveldyr's Spore Bloom. ASSUMED list.
@@ -139,7 +144,7 @@ const MOVES = {
   '021': { 'Soak':            { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'water', to: 'own_any' }] } },
   // Read as: the 30 damage goes to a benched Bakemon INSTEAD of the active one.
   '022': { 'Quake':           { ops: [{ pre: true, retarget: 'enemy_bench' }] },
-           'Hydrosurge':      { approx: '"discard Draquaduct at any time" is not offered', ops: [{ weather: 'hydrosurge' }] } },
+           'Hydrosurge':      { approx: '"discard Draquaduct at any time" is not offered', ops: [{ weather: 'flood' }] } },
   '023': { 'Twinship':        { ability: 'passive', tag: 'twinshipBonus' },
            'Prance':          { ops: [{ shield: 'all', lasts: 'nextHit', who: 'own_any', names: ['Jeremo♀'] }] } },
   '024': { 'Twinship':        { ability: 'activated', oncePerTurn: false, ops: [{ swapPartner: { names: ['Jeremo♂'] } }] },

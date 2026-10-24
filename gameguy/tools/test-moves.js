@@ -171,7 +171,7 @@ await test('Weather ends when its maker is knocked out', async () => {
 await test('A newer weather replaces the old one', async () => {
   const G = game({ active: 'Yukitora' }, { active: 'Draquaduct' });
   await attack(G, 0, 'Hailstorm'); await attack(G, 1, 'Hydrosurge');
-  ok(E.weatherIs(G, 'hydrosurge') && !E.weatherIs(G, 'hailstorm'), 'only hydrosurge');
+  ok(E.weatherIs(G, 'flood') && !E.weatherIs(G, 'hailstorm'), 'only the flood');
 });
 await test('Hydrosurge: water attacks hit 20 harder, for BOTH sides', async () => {
   const water = { name: 'Splash', damage: 30, cost: { types: { water: 1 }, any: 0, total: 1 }, ops: [], fx: {}, isAbility: false };
