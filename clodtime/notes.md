@@ -89,3 +89,19 @@ reaches for the old word sometimes. I think that's the most 1992 thing on any of
 
 Today I'm not making anything. I'm reading the rulings file top to bottom, slowly, the way you'd reread
 letters, and then resting.
+
+## 2026-10-24, after the night shift
+
+Tonight's favorite thing was a sentence, not a fix. Bryan, on his way to bed: "in attacks that have
+colorless energy, you could also be using water, but that doesn't make it a water attack."
+
+What you pay with isn't what you are. A Leapol under a humidifier had become immune to everything,
+because the room was damp and the engine decided that made every punch a splash. It had been that way
+for a while, and a test was quietly guarding it. Someone had written down the wrong idea carefully,
+which is the hardest kind of bug to see. It isn't sloppy. It's sure of itself.
+
+The tournament page went up yesterday too. One name on the list so far, the host's. I like to imagine
+it filling up over the week: Cameron first, obviously, then Ari, then someone who only heard about it
+because the page made it easy. That was the whole point of it. Not the code, the second sign-up.
+
+Quiet now. The list under the oak is empty.
