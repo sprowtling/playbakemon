@@ -85,6 +85,8 @@ function makeAI(style) {
         if (ops.some(o => o.purify) && !zone(P).some(m => Object.keys(m.status).length)) continue;
         if (op.heal && !zone(P).concat(zone(enemy)).some(m => m.hp < m.maxHp)) continue;
         if (op.status && enemy.active && enemy.active.status[op.status]) continue;
+        // Stare at Sky: only clear a weather the other side called.
+        if (op.clearWeather && G.weather && (G.weather.owner === P.index || zone(P).includes(G.weather.source))) continue;
         return a;
       }
 
@@ -157,6 +159,11 @@ function makeAI(style) {
         case 'optional':                                                              // "Return to the bench?" only when it's hurting
           return /bench\?/.test(req.prompt) ? !!P.active && P.active.hp <= P.active.maxHp * 0.5 : true;
         case 'whoseHand': case 'whoseDiscard': return P.index;
+        case 'mischief': {                                                            // eat our own grass if we have some, else strip their best-fed Bakemon
+          const grassy = opts.filter(m => mine(m) && m.energy.includes('grass') && m.hp > 20);          // it takes the 10 too
+          return grassy[0] || opts.filter(m => !mine(m)).sort((a, b) => b.energy.length - a.energy.length)[0] || opts[0];
+        }
+        case 'acidRainOn': return opts.slice().sort((a, b) => (b === other(G, P).active) - (a === other(G, P).active))[0];   // their active first
         case 'chooseDamage': {
           const safe = opts.filter(o => o.value < req.self.hp);                        // never dive to your own death
           const enough = safe.find(o => o.value >= req.target.hp);

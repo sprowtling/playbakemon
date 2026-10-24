@@ -171,7 +171,7 @@ await test('Weather ends when its maker is knocked out', async () => {
 await test('A newer weather replaces the old one', async () => {
   const G = game({ active: 'Yukitora' }, { active: 'Draquaduct' });
   await attack(G, 0, 'Hailstorm'); await attack(G, 1, 'Hydrosurge');
-  ok(E.weatherIs(G, 'hydrosurge') && !E.weatherIs(G, 'hailstorm'), 'only hydrosurge');
+  ok(E.weatherIs(G, 'flood') && !E.weatherIs(G, 'hailstorm'), 'only the flood');
 });
 await test('Hydrosurge: water attacks hit 20 harder, for BOTH sides', async () => {
   const water = { name: 'Splash', damage: 30, cost: { types: { water: 1 }, any: 0, total: 1 }, ops: [], fx: {}, isAbility: false };
@@ -538,36 +538,11 @@ await test('Evolving: stage one to stage two must wait a turn', async () => {
   G.turnNumber += 2;
   eq(evo().length, 1, 'next turn it is');
 });
-await test('Contact Zap: the attacker does no damage on its NEXT turn', async () => {
+await test('Contact Zap: heads paralyzes the attacker (Patch A1 wording)', async () => {
   const G = game({ active: 'Poteplant', big: ['Poteplant'] }, { active: 'Torshock', big: ['Torshock'] });
-  G.turn = 0;
   const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
   rig(HEADS); await ctx.resolveAttack(G, G.players[0], act(G, 0), hit);
-  ok(act(G, 0).status.paralyzed, 'paralyzed');
-  await ctx.endTurn(G, G.players[0]);                                 // my turn ends
-  G.turnNumber = 11; G.turn = 1; await ctx.endTurn(G, G.players[1]);  // Torshock's turn ends
-  G.turnNumber = 12; G.turn = 0;                                      // my next turn
-  ok(act(G, 0).effects.some(e => e.kind === 'dmgDebuff' && e.amount >= 999), 'still unable to do damage on my next turn');
-  const hp = act(G, 1).hp; await ctx.resolveAttack(G, G.players[0], act(G, 0), hit);
-  eq(act(G, 1).hp, hp, 'no damage');
-});
-
-await test("Hide: blocks damage through the opponent's next turn, then wears off", async () => {
-  const G = game({ active: 'Leapod', big: ['Leapod'] }, { active: 'Poteplant', big: ['Poteplant'] });
-  const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
-  const leapod = act(G, 0);
-  G.turn = 0; await attack(G, 0, 'Hide');
-  await ctx.endTurn(G, G.players[0]);                                 // Leapod's turn ends
-  G.turnNumber += 1; G.turn = 1;                                      // opponent's next turn
-  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
-  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
-  eq(leapod.maxHp - leapod.hp, 0, 'every hit that turn is avoided');
-  await ctx.endTurn(G, G.players[1]);                                 // opponent's turn ends
-  G.turnNumber += 1; G.turn = 0;
-  ok(!leapod.effects.some(e => e.kind === 'shield'), 'Hide should be gone');
-  G.turnNumber += 1; G.turn = 1;
-  await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
-  eq(leapod.maxHp - leapod.hp, 30, 'hit normally a turn later');
+  ok(act(G, 0).status.paralyzed, 'paralyzed'); ok(!act(G, 0).effects.some(e => e.kind === 'dmgDebuff'), 'no extra damage debuff any more');
 });
 
 await test('Networking: Mushmutt counts as a mushroom', async () => {
@@ -618,11 +593,15 @@ await test('Take Root: using it again does not stack', async () => {
   await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
   eq(act(G, 0).maxHp - act(G, 0).hp, 70, 'blocked 30, not 90');
 });
-await test('Solar Powered: heads heals 20', async () => {
+await test('Solar Powered: Blue Sky heals 20 and does 100; any weather does 70 and no healing', async () => {
   const G = game({ active: 'Raizado' }, { active: 'Poteplant', big: ['Poteplant'] });
   act(G, 0).hp -= 50;
-  rig(HEADS); await attack(G, 0, 'Solar Powered');
-  eq(act(G, 0).maxHp - act(G, 0).hp, 30, 'healed 20');
+  await attack(G, 0, 'Solar Powered');
+  eq(act(G, 0).maxHp - act(G, 0).hp, 30, 'healed 20'); eq(act(G, 1).maxHp - act(G, 1).hp, 100, '70 + 30');
+  const H = game({ active: 'Raizado', bench: ['Draquaduct'] }, { active: 'Poteplant', big: ['Poteplant'] });
+  H.weather = { name: 'flood', source: bn(H, 0) }; act(H, 0).hp -= 50;
+  await attack(H, 0, 'Solar Powered');
+  eq(act(H, 0).maxHp - act(H, 0).hp, 50, 'no healing'); eq(act(H, 1).maxHp - act(H, 1).hp, 70, 'just 70');
 });
 await test('Drown discards two water energy; Plow two ground', async () => {
   const G = game({ active: 'Whave', energy: { Whave: ['water', 'water', 'water', 'water'] } }, { active: 'Poteplant', big: ['Poteplant'] });
@@ -885,6 +864,143 @@ await test("High Voltage: if the hit knocks the target out, Deserzoa still loses
   const H = game({ active: 'Deserzoa', energy: { Deserzoa: ['electric', 'electric', 'fire'] } }, { active: 'Raizado', big: ['Raizado'] });
   await attack(H, 0, 'High Voltage');
   eq(act(H, 1).energy.join(), 'electric', 'a survivor still gets it');
+});
+
+/* ================= Patch A1: cards 001–030 ================= */
+await test('Poteplant: Photosynthesize heals 20; Plant Seed draws an extra card next turn', async () => {
+  const G = game({ active: 'Poteplant' }, { active: 'Raizado', big: ['Raizado'] });
+  act(G, 0).hp -= 30; await attack(G, 0, 'Photosynthesize'); eq(act(G, 0).maxHp - act(G, 0).hp, 10, 'healed 20');
+  await attack(G, 0, 'Plant Seed');
+  G.turn = 1; await ctx.startTurn(G, G.players[1]);
+  const before = G.players[0].hand.length;
+  G.turn = 0; await ctx.startTurn(G, G.players[0]);
+  eq(G.players[0].hand.length - before, 2, 'the normal draw plus the seed');
+  const again = G.players[0].hand.length; G.turn = 0; await ctx.startTurn(G, G.players[0]);
+  eq(G.players[0].hand.length - again, 1, 'only once');
+});
+await test('Absorb: D3 x 10, and Leapod heals what the target actually took', async () => {
+  const G = game({ active: 'Leapod' }, { active: 'Raizado', big: ['Raizado'] });
+  act(G, 0).hp -= 40; rig(d(3, 3)); await attack(G, 0, 'Absorb');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 30, '30 dealt'); eq(act(G, 0).maxHp - act(G, 0).hp, 10, 'healed 30');
+});
+await test("Leafbrella: Leapol takes nothing from water attacks, but other attacks still land", async () => {
+  const G = game({ active: 'Whave', big: ['Whave'], energy: { Whave: ['water', 'water'] } }, { active: 'Leapol' });
+  await attack(G, 0, 'Torrent'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'water bounces off');
+  const H = game({ active: 'Poteplant' }, { active: 'Leapol' });
+  const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  await ctx.resolveAttack(H, H.players[0], act(H, 0), hit); eq(act(H, 1).maxHp - act(H, 1).hp, 30, 'a plain hit lands');
+});
+await test('Acid Rain: falls at five dark energy, the caller converts and chooses, it stops below five, and comes back after being cleared', async () => {
+  const pickBench = { acidRainOn: (G, P, req) => req.options.find(m => m.card.name === 'Whave') || req.options[0] };
+  const G = game({ active: 'Leapek', bench: ['Biropod'], energy: { Leapek: ['dark', 'dark', 'dark'], Biropod: ['dark'] } },
+                 { active: 'Raizado', bench: ['Whave'], energy: { Raizado: ['water'], Whave: ['water', 'ice'] } }, [pickBench, null]);
+  await ctx.perform(G, G.players[0], { type: 'noop' });
+  ok(!E.weatherIs(G, 'acidRain'), 'not at four');
+  bn(G, 0).energy.push('dark'); await ctx.perform(G, G.players[0], { type: 'noop' });
+  ok(E.weatherIs(G, 'acidRain'), 'falls at five');
+  ok(!ctx.legalActions(G, G.players[1]).some(a => a.type === 'ability' && a.move.name === 'Acid Rain'), "the other side can't use it");
+  rig(d(6, 2)); await ability(G, 0, act(G, 0), 'Acid Rain');
+  eq(bn(G, 1).energy.slice().sort().join(), 'dark,dark', "the caller picked Whave's water and ice"); eq(act(G, 1).energy.join(), 'water', 'Raizado untouched');
+  ok(!ctx.legalActions(G, G.players[0]).some(a => a.type === 'ability' && a.move.name === 'Acid Rain'), 'once per turn');
+  bn(G, 0).energy.pop(); ok(!E.weatherIs(G, 'acidRain'), 'stops below five');
+  bn(G, 0).energy.push('dark'); await ctx.perform(G, G.players[0], { type: 'noop' }); ok(E.weatherIs(G, 'acidRain'), 'back at five');
+  // The other side clears the sky; it falls again when Leapek's side's turn starts.
+  G.turn = 1; G.players[1].bench[1] = E.makeMon(G, idOf('Pentawunk'));
+  await ability(G, 1, bn(G, 1, 1), 'Stare at Sky'); ok(!E.currentWeather(G), 'Blue Sky');
+  G.turn = 0; await ctx.startTurn(G, G.players[0]); ok(E.weatherIs(G, 'acidRain'), 'it starts up again');
+});
+await test('Enduring Blaze: knocking out Quetzalil brings Fire Watch for five of the opponent\'s turns', async () => {
+  const G = game({ active: 'Quetzalil', bench: ['Quexcell'], hp: { Quetzalil: 10 } }, { active: 'Raizado', bench: ['Poteplant'], big: ['Raizado', 'Poteplant'] });
+  const hit = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  G.turn = 1; await ctx.resolveAttack(G, G.players[1], act(G, 1), hit);
+  ok(E.weatherIs(G, 'fireWatch'), 'Fire Watch'); ok(!act(G, 1).status.burned, 'not straight away');
+  let burns = 0;
+  for (let i = 0; i < 6; i++) {
+    G.turn = 0; await ctx.startTurn(G, G.players[0]); ok(!act(G, 0).status.burned, "the caller's side is never burned");
+    G.turn = 1; await ctx.startTurn(G, G.players[1]);
+    if (act(G, 1).status.burned) { burns++; delete act(G, 1).status.burned; }
+  }
+  eq(burns, 5, 'burned at the start of five of their turns');
+  ok(!E.currentWeather(G), 'then it fades');
+  // A Bakemon sent in during Fire Watch catches fire too.
+  const H = game({ active: 'Quetzalil', bench: ['Quexcell'], hp: { Quetzalil: 10 } }, { active: 'Raizado', bench: ['Poteplant'], big: ['Raizado', 'Poteplant'] });
+  H.turn = 1; await ctx.resolveAttack(H, H.players[1], act(H, 1), hit);
+  await ctx.switchActive(H, H.players[1], bn(H, 1)); ok(act(H, 1).status.burned, 'the new active burns');
+});
+await test('Sleep Paralysis: with Phantoplume out, a sleeper only wakes on a 3', async () => {
+  const G = game({ active: 'Phantoplume' }, { active: 'Raizado' });
+  act(G, 1).status.asleep = true;
+  G.turn = 1; rig(d(3, 2)); await ctx.startTurn(G, G.players[1]); ok(act(G, 1).status.asleep, 'a 2 stays asleep');
+  rig(d(3, 3)); await ctx.startTurn(G, G.players[1]); ok(!act(G, 1).status.asleep, 'a 3 wakes');
+});
+await test("Nightmare can't be used two turns in a row", async () => {
+  const G = game({ active: 'Phantoplume', big: ['Phantoplume'], energy: { Phantoplume: ['psychic', 'psychic', 'psychic'] } }, { active: 'Raizado', big: ['Raizado'] });
+  const can = () => ctx.legalActions(G, G.players[0]).some(a => a.type === 'attack' && a.move.name === 'Nightmare');
+  ok(can(), 'available'); await attack(G, 0, 'Nightmare');
+  G.turnNumber += 2; ok(!can(), 'not the very next turn'); G.turnNumber += 2; ok(can(), 'fine the turn after');
+});
+await test('Lullaby is an attack that puts the target to sleep; Phantasia does 30 more to a sleeper', async () => {
+  const G = game({ active: 'Ravenoth' }, { active: 'Raizado', big: ['Raizado'] });
+  ok(!E.cardMoves(act(G, 0).card).find(m => m.name === 'Lullaby').isAbility, 'an attack now');
+  await attack(G, 0, 'Lullaby'); ok(act(G, 1).status.asleep, 'asleep');
+  const t = act(G, 1); t.hp = t.maxHp; await attack(G, 0, 'Phantasia'); eq(t.maxHp - t.hp, 90, '60 + 30');
+  t.hp = t.maxHp; delete t.status.asleep; await attack(G, 0, 'Phantasia'); eq(t.maxHp - t.hp, 60, 'just 60 awake');
+});
+await test('Mischief: any Bakemon, either side, takes the 10 and discards an energy; grass goes to Kidding instead', async () => {
+  const G = game({ active: 'Kidding', bench: ['Poteplant'], energy: { Poteplant: ['grass'] } }, { active: 'Raizado', big: ['Raizado'], energy: { Raizado: ['fire'] } },
+    [{ mischief: (G, P, req) => req.options.find(m => m.card.name === 'Poteplant') }, null]);
+  await attack(G, 0, 'Mischief');
+  eq(bn(G, 0).energy.length, 0, 'Poteplant lost it'); eq(act(G, 0).energy.join(), 'grass', 'Kidding ate it');
+  eq(bn(G, 0).maxHp - bn(G, 0).hp, 10, 'and the 10 damage went to the chosen Bakemon'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'not the opposing active');
+  const H = game({ active: 'Kidding' }, { active: 'Raizado', big: ['Raizado'], energy: { Raizado: ['fire'] } });
+  await attack(H, 0, 'Mischief'); eq(act(H, 1).energy.length, 0, 'fire discarded'); eq(act(H, 0).energy.length, 0, "Kidding keeps its own energy now");
+});
+await test("Soak only goes onto a Bakemon with no water, on either side", async () => {
+  let offered = '';
+  const G = game({ active: 'Aquimp', bench: ['Whave'], energy: { Whave: ['water'] } }, { active: 'Raizado' },
+    [{ energyTo: (G, P, req) => { offered = req.options.map(m => m.card.name).sort().join(); return req.options.find(m => m.card.name === 'Raizado'); } }, null]);
+  await ability(G, 0, act(G, 0), 'Soak');
+  eq(offered, 'Aquimp,Raizado', 'not Whave'); eq(act(G, 1).energy.join(), 'water', "onto the opponent's Bakemon is allowed");
+});
+await test('Singe burns on a D6 of 5 or 6', async () => {
+  const G = game({ active: 'Shrizzle' }, { active: 'Raizado', big: ['Raizado'] });
+  rig(d(6, 4)); await attack(G, 0, 'Singe'); ok(!act(G, 1).status.burned, 'a 4 does nothing');
+  rig(d(6, 5)); await attack(G, 0, 'Singe'); ok(act(G, 1).status.burned, 'a 5 burns');
+});
+await test('Boiled Alive discards a water; Dunk fails against an attack Lobscorch is weak to', async () => {
+  const G = game({ active: 'Lobscorch', energy: { Lobscorch: ['fire', 'fire', 'water', 'water'] } }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Boiled Alive'); eq(act(G, 0).energy.join(), 'fire,fire,water', 'one water boiled off');
+  const H = game({ active: 'Lobscorch', big: ['Lobscorch'] }, { active: 'Raizado' });
+  await attack(H, 0, 'Dunk');
+  const zap = { name: 'Zap', damage: 30, cost: { types: { electric: 1 }, any: 0, total: 1 }, ops: [], fx: {}, isAbility: false };
+  const poke = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
+  await ctx.resolveAttack(H, H.players[1], act(H, 1), poke); eq(act(H, 0).maxHp - act(H, 0).hp, 0, 'a plain hit is dunked');
+  await ctx.resolveAttack(H, H.players[1], act(H, 1), zap); eq(act(H, 0).maxHp - act(H, 0).hp, 40, 'electric (a weakness) gets through, +10');
+});
+await test('Ink Blot: heads, the next attack misses; tails, you may add a dark energy', async () => {
+  const G = game({ active: 'Blackbrish' }, { active: 'Raizado', big: ['Raizado'] });
+  rig(HEADS); await attack(G, 0, 'Ink Blot'); ok(act(G, 1).effects.some(e => e.kind === 'missNext'), 'will miss');
+  const H = game({ active: 'Blackbrish' }, { active: 'Raizado', big: ['Raizado'] }, [{ optional: () => true }, null]);
+  rig(TAILS); await attack(H, 0, 'Ink Blot'); eq(E.zone(H.players[0]).concat(E.zone(H.players[1])).flatMap(m => m.energy).join(), 'dark', 'one dark added');
+});
+await test('Salt Spray only flips for dark energy', async () => {
+  const G = game({ active: 'Orcuill', energy: { Orcuill: ['water', 'water', 'dark'] } }, { active: 'Raizado', big: ['Raizado'], energy: { Raizado: ['fire', 'fire', 'fire'] } });
+  rig(HEADS, HEADS, HEADS); await attack(G, 0, 'Salt Spray');
+  eq(act(G, 1).energy.length, 2, 'one flip, one energy gone');
+});
+await test("Arclight's Lightningshower: +20 to every electric attack until Crackazolt leaves the active slot", async () => {
+  const G = game({ active: 'Crackazolt', bench: ['Poteplant'] }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(G, 0, 'Arclight'); ok(E.weatherIs(G, 'lightningShower'), 'Lightningshower');
+  const zap = { name: 'Zap', damage: 30, cost: { types: { electric: 1 }, any: 0, total: 1 }, ops: [], fx: {}, isAbility: false };
+  const t = act(G, 1); t.hp = t.maxHp; await ctx.resolveAttack(G, G.players[1], act(G, 1), zap);
+  eq(act(G, 0).maxHp - act(G, 0).hp, 50, "the other side's electric attacks get it too");
+  await ctx.switchActive(G, G.players[0], bn(G, 0)); ok(!E.currentWeather(G), 'gone once Crackazolt steps back');
+});
+await test('Overcast: a grass attack fails on a D6 of 1', async () => {
+  const G = game({ active: 'Vasflor', energy: { Vasflor: ['grass', 'ground'] } }, { active: 'Raizado', big: ['Raizado'] });
+  G.weather = { name: 'overcast', owner: 1 };
+  rig(d(6, 1)); await attack(G, 0, 'Vine Slap'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'smothered');
+  rig(d(6, 4)); await attack(G, 0, 'Vine Slap'); ok(act(G, 1).maxHp - act(G, 1).hp > 0, 'lands otherwise');
 });
 
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {

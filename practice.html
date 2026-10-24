@@ -584,8 +584,11 @@ function renderAll() {
 
   const w = currentWeather(G);
   const wInfo = w && (WEATHER[w.name] || { label: w.name, text: "" });
+  // Whose weather it is matters (some only hit the caller's opponent). Fire Watch outlives its Quetzalil, so it has no source.
+  const wOwner = w && (w.owner !== undefined ? G.players[w.owner] : G.players.find(Q => zone(Q).includes(w.source)));
+  const wFrom = w && (w.source ? w.source.card.name : "embers") + (wOwner ? (wOwner.isHuman ? ", yours" : ", " + bot.name + "'s") : "");
   document.getElementById("weather-banner").innerHTML = w
-    ? `Weather: <strong>${escapeHtml(wInfo.label)}</strong> <span class="weather-text">(from ${escapeHtml(w.source.card.name)}) ${escapeHtml(wInfo.text)}</span>` : "";
+    ? `Weather: <strong>${escapeHtml(wInfo.label)}</strong> <span class="weather-text">(from ${escapeHtml(wFrom)}) ${escapeHtml(wInfo.text)}</span>` : "";
 
   // Hand: cards you can play right now are outlined
   const playableIdx = new Set(pending && pending.kind === "action" ? pending.actions.filter(a => a.handIndex !== undefined).map(a => a.handIndex) : []);

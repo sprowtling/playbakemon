@@ -91,27 +91,37 @@
    ============================================================ */
 
 // Weather. One at a time; see the vocabulary above. The rules live in js/battle.js.
+// No weather at all is Blue Sky. The PvP playmat keeps the same list (PLAYMAT_WEATHER in playmat.html).
 const WEATHER = {
-  hailstorm:  { label: 'Hailstorm',  text: 'Clears and prevents elemental effects.' },
-  hydrosurge: { label: 'Hydrosurge', text: 'Water attacks do +20 damage.' },
-  starfall:   { label: 'Starfall',   text: 'Damage to fairy-types is reduced by a D6.' },
-  frost:      { label: 'Frost',      text: 'Bakemon put in the active slot may freeze.' },
+  flood:         { label: 'Flood',          text: 'Water attacks do +20 damage.' },
+  acidRain:      { label: 'Acid Rain',      text: "Once per turn, the caller may roll a D6 and turn that many of the opponent's water or ice energy into dark energy." },
+  lightningShower: { label: 'Lightningshower', text: 'Electric attacks in the play field do +20 damage.' },
+  fireWatch:     { label: 'Fire Watch',     text: "Any Bakemon in the caller's opponent's active slot becomes burned." },
+  overcast:      { label: 'Overcast',       text: 'When using a grass-type move, roll a D6. On a 1, the attack fails.' },
+  hailstorm:     { label: 'Hailstorm',      text: 'Clears and prevents elemental effects.' },
+  starfall:      { label: 'Starfall',       text: 'Damage to fairy-types is reduced by a D6 × 10.' },
+  frost:         { label: 'Frost',          text: "Bakemon the caller's opponent puts in the active slot may freeze." },
 };
 
 // "Mushroom-based" Bakemon, for Mushmutt's Co-opt and Iveldyr's Spore Bloom. ASSUMED list.
 const MUSHROOMS = ['Musherus', 'Shimejirus', 'Mushmutt', 'Iveldyr'];
 
 const MOVES = {
-  '001': { 'Photosynthesize': { ops: [{ heal: 10, who: 'self' }] } },
+  '001': { 'Plant Seed':      { ops: [{ plantSeed: true }] },                                     // draw an extra card next turn
+           'Photosynthesize': { ops: [{ heal: 20, who: 'self' }] } },
   '002': { 'Seed Bullet':     { ops: [{ flip: 6, perHeads: { damage: 10 } }] } },
   '003': { 'Take Root':       { ops: [{ shield: 30, lasts: 'nextHit', noStack: true }] },
-           'Solar Powered':   { ops: [{ flip: 1, heads: [{ heal: 20, who: 'self' }] }] } },
-  '004': { 'Hide':            { ops: [{ shield: 'all', lasts: 'nextTurn' }] } },
-  // "water-type damage" is read as: an attack whose cost includes water energy.
+           // Prints 70. "In Blue Sky weather, Raizado heals for 20 HP and does an additional 30 damage."
+           'Solar Powered':   { ops: [{ pre: true, ifWeather: 'blueSky', damage: 30, then: [{ heal: 20, who: 'self' }] }] } },
+  '004': { 'Absorb':          { ops: [{ roll: 3, times: { damage: 10 }, replaceBase: true }, { healByDealt: true }] } },
+  // "water-based" / "water-type" is read as: an attack whose cost includes water energy.
   // (The same way the rules page defines weakness.)
-  '005': { 'Umbrella':        { ops: [{ shield: 'all', lasts: 'nextTurn', onlyFrom: 'water' }] } },
-  '006': { 'Growth':          { ops: [{ flip: 3, perHeads: { heal: 10 } }] },
+  '005': { 'Leafbrella':      { ability: 'passive', tag: 'immuneWater' },
+           'Slosh':           { ops: [] } },
+  // Acid Rain: the weather starts by itself (see refreshAcidRain); using the ability is the once-a-turn roll.
+  '006': { 'Acid Rain':       { ability: 'activated', oncePerTurn: true, tag: 'acidRain', ops: [{ acidRainConvert: true }] },
            'Acid Wash':       { ops: [{ discardEnergy: 1, from: 'target' }] } },
+  '007': { 'Enduring Blaze':  { ability: 'passive', tag: 'enduringBlaze' } },
   '008': { 'Flare':           { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'fire', to: 'own_bench' }] },
            'Flame Wind':      { ops: [{ optional: 'Discard a fire energy to burn the target?', ops: [{ discardEnergy: 1, from: 'self', type: 'fire' }, { status: 'burned' }] }] } },
   '009': { 'Ignite':          { ops: [{ status: 'burned' }, { discardEnergy: 1, from: 'self', type: 'fire' }] },
@@ -126,29 +136,36 @@ const MOVES = {
   // placed during setup. That felt unintended, so it only triggers when played during a turn.
   '013': { 'Shuffle':         { ability: 'enterPlay', approx: 'not during setup', ops: [{ opponentShufflesHandAway: true }] },
            'Sleep Visions':   { ops: [{ status: 'asleep', on: 'self' }, { sleepHeal: 20 }] } },
-  '014': { 'Nightmare':       { ops: [{ selfDamage: 50 }] } },
-  '015': { 'Lullaby':         { ability: 'activated', oncePerTurn: true, ops: [{ status: 'asleep', on: 'enemy_active' }] } },
-  '016': { 'Slither':         { ops: [{ status: 'asleep' }] } },
-  '017': { 'Mischief':        { ops: [{ discardEnergy: 1, from: 'self' }, { discardEnergy: 1, from: 'target' }] } },
+  '014': { 'Sleep Paralysis': { ability: 'passive', tag: 'sleepParalysis' },
+           'Nightmare':       { notTwiceInARow: true, ops: [{ selfDamage: 50 }] } },
+  '015': { 'Lullaby':         { ops: [{ status: 'asleep' }] },
+           'Phantasia':       { ops: [{ bonusIfTargetStatus: 'asleep', damage: 30 }] } },
+  '016': { 'Stare at Sky':    { ability: 'activated', oncePerTurn: false, ops: [{ clearWeather: true }] },
+           'Slither':         { ops: [{ status: 'asleep' }] } },
+  // "Choose any target in the play area": either side, and the 10 damage goes to whoever Kidding picks (Bryan's ruling).
+  '017': { 'Mischief':        { ops: [{ pre: true, retarget: 'any_other', purpose: 'mischief', prompt: 'Mischief: which Bakemon?' }, { mischief: true }] } },
   '018': { 'Graze':           { ops: [{ healPerEnergy: 20, type: 'grass' }] },
            'Headbutt':        { ops: [{ ifTargetWeakTo: 'fire', then: [{ status: 'burned' }] }] } },
   // Leap does two things: fire-type Bakemon in play (both sides) hit 10 harder while Flairees is in play,
   // and whoever damages Flairees rolls a D3, burned on a 1.
-  '019': { 'Leap':            { ability: 'whenHit', tag: 'fireAura', ops: [{ roll: 3, why: 'Leap', table: { 1: [{ status: 'burned', on: 'attacker' }] } }] } },
-  '020': { 'Contact Zap':     { ability: 'whenHit', ops: [{ flip: 1, heads: [{ status: 'paralyzed', on: 'attacker' }, { debuffTarget: 999, turns: 1, on: 'attacker' }] }] } },
-  '021': { 'Soak':            { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'water', to: 'own_any' }] } },
+  '019': { 'Blaze Leap':      { ability: 'whenHit', tag: 'fireAura', ops: [{ roll: 3, why: 'Leap', table: { 1: [{ status: 'burned', on: 'attacker' }] } }] } },
+  '020': { 'Contact Zap':     { ability: 'whenHit', ops: [{ flip: 1, heads: [{ status: 'paralyzed', on: 'attacker' }] }] } },
+  // "...to any Bakemon in the play area that does not have any water attached."
+  '021': { 'Soak':            { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'water', to: 'any', withoutType: 'water' }] } },
   // Read as: the 30 damage goes to a benched Bakemon INSTEAD of the active one.
   '022': { 'Quake':           { ops: [{ pre: true, retarget: 'enemy_bench' }] },
-           'Hydrosurge':      { approx: '"discard Draquaduct at any time" is not offered', ops: [{ weather: 'hydrosurge' }] } },
+           'Hydrosurge':      { approx: '"discard Draquaduct at any time" is not offered', ops: [{ weather: 'flood' }] } },
   '023': { 'Twinship':        { ability: 'passive', tag: 'twinshipBonus' },
            'Prance':          { ops: [{ shield: 'all', lasts: 'nextHit', who: 'own_any', names: ['Jeremo♀'] }] } },
   '024': { 'Twinship':        { ability: 'activated', oncePerTurn: false, ops: [{ swapPartner: { names: ['Jeremo♂'] } }] },
            'Graze':           { ops: [{ heal: 40, who: 'own_any', names: ['Jeremo♀', 'Jeremo♂'] }] } },
-  '025': { 'Singe':           { ops: [{ flip: 1, heads: [{ status: 'burned' }] }] } },
-  '026': { 'Dunk':            { ops: [{ shield: 'all', lasts: 'nextTurn' }] } },
+  '025': { 'Singe':           { ops: [{ roll: 6, min: 5, then: [{ status: 'burned' }], otherwise: [] }] } },   // "higher than 4"
+  '026': { 'Boiled Alive':    { ops: [{ discardEnergy: 1, from: 'self', type: 'water' }] },
+           'Dunk':            { ops: [{ shield: 'all', lasts: 'nextTurn', notIfWeak: true }] } },
   '027': { 'Waste Disposal':  { ability: 'activated', oncePerTurn: false, ops: [{ moveEnergy: 1, from: 'self', to: 'own_other' }] } },
-  '028': { 'Ink Blot':        { ops: [{ targetMustFlip: true }] } },
-  '029': { 'Salt Spray':      { ops: [{ flipPerOwnEnergy: true, perHeads: { discardEnemyEnergy: 1 } }] } },
+  '028': { 'Ink Blot':        { ops: [{ flip: 1, heads: [{ targetMisses: true }],
+                                       tails: [{ optional: 'Add a dark energy to a Bakemon?', ops: [{ addEnergy: 'dark', to: 'any' }] }] }] } },
+  '029': { 'Salt Spray':      { ops: [{ flipPerOwnEnergy: true, type: 'dark', perHeads: { discardEnemyEnergy: 1 } }] } },
   '030': { 'Drown':           { ops: [{ discardEnergy: 2, from: 'self', type: 'water' }] } },
   '031': { 'Drain Punch':     { ops: [{ stealEnergy: 1 }] },
            'Bloom':           { ops: [{ targetMisses: true }] } },
@@ -175,7 +192,8 @@ const MOVES = {
            'Plow':            { ops: [{ discardEnergy: 2, from: 'self', type: 'ground' }] } },
   '043': { 'Static Nuzzle':   { ops: [{ targetMustFlip: true }] },
            'Generator':       { ops: [{ debuffTarget: 20, turns: 3 }] } },
-  '044': { 'Arclight':        { ops: [{ aura: { costIncludes: 'electric', damage: 20 } }] },
+  // Arclight now brings the Lightningshower weather (Bryan, Patch A1): it lasts until Crackazolt leaves the active slot or evolves.
+  '044': { 'Arclight':        { ops: [{ weather: 'lightningShower', activeOnly: true }] },
            'Stormdance':      { ops: [{ flip: 2, atLeast: { n: 2, ops: [{ opponentDiscards: 1 }] } }] } },
   '045': { 'Heat Lightning':  { ability: 'passive', tag: 'heatLightning' },
            'Plasmablast':     { ops: [{ discardZoneEnergy: 2, side: 'own', types: ['fire', 'electric'] }, { discardZoneEnergy: 3, side: 'enemy', types: ['water'] }] } },

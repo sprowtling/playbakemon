@@ -148,13 +148,26 @@ async function roll(G, sides, why) {
   return value;
 }
 
-// Weather lasts as long as the Bakemon that made it stays in play (benched still counts).
-// A newer weather simply replaces the old one.
+// Weather lasts as long as the Bakemon that made it stays in play (benched still counts), or, for a
+// weather left behind by a Bakemon that's gone (Quetzalil's Fire Watch), until its last turn passes.
+// A newer weather simply replaces the old one. No weather at all is Blue Sky.
+// The weather belongs to whoever called it: some only hit "your opponent" (Bryan's ruling).
 function currentWeather(G) {
-  if (G.weather && !G.players.some(Q => zone(Q).includes(G.weather.source))) G.weather = null;
+  const w = G.weather;
+  if (!w) return null;
+  const sourceOwner = w.source && G.players.find(Q => zone(Q).includes(w.source));
+  if (w.source && !sourceOwner) G.weather = null;
+  // Crackazolt's Lightningshower ends when it leaves the active slot or evolves.
+  else if (w.activeOnly && (sourceOwner.active !== w.source || w.source.card.name !== w.sourceName)) G.weather = null;
+  // Leapek's Acid Rain stops as soon as its side drops below five dark energy.
+  else if (w.name === 'acidRain' && darkInZone(sourceOwner) < 5) G.weather = null;
   return G.weather;
 }
-const weatherIs = (G, name) => { const w = currentWeather(G); return !!w && w.name === name; };
+// "Blue Sky" is the clear sky: no weather at all.
+const weatherIs = (G, name) => { const w = currentWeather(G); return name === 'blueSky' ? !w : !!w && w.name === name; };
+const darkInZone = P => zone(P).reduce((n, m) => n + m.energy.filter(e => e === 'dark').length, 0);
+const weatherOwner = G => { const w = currentWeather(G); return !w ? null : w.owner !== undefined ? G.players[w.owner] : ownerOf(G, w.source); };
+const weatherLabel = name => WEATHER[name] ? WEATHER[name].label : name;
 // Hailstorm clears and prevents "elemental effects": every bonus that depends on an attack's element.
 const elementalOn = G => !weatherIs(G, 'hailstorm');
 
@@ -238,6 +251,19 @@ async function startTurn(G, P) {
   await runDelayed(G, P);
   if (G.winner) return;
 
+  // Fire Watch lasts for five of the opponent's turns (Bryan's ruling). At the start of each it burns
+  // their active Bakemon; once all five have passed, it ends when the caller's next turn begins.
+  const hadWeather = G.weather;
+  if (weatherIs(G, 'fireWatch')) {
+    const w = G.weather;
+    if (weatherOwner(G) === P) { if (w.turnsLeft <= 0) G.weather = null; }
+    else { w.turnsLeft -= 1; if (P.active && !P.active.status.burned) await applyStatus(G, P.active, 'burned'); }
+  }
+  if (hadWeather && !currentWeather(G)) await say2(G, 'The ' + weatherLabel(hadWeather.name) + ' fades away.');
+  await refreshAcidRain(G);
+  // Poteplant's Plant Seed: the seed planted last turn comes up as an extra card.
+  if (P.seedTurn && P.seedTurn <= G.turnNumber) { P.seedTurn = 0; await say2(G, 'The seed sprouts. ' + subj(P, 'draws') + ' an extra card.'); await drawCards(G, P, 1, true); }
+
   // Haunted: roll a D3. On a 1 the Bakemon slinks back to the bench and loses all its energy.
   if (P.active && P.active.status.haunted && bench(P).length) {
     const h = P.active;
@@ -256,7 +282,10 @@ async function startTurn(G, P) {
   const stuck = () => { if (G.t.canAttack) G.t.stuck = a; G.t.canAttack = false; };
   if (a.effects.some(e => e.kind === 'flinch')) { stuck(); await say2(G, a.card.name + ' flinches and cannot attack this turn.'); }
   if (a.status.asleep) {
-    if (await flip(G, a.card.name + ' is asleep')) { delete a.status.asleep; await say2(G, a.card.name + ' wakes up.'); }
+    // Phantoplume's Sleep Paralysis: the other side has to roll a 3 on a D3 instead of flipping heads.
+    const paralysis = zone(other(G, P)).some(m => hasTag(m, 'sleepParalysis'));
+    const wakes = paralysis ? (await roll(G, 3, a.card.name + ' is asleep (Sleep Paralysis)')) === 3 : await flip(G, a.card.name + ' is asleep');
+    if (wakes) { delete a.status.asleep; await say2(G, a.card.name + ' wakes up.'); }
     else stuck();
   }
   if (a.status.paralyzed && !(await flip(G, a.card.name + ' is paralyzed'))) stuck();
@@ -370,6 +399,8 @@ function legalActions(G, P) {
   if (a && enemy.active && G.t.canAttack && !G.t.lockTurn) for (const move of cardMoves(a.card)) {
     if (a.effects.some(e => e.kind === 'disabled' && e.moveIndex === move.index)) continue;
     if (move.fx.needsTargetStatus && !enemy.active.status[move.fx.needsTargetStatus]) continue;   // Chou: only on a sleeper
+    // Phantoplume's Nightmare "cannot be used two turns in a row".
+    if (move.fx.notTwiceInARow && a.lastMove === move.name && a.lastAttackTurn === G.turnNumber - 2) continue;
     if (!move.isAbility && canPay(a, move.cost)) actions.push({ type: 'attack', move, label: move.name + (move.damage ? '   ' + move.damage : '') });
   }
 
@@ -420,6 +451,8 @@ function itemOpPossible(G, P, op) {
   return true;
 }
 function abilityOpPossible(G, P, mon, op) {
+  if (op.clearWeather)    return !!currentWeather(G);
+  if (op.acidRainConvert) return weatherIs(G, 'acidRain') && weatherOwner(G) === P && zone(other(G, P)).some(m => m.energy.some(e => e === 'water' || e === 'ice'));
   if (op.addEnergy || op.heal || op.status) return candidates(G, P, mon, op.to || op.who || op.on, op).length > 0;
   if (op.moveEnergy)   return candidates(G, P, mon, op.from, op).some(m => m.energy.some(e => !op.type || e === op.type)) && candidates(G, P, mon, op.to, op).length > 0;
   if (op.convertEnergy) return zone(P).some(m => m.energy.length);
@@ -442,6 +475,24 @@ function abilityOpPossible(G, P, mon, op) {
 /* ---------------- doing it ---------------- */
 
 async function perform(G, P, action) {
+  await performAction(G, P, action);
+  await refreshAcidRain(G);
+}
+
+// Leapek's Acid Rain: "While five dark energy are attached to Bakemon in your zone, acid rain falls."
+// It only stops when that side drops below five or Leapek leaves. If someone clears it (Stare at Sky)
+// or brings in another weather, it falls again on Leapek's side's next turn (Bryan's ruling).
+async function refreshAcidRain(G) {
+  if (G.winner || !G.t) return;
+  const P = G.players[G.turn];
+  if (weatherIs(G, 'acidRain') && weatherOwner(G) === P) return;
+  const leapek = zone(P).find(m => hasTag(m, 'acidRain'));
+  if (!leapek || darkInZone(P) < 5) return;
+  G.weather = { name: 'acidRain', source: leapek };
+  await say2(G, 'Acid rain begins to fall!', { kind: 'weather' });
+}
+
+async function performAction(G, P, action) {
   const enemy = other(G, P);
   switch (action.type) {
 
@@ -568,7 +619,9 @@ async function switchActive(G, P, incoming) {
   if (quake) await dealDamage(G, null, incoming, 10 * (await roll(G, 3, 'The quake')), { why: 'the quake' });
   // Cryodyr's Glaciabolt: the frost freezes whatever the other side puts in the active slot.
   const w = currentWeather(G);
-  if (w && w.name === 'frost' && ownerOf(G, w.source) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 3) await applyStatus(G, incoming, 'frozen');
+  if (w && w.name === 'frost' && weatherOwner(G) !== P && incoming.hp > 0 && (await roll(G, 3, 'The frost')) < 3) await applyStatus(G, incoming, 'frozen');
+  // Fire Watch: whatever the other side puts in the active slot catches fire.
+  if (w && w.name === 'fireWatch' && weatherOwner(G) !== P && incoming.hp > 0 && !incoming.status.burned) await applyStatus(G, incoming, 'burned');
 }
 
 // Gambarue's Rascal borrows an item "until the target retreats or is KO'd". Then it goes to the discard pile.
@@ -599,6 +652,7 @@ async function resolveAttack(G, P, attacker, move, copied) {
   const mustFlip = attacker.effects.find(e => e.kind === 'mustFlip');
   if (mustFlip) { attacker.effects.splice(attacker.effects.indexOf(mustFlip), 1); if (!(await flip(G, 'Can it attack'))) return say2(G, 'It fails!'); }
   if (enemy.active && equipTag(enemy.active) === 'attackersMustFlip' && !(await flip(G, 'Maced! Does the attack land'))) return say2(G, 'It misses!');
+  if (weatherIs(G, 'overcast') && costIncludes(move, 'grass') && (await roll(G, 6, 'Overcast')) === 1) return say2(G, 'The clouds smother it. The attack fails!');
 
   // Using the same move turn after turn (Curl, Trample). Copied attacks don't count.
   const sameMove = !copied && attacker.lastMove === move.name && attacker.lastAttackTurn === G.turnNumber - 2;
@@ -685,7 +739,8 @@ async function dealDamage(G, source, victim, amount, o) {
       if (victim.status.frozen && costIncludes(move, 'electric') && tagCount(G, 'ionCharge')) amount += 10 * move.cost.types.electric;   // Cryodyr
       if (G.t.amp && G.t.amp.types.some(t => costIncludes(move, t))) amount += G.t.amp.amount;                // Eclidyr's Celestial Bodies
     }
-    if (weatherIs(G, 'hydrosurge') && costIncludes(move, 'water')) amount += 20;                              // Draquaduct's weather
+    if (weatherIs(G, 'flood') && costIncludes(move, 'water')) amount += 20;                                   // Draquaduct's Flood
+    if (weatherIs(G, 'lightningShower') && costIncludes(move, 'electric')) amount += 20;                      // Crackazolt's Lightningshower
     // Weakness: +10 for every matching energy symbol in the attack's cost. (Not on the bench: the rules page.)
     // A move whose text names its damage type (Denticle: "in fighting damage") counts as one symbol of it.
     if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) {
@@ -705,8 +760,12 @@ async function dealDamage(G, source, victim, amount, o) {
       return 0;
     }
 
+    // Leapol's Leafbrella: immune to water-based attacks.
+    if (hasTag(victim, 'immuneWater') && costIncludes(move, 'water')) { await say2(G, victim.card.name + "'s Leafbrella keeps the water off!", { mon: victim }); amount = 0; }
     if (!o.unavoidable) for (const shield of victim.effects.filter(e => e.kind === 'shield')) {
       if (shield.onlyFrom && !costIncludes(move, shield.onlyFrom)) continue;
+      // Lobscorch's Dunk fails against an attack it's weak to.
+      if (shield.notIfWeak && victim.card.weak.some(w => w !== victim.helmet && costIncludes(move, ENERGY_ALIASES[w] || w))) continue;
       const blocked = shield.roll ? (await roll(G, shield.roll, victim.card.name + ' braces')) * shield.mult : shield.amount;
       amount = blocked === 'all' ? 0 : amount - blocked;
       if (shield.lasts === 'nextHit') victim.effects.splice(victim.effects.indexOf(shield), 1);
@@ -840,13 +899,15 @@ async function checkKOs(G) {
   for (const P of G.players) {
     for (const mon of zone(P)) if (mon.hp <= 0) {
       await say2(G, mon.card.name + ' is knocked out!', { mon, kind: 'ko' });
+      // Quetzalil's Enduring Blaze: embers scatter across the opponent's zone (Fire Watch).
+      if (hasTag(mon, 'enduringBlaze')) { G.weather = { name: 'fireWatch', owner: P.index, turnsLeft: 5 }; await say2(G, 'Embers scatter! The weather changes: ' + weatherLabel('fireWatch') + '!', { kind: 'weather' }); }
       P.discard.push(...mon.stack); if (mon.equip) P.discard.push(mon.equip);
       if (P.active === mon) { if (mon.status.quaked) P.quakedKO = true; P.active = null; } else P.bench[P.bench.indexOf(mon)] = null;
       releaseBorrowed(G, mon, P);
       other(G, P).points += 1;
     }
   }
-  if (hadWeather && !currentWeather(G)) await say2(G, 'The ' + (WEATHER[hadWeather.name] ? WEATHER[hadWeather.name].label : hadWeather.name) + ' fades away.');
+  if (hadWeather && G.weather !== hadWeather && !currentWeather(G)) await say2(G, 'The ' + weatherLabel(hadWeather.name) + ' fades away.');
   // Whose turn it is wins ties, which can only happen when both sides go down at once.
   const order = [G.players[G.turn], G.players[1 - G.turn]];
   for (const P of order) if (P.points >= G.rules.pointsToWin) return declare(G, P, subj(P, 'reaches') + ' ' + P.points + ' points.');
@@ -877,6 +938,7 @@ function candidates(G, P, self, selector, op) {
   if (op && op.activeOnly) list = list.filter(m => G.players.some(Q => Q.active === m));
   if (op && op.withStatus) list = list.filter(m => op.withStatus === 'any' ? Object.keys(m.status).length : m.status[op.withStatus]);
   if (op && (op.addEnergy || op.receivesEnergy)) list = list.filter(m => !energyLocked(m));
+  if (op && op.withoutType) list = list.filter(m => !m.energy.includes(op.withoutType));
   return list;
 }
 
@@ -909,7 +971,7 @@ async function runOps(G, ctx, ops) {
     }
 
     else if (op.flip || op.flipPerOwnEnergy || op.flipUntilTails) {
-      const n = op.flipUntilTails ? 0 : op.flipPerOwnEnergy ? me.energy.length : op.flip;
+      const n = op.flipUntilTails ? 0 : op.flipPerOwnEnergy ? me.energy.filter(e => !op.type || e === op.type).length : op.flip;
       let heads = 0;
       if (op.flipUntilTails) { while (heads < 40 && await flip(G, 'Until tails')) heads++; }
       for (let i = 0; i < n; i++) if (await flip(G, op.flipper === 'opponent' ? subj(enemy, 'flips') : '')) heads++;
@@ -972,7 +1034,7 @@ async function runOps(G, ctx, ops) {
     }
 
     else if (op.retarget) {
-      const mon = await selectMon(G, ctx, op.retarget, op, 'hurt', 'Hit which Bakemon?');
+      const mon = await selectMon(G, ctx, op.retarget, op, op.purpose || 'hurt', op.prompt || 'Hit which Bakemon?');
       if (mon) ctx.target = mon;               // with nobody on the bench, it just hits the active one
       if (op.unavoidable) ctx.unavoidable = true;
     }
@@ -988,7 +1050,7 @@ async function runOps(G, ctx, ops) {
       const from = ctx.move && ctx.move.name;
       // noStack: using the move again refreshes its shield instead of adding a second one (Take Root).
       if (mon && op.noStack) mon.effects = mon.effects.filter(e => !(e.kind === 'shield' && e.from === from));
-      if (mon) mon.effects.push({ kind: 'shield', amount: op.grows ? op.shield * (ctx.streak || 1) : op.shield, lasts: op.lasts, onlyFrom: op.onlyFrom, from, expires: op.lasts === 'nextTurn' ? until(1) : undefined });
+      if (mon) mon.effects.push({ kind: 'shield', amount: op.grows ? op.shield * (ctx.streak || 1) : op.shield, lasts: op.lasts, onlyFrom: op.onlyFrom, notIfWeak: op.notIfWeak, from, expires: op.lasts === 'nextTurn' ? until(1) : undefined });
     }
     else if (op.shieldRoll) me.effects.push({ kind: 'shield', roll: op.shieldRoll.sides, mult: op.shieldRoll.mult, lasts: 'nextTurn', expires: until(1) });
     else if (op.reflect)   me.effects.push({ kind: 'reflect', minus: op.reflect.minus, expires: until(1) });
@@ -1175,10 +1237,36 @@ async function runOps(G, ctx, ops) {
       if (op.table && op.table[v]) await runOps(G, ctx, op.table[v]);
     }
     else if (op.weather) {
-      G.weather = { name: op.weather, source: me };
-      await say2(G, 'The weather changes: ' + (WEATHER[op.weather] ? WEATHER[op.weather].label : op.weather) + '!', { kind: 'weather' });
+      G.weather = { name: op.weather, source: me, activeOnly: !!op.activeOnly, sourceName: me.card.name };
+      await say2(G, 'The weather changes: ' + weatherLabel(op.weather) + '!', { kind: 'weather' });
     }
-    else if (op.ifWeather) { if (weatherIs(G, op.ifWeather)) await runOps(G, ctx, op.then); }
+    else if (op.ifWeather) { if (weatherIs(G, op.ifWeather)) { ctx.bonus += op.damage || 0; await runOps(G, ctx, op.then || []); } }
+    else if (op.clearWeather) {                            // Pentawunk's Stare at Sky
+      const w = currentWeather(G);
+      if (w) { G.weather = null; await say2(G, me.card.name + ' stares at the sky. The ' + weatherLabel(w.name) + ' clears into Blue Sky.', { kind: 'weather' }); }
+    }
+    else if (op.plantSeed) { P.seedTurn = G.turnNumber + 2; await say2(G, me.card.name + ' plants a seed.'); }
+    else if (op.acidRainConvert) {                         // the caller rolls, then picks which water/ice energy turn dark
+      const n = await roll(G, 6, 'Acid Rain');
+      for (let i = 0; i < n; i++) {
+        const wet = m => m.energy.some(e => e === 'water' || e === 'ice');
+        const mon = await pick(G, P, zone(enemy).filter(wet), 'acidRainOn', 'Acid Rain: whose energy turns dark? (' + (i + 1) + ' of ' + n + ')');
+        if (!mon) break;
+        const kinds = [...new Set(mon.energy.filter(e => e === 'water' || e === 'ice'))];
+        const type = kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'acidRainType', mon, prompt: 'Which energy turns dark?', options: kinds.map(k => ({ label: k, value: k, energy: k })) });
+        mon.energy[mon.energy.indexOf(type)] = 'dark';
+        await say2(G, 'One of ' + mon.card.name + "'s " + type + ' energy turns dark.', { mon });
+      }
+    }
+    else if (op.mischief) {                                // Kidding: the target discards one energy; grass goes to Kidding instead
+      const mon = ctx.target;
+      if (!mon || mon === me || !mon.energy.length) continue;
+      const kinds = [...new Set(mon.energy)];
+      const type = kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'stealType', mon, prompt: 'Which energy does ' + mon.card.name + ' discard?', options: kinds.map(k => ({ label: k, value: k, energy: k })) });
+      mon.energy.splice(mon.energy.lastIndexOf(type), 1);
+      if (type === 'grass' && !energyLocked(me)) { await say2(G, me.card.name + ' eats ' + mon.card.name + "'s grass energy!"); await attachEnergySilently(G, me, 'grass'); }
+      else await say2(G, mon.card.name + ' loses ' + type + ' energy.', { mon });
+    }
     else if (op.ifTargetWeakTo) { if (ctx.target && ctx.target.hp > 0 && ctx.target.card.weak.includes(op.ifTargetWeakTo)) await runOps(G, ctx, op.then); }
     else if (op.flinch) {
       const mon = await selectMon(G, ctx, op.on || 'target', op, 'hurt', '');
