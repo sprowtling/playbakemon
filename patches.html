@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bakemon Patch Notes</title>
+<script>document.documentElement.dataset.bakemonTheme = localStorage.getItem("bakemon_theme") || "felt";</script>
+<link rel="stylesheet" href="shared-styles.css">
+<style>
+  #content { max-width: 780px; }
+
+  /* The list of patches at the top: each one jumps to its section below. */
+  #patch-index {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+    margin: 4px 0 28px;
+  }
+  #patch-index a {
+    font-size: 13px; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid var(--card-border); background: var(--mat-green); color: var(--text-light);
+  }
+  #patch-index a:hover { background: var(--mat-green-light); font-weight: 400; }
+
+  .patch { margin-bottom: 48px; scroll-margin-top: 80px; }
+  .patch-head {
+    background: var(--mat-green);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    box-shadow: var(--panel-shadow);
+    padding: 18px 22px;
+    margin-bottom: 16px;
+  }
+  .patch-head h2 { text-align: left; margin: 0; }
+  .patch-date { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+  .patch-intro { color: var(--text-light); font-size: 14px; line-height: 1.6; margin: 10px 0 0; }
+
+  /* One card's changes: its picture on the left, what changed on the right. */
+  .card-change {
+    display: flex; gap: 18px; align-items: flex-start;
+    background: var(--row-bg);
+    border-radius: var(--radius-base);
+    box-shadow: var(--panel-shadow);
+    border-left: 4px solid var(--text-muted);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .card-change.buff     { border-left-color: var(--success-bg); }
+  .card-change.nerf     { border-left-color: #c0392b; }
+  .card-change.reworked { border-left-color: var(--accent); }
+
+  .card-thumb { flex-shrink: 0; width: 120px; }
+  .card-thumb img { width: 100%; border-radius: 6px; display: block; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+  .card-thumb:hover img { outline: 2px solid var(--accent); }
+
+  .change-body { flex: 1; min-width: 0; }
+  .change-body h3 { margin: 2px 0 8px; font-size: 17px; color: var(--accent); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .change-body ul { margin: 0; padding-left: 18px; color: var(--text-light); font-size: 14px; line-height: 1.6; }
+  .change-body li { margin-bottom: 4px; }
+  .change-body .what { font-weight: 700; }
+  .change-body del { color: var(--text-muted); }
+  .change-body ins { text-decoration: none; font-weight: 700; color: var(--accent-2, var(--accent)); }
+  .change-body .why { font-size: 13px; font-style: italic; color: var(--text-muted); margin: 8px 0 0; line-height: 1.5; }
+
+  .tag {
+    font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 999px; background: var(--mat-green-light); color: var(--text-light);
+  }
+  .tag.buff     { background: var(--success-bg); color: var(--success-text); }
+  .tag.nerf     { background: #c0392b; color: #fff; }
+  .tag.reworked { background: var(--accent); color: var(--button-text); }
+
+  .coming-soon { text-align: center; color: var(--text-muted); font-style: italic; font-size: 14px; padding: 18px; }
+
+  @media (max-width: 560px) {
+    .card-change { flex-direction: column; align-items: center; }
+    .card-thumb { width: 160px; }
+    .change-body { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="bakemon-shared-header-slot"></div>
+
+<div id="content">
+  <h2>Patch Notes</h2>
+  <div id="subheading">Every change to the cards, newest first.</div>
+
+  <!-- One link per patch, newest first. The href matches the patch's id below. -->
+  <nav id="patch-index">
+    <a href="#a1">Patch A1 · Cards 001–030</a>
+  </nav>
+
+  <!--
+  ================================================================
+  HOW TO ADD A PATCH
+  ================================================================
+  1. Copy everything from <section class="patch" ...> to </section>.
+  2. Paste it ABOVE the newest patch (so the newest stays on top).
+  3. Give it a new id (a2, a3, ...) and add a matching link to
+     #patch-index above.
+  4. Add one <article class="card-change ..."> per card (template below).
+
+  Card template:
+
+    <article class="card-change buff">
+      <a class="card-thumb" href="https://hxa.neocities.org/bakemon/cards/001_poteplant.png" target="_blank">
+        <img src="https://hxa.neocities.org/bakemon/cards/001_poteplant.png" alt="Poteplant">
+      </a>
+      <div class="change-body">
+        <h3>Poteplant <span class="tag buff">Buff</span></h3>
+        <ul>
+          <li><span class="what">HP:</span> <del>50</del> → <ins>60</ins></li>
+          <li><span class="what">Leaf Shield:</span> blocks <del>10</del> → <ins>20</ins> damage.</li>
+          <li><span class="what">New ability, Photosynthesis:</span> heal 10 at the end of your turn.</li>
+        </ul>
+        <p class="why">Designer's note: optional — why this card changed.</p>
+      </div>
+    </article>
+
+  - The word after "card-change" colors the stripe on the left, and the
+    tag is the little label next to the name. Use: buff, nerf, reworked
+    (or leave both off for a plain "changed").
+  - <del>old</del> is shown faded, <ins>new</ins> is shown highlighted.
+  - The card picture is the CURRENT card on neocities, so upload the new
+    version there before posting the patch.
+  - The "why" line is optional; delete it if you don't need it.
+  ================================================================
+  -->
+
+  <section class="patch" id="a1">
+    <div class="patch-head">
+      <h2>Patch A1 · Cards 001–030</h2>
+      <div class="patch-date">Coming soon</div>
+      <p class="patch-intro">The first thirty cards were the first ones made, and some of them show it: a few are too weak to ever see play, and a few turn up in every deck. This patch brings them in line with the rest of Set A.</p>
+    </div>
+
+    <div class="coming-soon">The full list of changes will be posted here when the patch goes live.</div>
+  </section>
+</div>
+
+<script src="shared-header.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+</body>
+</html>

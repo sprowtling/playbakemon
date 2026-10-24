@@ -138,3 +138,7 @@ PR #48 (tournament sign-ups) is merged and working. Six notes from Bryan.
 - **Profile links by name** (28b7c548): doable, since display names are unique. Renaming someone would break old links unless ids keep working too. I described it to Bryan and haven't built it.
 - **Bike Helmet** (bef86371, ad039eed): Bryan withdrew it. It was Flairees' +10 to fire attacks. Both complete.
 - Bryan's ruling on the Humidifier question: only the printed symbols decide an attack's type, so Humidifier's free water helps pay for attacks and nothing else. Removed it from the type checks (`costCount`). The old Humidifier test was updated to the ruling, with an Umbrella check added. 114 pass, and the simulator runs with 0 crashes. Fixes 10ba74ff.
+
+## 2026-10-24 (afternoon, with Bryan)
+PR #49 is merged. Bryan is rebalancing Set A in groups of 30, starting with 001–030. He's writing the official patch notes in a Google Doc.
+- **Patch notes page** (`patches.html`), linked from Cards → Patch Notes in the header. It's hand-edited HTML on purpose, so Bryan can write future patches himself. Each card gets its picture, a buff/nerf/reworked tag, and old → new changes, with an optional designer's note. The how-to template is in an HTML comment at the top of the page. Patch A1 is in place as "coming soon"; I'll fill it in from Bryan's doc alongside the engine changes.
