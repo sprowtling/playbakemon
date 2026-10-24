@@ -872,6 +872,16 @@ await test('Denticle counts as fighting for type boosts too, not just weakness',
   eq(act(G, 1).maxHp - act(G, 1).hp, 40, '20 rolled + 20 for fighting attacks');
 });
 
+await test("High Voltage: if the hit knocks the target out, Deserzoa still loses the electric", async () => {
+  const G = game({ active: 'Deserzoa', energy: { Deserzoa: ['electric', 'electric', 'fire'] } }, { active: 'Raizado', hp: { Raizado: 30 } });
+  await attack(G, 0, 'High Voltage');
+  eq(act(G, 0).energy.slice().sort().join(), 'electric,fire', 'one electric discarded');
+  ok(/nowhere to go/.test(log(G)), 'says why');
+  const H = game({ active: 'Deserzoa', energy: { Deserzoa: ['electric', 'electric', 'fire'] } }, { active: 'Raizado', big: ['Raizado'] });
+  await attack(H, 0, 'High Voltage');
+  eq(act(H, 1).energy.join(), 'electric', 'a survivor still gets it');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

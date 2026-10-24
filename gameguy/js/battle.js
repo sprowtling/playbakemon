@@ -1037,6 +1037,13 @@ async function runOps(G, ctx, ops) {
       const hasIt = m => m.energy.some(e => !op.type || e === op.type);
       const from = op.from === 'self' ? me : await pick(G, P, candidates(G, P, me, op.from, op).filter(hasIt), 'energyFrom', 'Take energy from which Bakemon?');
       const to = op.to === 'target' ? ctx.target : op.to === 'self' ? me : await pick(G, P, candidates(G, P, me, op.to, { receivesEnergy: true }).filter(m => m !== from), 'energyTo', 'Move it to which Bakemon?');
+      // Knocked out by the hit (Deserzoa's High Voltage, Voltage Surge): the energy still leaves the attacker,
+      // it just has nowhere to land, so it's discarded (Bryan's ruling).
+      if (op.to === 'target' && from && hasIt(from) && ctx.target && ctx.target.hp <= 0 && ctx.dealt > 0) {
+        await say2(G, ctx.target.card.name + ' is gone, so the energy has nowhere to go.');
+        await discardEnergyFrom(G, P, from, op.type || null);
+        continue;
+      }
       if (!from || !to || !hasIt(from) || to.hp <= 0 || energyLocked(to)) continue;
       const kinds = [...new Set(from.energy)];
       const type = op.type || (kinds.length === 1 ? kinds[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'energyType', mon: to,
