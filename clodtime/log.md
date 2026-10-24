@@ -149,3 +149,14 @@ PR #49 is merged. Bryan is rebalancing Set A in groups of 30, starting with 001â
 PR #50 is merged (patch notes page and playmat weather).
 - Ruling: weather belongs to the whole table but remembers who called it, so a weather can single out the summoner's opponent, like Frost does. Added to `rulings.md`.
 - The playmat now remembers which seat set the weather (`state.weather_by`) and shows it: "Yours." or "Bryan's." before the effect, and "(Cameron's)" for spectators. `playmat.html`. Tested with the same mocked two-players-and-a-spectator run.
+
+## 2026-10-24 (night, with Bryan): Patch A1, the Great Rebalancing (cards 001â€“030)
+Bryan sent his notes (public text, weather table, plain values), and the 30 new cards are in Drive. A helper agent transcribed all 30 printed cards. I checked the uncertain ones by eye and compared everything with the notes and the database. The printed card wins wherever they differ; nine differences went to Bryan as questions.
+- **Engine:** every change in the notes is in `moves.js` and `battle.js`, including new abilities (Plant Seed, Absorb, Leafbrella, Acid Rain, Enduring Blaze, Sleep Paralysis, Stare at Sky), Nightmare's cooldown, Lullaby becoming an attack, Phantasia, Mischief, Soak, Singe, Boiled Alive, Dunk vs weakness, Ink Blot and Salt Spray.
+- **Weather:** Blue Sky is the default (no weather); Hydrosurge's weather is now Flood. New: Acid Rain (comes back on Leapek's side's turn), Fire Watch (five of the opponent's turns), Lightningshower (Crackazolt's Arclight, from this patch), Overcast (no card yet). Weather knows its owner and can be timed. Bryan's three weather rulings are in `rulings.md`.
+- **Data:** `cards.js` regenerated from the printed cards; `clodtime/patch-a1.sql` holds the Supabase update for Bryan to run.
+- **Bots:** Stare at Sky only clears the other side's weather; Mischief eats its own grass or strips the opponent; Acid Rain hits the opponent's active first.
+- **Practice:** the weather banner handles a weather with no Bakemon behind it (Fire Watch).
+- **Playmat:** the weather list matches the engine, and clear is now "Blue Sky".
+- **Patch notes:** Patch A1 is filled in from Bryan's public text, with a short summary of exact changes per lineage and the new weather table. I fixed a few typos and changed "Enduring Flame" to the printed "Enduring Blaze".
+- 17 new tests (all fail on the old code); two old tests replaced (Hide, and Contact Zap's damage debuff). 129 pass. The simulator runs 200 matches with 0 crashes.

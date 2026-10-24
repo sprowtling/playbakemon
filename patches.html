@@ -68,11 +68,28 @@
   .tag.nerf     { background: #c0392b; color: #fff; }
   .tag.reworked { background: var(--accent); color: var(--button-text); }
 
+  /* A lineage shares one entry: its cards stack down the left side. */
+  .card-thumbs { flex-shrink: 0; width: 110px; display: flex; flex-direction: column; gap: 8px; }
+  .card-thumbs img { width: 100%; border-radius: 6px; display: block; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+  .card-thumbs a:hover img { outline: 2px solid var(--accent); }
+  .change-body p { color: var(--text-light); font-size: 14px; line-height: 1.6; margin: 0 0 10px; }
+  .change-list {
+    margin-top: 12px !important; padding: 10px 12px 10px 28px !important;
+    background: color-mix(in srgb, var(--mat-green) 60%, transparent); border-radius: 8px;
+  }
+  .weather-box { border-left-color: var(--accent-2, var(--accent)); }
+  .weather-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-light); margin-top: 6px; }
+  .weather-table th { text-align: left; color: var(--accent); font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--card-border); }
+  .weather-table td { padding: 7px 8px; border-bottom: 1px solid color-mix(in srgb, var(--card-border) 40%, transparent); vertical-align: top; line-height: 1.45; }
+
   .coming-soon { text-align: center; color: var(--text-muted); font-style: italic; font-size: 14px; padding: 18px; }
 
   @media (max-width: 560px) {
     .card-change { flex-direction: column; align-items: center; }
     .card-thumb { width: 160px; }
+    .card-thumbs { width: 100%; flex-direction: row; justify-content: center; }
+    .card-thumbs a { width: 30%; max-width: 110px; }
+    .weather-table { font-size: 12px; }
     .change-body { width: 100%; }
   }
 </style>
@@ -130,11 +147,232 @@
   <section class="patch" id="a1">
     <div class="patch-head">
       <h2>Patch A1 · Cards 001–030</h2>
-      <div class="patch-date">Coming soon</div>
+      <div class="patch-date">October 2026 · The Great Rebalancing</div>
       <p class="patch-intro">The first thirty cards were the first ones made, and some of them show it: a few are too weak to ever see play, and a few turn up in every deck. This patch brings them in line with the rest of Set A.</p>
     </div>
 
-    <div class="coming-soon">The full list of changes will be posted here when the patch goes live.</div>
+    <article class="card-change buff">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/001_poteplant.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/001_poteplant.png" alt="Poteplant"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/002_vasflor.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/002_vasflor.png" alt="Vasflor"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/003_raizado.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/003_raizado.png" alt="Raizado"></a>
+      </div>
+      <div class="change-body">
+        <h3>001. Poteplant — 003. Raizado <span class="tag buff">Buff</span></h3>
+        <p>Poteplant and its evolutions are rarely seen in play, even though Raizado is considerably strong. Poteplant does a little bit more for the player now; I’ve bumped Photosynthesis’ healing up to 20 (from 10), and added a new move: Plant Seed. I believe this move will make playing Poteplant a little more worthwhile.</p>
+        <p>Speaking of Raizado’s strength, I’ve adjusted it a bit in relation to the new weather system. Raizado’s Solar Powered still does 100 damage, and I’ve removed the need for the coin flip to activate its healing. However, if weather is anything but clear and sunny, Solar Powered does less damage and drops the healing altogether.</p>
+        <p>For the whole lineage, I’ve changed the dark weakness to ice.</p>
+        <ul class="change-list">
+          <li><span class="what">Poteplant, Photosynthesize:</span> heals <del>10</del> → <ins>20</ins>.</li>
+          <li><span class="what">Poteplant, new attack Plant Seed</span> (1 grass, 1 ground): next turn, draw an extra card.</li>
+          <li><span class="what">Raizado, Solar Powered:</span> <del>100, flip a coin to heal 20</del> → <ins>70; in Blue Sky, +30 damage and heal 20</ins>.</li>
+          <li><span class="what">Weakness:</span> Poteplant and Vasflor <del>dark</del> → <ins>ice</ins>; Raizado <del>steel</del> → <ins>ice</ins>.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change reworked">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/004_leapod.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/004_leapod.png" alt="Leapod"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/005_leapol.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/005_leapol.png" alt="Leapol"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/006_leapek.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/006_leapek.png" alt="Leapek"></a>
+      </div>
+      <div class="change-body">
+        <h3>004. Leapod — 006. Leapek <span class="tag reworked">Reworked</span></h3>
+        <p>These cards were the first I made for the game, but they unfortunately have never been powerful enough to use in play. I’ve changed them considerably to make them viable.</p>
+        <p>Leapod’s Hide has been replaced with a new attack: Absorb. This will help it stand on the field long enough to fight.</p>
+        <p>Leapol’s Umbrella attack has become an ability: Leafbrella. This allows it to stand up to some of the fiercer water Bakemon in the game.</p>
+        <p>Leapek’s Growth attack has been replaced with a new ability: Acid Rain. This is one of several new weather-changing abilities, which I think can put a strategic spin on the game.</p>
+        <ul class="change-list">
+          <li><span class="what">Leapod:</span> <del>Hide</del> → <ins>Absorb</ins> (1 grass, 1 water): D3 × 10 damage, and Leapod heals however much the target takes.</li>
+          <li><span class="what">Leapol:</span> <del>Umbrella</del> → <ins>Leafbrella</ins> (ability): immune to water-based attacks.</li>
+          <li><span class="what">Leapol, Slosh:</span> <del>20</del> → <ins>30</ins> damage; costs <del>1 water</del> → <ins>1 grass, 1 water</ins>.</li>
+          <li><span class="what">Leapek:</span> <del>Growth</del> → <ins>Acid Rain</ins> (ability): while you have five dark energy in your zone, Acid Rain falls.</li>
+          <li><span class="what">Leapek, Acid Wash:</span> costs <del>4 dark</del> → <ins>1 dark, 1 grass, 1 water</ins>.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change buff">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/007_quetzalil.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/007_quetzalil.png" alt="Quetzalil"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/008_quexcell.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/008_quexcell.png" alt="Quexcell"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/009_quetzillian.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/009_quetzillian.png" alt="Quetzillian"></a>
+      </div>
+      <div class="change-body">
+        <h3>007. Quetzalil — 009. Quetzillian <span class="tag buff">Buff</span></h3>
+        <p>Quexcell and Quetzillian are in a strong place, but they were being held back by their weak basic form. For Quetzalil, I’ve added a new ability: Enduring Blaze. This makes it riskier for your opponent to KO Quetzalil early in the fight.</p>
+        <ul class="change-list">
+          <li><span class="what">Quetzalil, new ability Enduring Blaze:</span> when Quetzalil is knocked out, Fire Watch burns the opponent's active Bakemon for five of their turns.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/010_paravolt.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/010_paravolt.png" alt="Paravolt"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/011_sparkeet.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/011_sparkeet.png" alt="Sparkeet"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/012_amptiel.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/012_amptiel.png" alt="Amptiel"></a>
+      </div>
+      <div class="change-body">
+        <h3>010. Paravolt — 012. Amptiel</h3>
+        <p>All three in this lineage are pretty solid. They’re on the strong side, but Amptiel’s rarity and long build-up keeps them from getting too out of control. The only change I’ve made to these Bakemon is their weakness. Rather than fighting, they’re now weak to ground.</p>
+        <ul class="change-list">
+          <li><span class="what">Weakness:</span> <del>fighting</del> → <ins>ground</ins>.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change nerf">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/013_shadopillar.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/013_shadopillar.png" alt="Shadopillar"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/014_phantoplume.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/014_phantoplume.png" alt="Phantoplume"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/015_ravenoth.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/015_ravenoth.png" alt="Ravenoth"></a>
+      </div>
+      <div class="change-body">
+        <h3>013. Shadopillar — 015. Ravenoth <span class="tag nerf">Nerf</span></h3>
+        <p>These three have been very strong since the game started. Between the loss of your entire hand, the high damage, and the constant sleep effects, I had to make some bigger changes to keep them from being too dominant.</p>
+        <p>Shadopillar’s rarity has been increased to double rare, to prevent losing your hand three times in quick succession.</p>
+        <p>Phantoplume’s Nightmare damage has dropped to 100, and you cannot use it two turns in a row. It has a rather low cost for doing such high damage. A few nectars could let it too easily sweep its opponent in a short amount of time. Phantoplume’s Razor Wing, which was rarely used, has been replaced with a new ability: Sleep Paralysis. This should keep some of Phantoplume’s danger, despite Nightmare’s cooldown (and also possibly inspire different counterplay).</p>
+        <p>Ravenoth’s Lullaby has become an attack rather than an ability, and Phantasia now does less damage if the target is awake.</p>
+        <p>For the entire lineage, weakness has changed from fighting to grass.</p>
+        <ul class="change-list">
+          <li><span class="what">Shadopillar:</span> rarity <del>uncommon</del> → <ins>double rare</ins>.</li>
+          <li><span class="what">Phantoplume, Nightmare:</span> <del>150</del> → <ins>100</ins> damage; can't be used two turns in a row.</li>
+          <li><span class="what">Phantoplume:</span> <del>Razor Wing</del> → <ins>Sleep Paralysis</ins> (ability): your opponent must roll a 3 on a D3 to wake a sleeping Bakemon.</li>
+          <li><span class="what">Ravenoth, Lullaby:</span> <del>ability</del> → <ins>attack</ins> (1 psychic, 1 dark, 20): the target falls asleep.</li>
+          <li><span class="what">Ravenoth, Phantasia:</span> <del>90</del> → <ins>60, or 90 if the target is asleep</ins>; costs <del>3 psychic</del> → <ins>1 psychic, 2 dark</ins>.</li>
+          <li><span class="what">Weakness:</span> <del>fighting</del> → <ins>grass</ins>.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change buff">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/016_pentawunk.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/016_pentawunk.png" alt="Pentawunk"></a>
+      </div>
+      <div class="change-body">
+        <h3>016. Pentawunk <span class="tag buff">Buff</span></h3>
+        <p>Pentawunk is more of a collector Bakemon who I don’t expect to see much in play, but I gave him a new ability, Stare at Sky, to allow him a place in our new weather system.</p>
+        <ul class="change-list">
+          <li><span class="what">New ability Stare at Sky:</span> clears any weather, returning the field to Blue Sky.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change buff">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/017_kidding.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/017_kidding.png" alt="Kidding"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/018_pyroat.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/018_pyroat.png" alt="Pyroat"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/019_flairees.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/019_flairees.png" alt="Flairees"></a>
+      </div>
+      <div class="change-body">
+        <h3>017. Kidding — 019. Flairees <span class="tag buff">Buff</span></h3>
+        <p>Kidding’s evolution line has been underutilized, largely due to a lack of cohesion in its abilities. I’ve made some small adjustments that I think will make Kidding more viable, and help out the rest of the lineage.</p>
+        <p>Kidding’s ability Mischief no longer forces Kidding to discard its own energy. It does still force its target to discard one. The big change here is that if the target’s energy type is grass, Kidding can “eat” that grass, and attach the energy to itself. This in turn helps out Pyroat’s Graze, and should hopefully allow Flairees to have built up the necessary grass energy before its final evolution.</p>
+        <p>Flairees’ Blaze Leap ability was also recently buffed shortly before this update. I’m now incorporating it officially as part of the weather system, too.</p>
+        <p>Pyroat and Flairees’ secondary weakness has been changed from dark to ground.</p>
+        <ul class="change-list">
+          <li><span class="what">Kidding, Mischief:</span> <del>Kidding and its target each discard an energy</del> → <ins>any Bakemon in play discards an energy; if it's grass, Kidding takes it instead</ins>.</li>
+          <li><span class="what">Flairees:</span> <del>Leap</del> → <ins>Blaze Leap</ins> (same effect).</li>
+          <li><span class="what">Weakness:</span> Pyroat and Flairees <del>dark</del> → <ins>ground</ins>.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/020_torshock.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/020_torshock.png" alt="Torshock"></a>
+      </div>
+      <div class="change-body">
+        <h3>020. Torshock</h3>
+        <p>Torshock has already had several adjustments since launch, and I believe it’s in a pretty good place now. No further adjustments needed at this time.</p>
+        <ul class="change-list">
+          <li>No changes.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change nerf">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/021_aquimp.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/021_aquimp.png" alt="Aquimp"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/022_draquaduct.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/022_draquaduct.png" alt="Draquaduct"></a>
+      </div>
+      <div class="change-body">
+        <h3>021. Aquimp — 022. Draquaduct <span class="tag nerf">Nerf</span></h3>
+        <p>This pair has been almost mandatory in a deck since the beginning. To reduce Aquimp’s ability to produce endless amounts of energy and set up other powerful water Bakemon very quickly, I’ve had to adjust its Soak ability. It can now only be used on Bakemon that don’t already have water attached.</p>
+        <p>This nerf also brings Draquaduct into a healthier place, as well as several other over-performing water-type Bakemon. It may feel like a harsh penalty, but I think creative players will find ways to still make Soak work very well.</p>
+        <ul class="change-list">
+          <li><span class="what">Aquimp, Soak:</span> only onto a Bakemon with <ins>no water energy attached</ins>.</li>
+          <li><span class="what">Draquaduct, Hydrosurge:</span> its weather is now called <ins>Flood</ins> (same effect).</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/023_jeremo.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/023_jeremo.png" alt="Jeremo♂"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/024_jeremo.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/024_jeremo.png" alt="Jeremo♀"></a>
+      </div>
+      <div class="change-body">
+        <h3>023. Jeremo♂ — 024. Jeremo♀</h3>
+        <p>While the Jeremos have not seen too much activity besides my own decks, I think they have been moved to a viable place in past updates. Right now, I’d like to keep an eye on them and see how they perform now that other Bakemon are being re-balanced.</p>
+        <ul class="change-list">
+          <li>No changes.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change reworked">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/025_shrizzle.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/025_shrizzle.png" alt="Shrizzle"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/026_lobscorch.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/026_lobscorch.png" alt="Lobscorch"></a>
+      </div>
+      <div class="change-body">
+        <h3>025. Shrizzle — 026. Lobscorch <span class="tag reworked">Reworked</span></h3>
+        <p>Lobscorch has been in a frustrating place. For less experienced players, he can be quite difficult to build up to do any damage. For more experienced players, his defenses can be difficult to break through. I’ve changed Boiled Alive to require a discard of one water energy (think about what happens to water when you boil it!). For Dunk, the move now fails if Lobscorch is attacked by a move it is weak to.</p>
+        <p>Both Shrizzle and Lobscorch’s secondary weakness has moved from fighting to dragon.</p>
+        <ul class="change-list">
+          <li><span class="what">Lobscorch, Boiled Alive:</span> now <ins>discards one water energy</ins> from Lobscorch.</li>
+          <li><span class="what">Lobscorch, Dunk:</span> <ins>fails against an attack Lobscorch is weak to</ins>.</li>
+          <li><span class="what">Weakness:</span> <del>fighting</del> → <ins>dragon</ins>.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change reworked">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/027_biropod.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/027_biropod.png" alt="Biropod"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/028_blackbrish.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/028_blackbrish.png" alt="Blackbrish"></a>
+        <a href="https://hxa.neocities.org/bakemon/cards/029_orcuill.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/029_orcuill.png" alt="Orcuill"></a>
+      </div>
+      <div class="change-body">
+        <h3>027. Biropod — 029. Orcuill <span class="tag reworked">Reworked</span></h3>
+        <p>Orcuill’s Salt Spray is quite powerful when paired with certain combinations. Once an opponent builds up a good Salt Spray offensive, it can leave you feeling helpless. Additionally, I’ve seen that Biropod and Blackbrish only ever sit on the bench until evolving into Orcuill. To give the lineage a bit more viability before the final evolution, I’ve made the following changes:</p>
+        <p>Blackbrish’s Ink Blot now rewards both sides of the coin flip, but has had its energy increased by one. If tails, you may add a dark energy to a Bakemon in the field. This plays directly into…</p>
+        <p>Orcuill: The energy required to roll coins for Salt Spray is now exclusively dark rather than any type of energy. Because it is more difficult to build up as much usable energy now, I’ve increased the damage of Salt Spray by 10.</p>
+        <ul class="change-list">
+          <li><span class="what">Blackbrish, Ink Blot:</span> costs <del>1 dark</del> → <ins>2 dark</ins>. Heads: the target's next attack misses. Tails: you may add a dark energy to any Bakemon in play.</li>
+          <li><span class="what">Orcuill, Salt Spray:</span> flip a coin for each <del>energy</del> → <ins>dark energy</ins> on Orcuill.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change">
+      <div class="card-thumbs">
+        <a href="https://hxa.neocities.org/bakemon/cards/030_whave.png" target="_blank"><img src="https://hxa.neocities.org/bakemon/cards/030_whave.png" alt="Whave"></a>
+      </div>
+      <div class="change-body">
+        <h3>030. Whave</h3>
+        <p>Whave has already undergone a few rebalances. With the changes to Power Cable (previously) and Aquimp’s Soak (in this patch), I don’t foresee Whave being quite as dominant.</p>
+        <ul class="change-list">
+          <li>No changes.</li>
+        </ul>
+      </div>
+    </article>
+    <article class="card-change weather-box">
+      <div class="change-body">
+        <h3>New weather <span class="tag">Weather</span></h3>
+        <p>Weather belongs to the whole table, and only one can be in play at a time. Some weathers only affect the opponent of whoever called them.</p>
+        <table class="weather-table">
+          <tr><th>Weather</th><th>Caused by</th><th>Effect</th></tr>
+          <tr><td><b>Blue Sky</b></td><td>Default, Pentawunk’s Stare at Sky</td><td>No weather: the default.</td></tr>
+          <tr><td><b>Flood</b></td><td>Draquaduct’s Hydrosurge</td><td>Water attacks do an additional 20 damage.</td></tr>
+          <tr><td><b>Acid Rain</b></td><td>Leapek’s Acid Rain</td><td>Once per turn while active, roll a D6. The result is the number of the opponent’s water or ice energy you can turn into dark energy.</td></tr>
+          <tr><td><b>Lightningshower</b></td><td>Crackazolt’s Arclight</td><td>All electric attacks in the play field do an additional 20 damage.</td></tr>
+          <tr><td><b>Fire Watch</b></td><td>Quetzalil’s Enduring Blaze</td><td>Any Bakemon in the opponent’s active slot becomes burned, for five of their turns.</td></tr>
+          <tr><td><b>Overcast</b></td><td>Coming soon</td><td>When using a grass-type move, roll a D6. On a 1, the attack fails.</td></tr>
+        </table>
+      </div>
+    </article>
   </section>
 </div>
 

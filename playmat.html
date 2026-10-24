@@ -1233,14 +1233,19 @@ function renderReadOnlySidePanel(slot) {
 // summoner's opponent (Frost does), so the bar says whose weather it is. To add a weather, add a line here. The practice bots keep their own list (with the
 // rules that make it work) in gameguy/data/moves.js, so a new weather goes in both places.
 const PLAYMAT_WEATHER = {
-  hailstorm:  { label: "Hailstorm",  text: "Clears and prevents elemental effects." },
-  hydrosurge: { label: "Hydrosurge", text: "Water attacks do +20 damage." },
-  starfall:   { label: "Starfall",   text: "Damage to fairy-types is reduced by a D6 × 10." },
-  frost:      { label: "Frost",      text: "Bakemon put in the active slot may freeze." },
+  flood:           { label: "Flood",           text: "Water attacks do +20 damage." },
+  acidRain:        { label: "Acid Rain",       text: "Once per turn, the caller may roll a D6 and turn that many of the opponent's water or ice energy into dark energy." },
+  lightningShower: { label: "Lightningshower", text: "Electric attacks in the play field do +20 damage." },
+  fireWatch:       { label: "Fire Watch",      text: "For five of the opponent's turns, any Bakemon in their active slot becomes burned." },
+  overcast:        { label: "Overcast",        text: "When using a grass-type move, roll a D6. On a 1, the attack fails." },
+  hailstorm:       { label: "Hailstorm",       text: "Clears and prevents elemental effects." },
+  starfall:        { label: "Starfall",        text: "Damage to fairy-types is reduced by a D6 × 10." },
+  frost:           { label: "Frost",           text: "Bakemon the caller's opponent puts in the active slot may freeze." },
 };
 
+// No weather at all is Blue Sky.
 function weatherInfo(key) {
-  return key && PLAYMAT_WEATHER[key] ? PLAYMAT_WEATHER[key] : { label: "Clear", text: "No weather in effect." };
+  return key && PLAYMAT_WEATHER[key] ? PLAYMAT_WEATHER[key] : { label: "Blue Sky", text: "No weather in effect." };
 }
 
 function renderWeather() {
@@ -1256,7 +1261,7 @@ function renderWeather() {
   }
   const select = document.getElementById("weather-select");
   if (!select.options.length) {
-    select.innerHTML = `<option value="">☀️ Clear</option>` +
+    select.innerHTML = `<option value="">☀️ Blue Sky</option>` +
       Object.entries(PLAYMAT_WEATHER).map(([k, w]) => `<option value="${k}">${escapeHtml(w.label)}</option>`).join("");
     select.addEventListener("change", () => setWeather(select.value || null));
   }
@@ -1276,7 +1281,7 @@ async function setWeather(key) {
   await pushState(newState);
   const { error } = await supabaseClient.from("table_chat_messages").insert({
     table_id: tableId, player_id: currentPlayer.id, sender_name: currentPlayer.display_name,
-    message: key ? `🌦️ changed the weather to ${weatherInfo(key).label}` : "☀️ cleared the weather",
+    message: key ? `🌦️ changed the weather to ${weatherInfo(key).label}` : "☀️ cleared the weather to Blue Sky",
   });
   if (error) console.error("Failed to announce the weather:", error);
 }
