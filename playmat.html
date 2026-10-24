@@ -166,6 +166,19 @@
      instead keeps this line visible no matter which theme is active. */
   .divider-line { height: 1px; background: color-mix(in srgb, var(--card-border) 45%, transparent); margin: 10px 0; }
 
+  /* Weather sits on the line between the two sides: it belongs to the whole table, and either player can change it. */
+  .weather-row {
+    display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+    margin: 10px 0; padding: 6px 12px;
+    border-top: 1px solid color-mix(in srgb, var(--card-border) 45%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--card-border) 45%, transparent);
+    font-size: 12px; color: var(--text-muted);
+  }
+  .weather-row .weather-label { font-weight: 700; color: var(--accent); }
+  .weather-row select { font-size: 12px; padding: 3px 8px; }
+  .weather-row .weather-text { font-style: italic; }
+  .weather-row.active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
   .card-face {
     width: 64px;
     height: 90px;
@@ -445,7 +458,11 @@
           <span class="score-label">Points</span>
           <div class="score-orbs" id="opp-score-orbs" data-view-only="1"></div>
         </div>
-        <div class="divider-line"></div>
+        <div class="weather-row" id="weather-row">
+          <span class="weather-label">🌦️ Weather</span>
+          <select id="weather-select" aria-label="Weather"></select>
+          <span class="weather-text" id="weather-text"></span>
+        </div>
         <div class="score-row" id="my-score-row">
           <span class="score-label">Points</span>
           <div class="score-orbs" id="my-score-orbs"></div>
@@ -490,7 +507,11 @@
           <span class="score-label">Points</span>
           <div class="score-orbs" id="spec-p2-score-orbs" data-view-only="1"></div>
         </div>
-        <div class="divider-line"></div>
+        <div class="weather-row" id="spec-weather-row">
+          <span class="weather-label">🌦️ Weather</span>
+          <span id="spec-weather-name"></span>
+          <span class="weather-text" id="spec-weather-text"></span>
+        </div>
         <div class="row-label" style="margin-top:16px;"><span id="spec-p1-name">Player 1</span></div>
         <div class="opp-zone-row" style="display:flex; align-items:center; justify-content:center; gap:28px; margin-bottom:10px; flex-wrap:wrap;">
           <div class="card-face" id="spec-p1-discard" data-view-only="1" style="border-style:dashed; flex-shrink:0;">
@@ -1205,8 +1226,59 @@ function renderReadOnlySidePanel(slot) {
 // rule the two players see of each other. Discard and score aren't gated by
 // that lock either, matching how the player board itself always shows both
 // regardless of setup state. Just no hands; those stay private.
+// ---------- Weather ----------
+// One weather for the whole table (tableState.state.weather holds its key, or null for clear skies).
+// Either player can change it from the dropdown on the center line, and each change is announced in
+// the table chat. To add a weather, add a line here. The practice bots keep their own list (with the
+// rules that make it work) in gameguy/data/moves.js, so a new weather goes in both places.
+const PLAYMAT_WEATHER = {
+  hailstorm:  { label: "Hailstorm",  text: "Clears and prevents elemental effects." },
+  hydrosurge: { label: "Hydrosurge", text: "Water attacks do +20 damage." },
+  starfall:   { label: "Starfall",   text: "Damage to fairy-types is reduced by a D6 × 10." },
+  frost:      { label: "Frost",      text: "Bakemon put in the active slot may freeze." },
+};
+
+function weatherInfo(key) {
+  return key && PLAYMAT_WEATHER[key] ? PLAYMAT_WEATHER[key] : { label: "Clear", text: "No weather in effect." };
+}
+
+function renderWeather() {
+  const key = tableState && tableState.state ? tableState.state.weather || null : null;
+  const info = weatherInfo(key);
+  if (isSpectator) {
+    document.getElementById("spec-weather-name").textContent = info.label;
+    document.getElementById("spec-weather-text").textContent = key ? info.text : "";
+    document.getElementById("spec-weather-row").classList.toggle("active", !!key);
+    return;
+  }
+  const select = document.getElementById("weather-select");
+  if (!select.options.length) {
+    select.innerHTML = `<option value="">☀️ Clear</option>` +
+      Object.entries(PLAYMAT_WEATHER).map(([k, w]) => `<option value="${k}">${escapeHtml(w.label)}</option>`).join("");
+    select.addEventListener("change", () => setWeather(select.value || null));
+  }
+  if (document.activeElement !== select) select.value = key || "";
+  document.getElementById("weather-text").textContent = key ? info.text : "";
+  document.getElementById("weather-row").classList.toggle("active", !!key);
+}
+
+async function setWeather(key) {
+  if (isSpectator || !tableState) return;
+  const current = tableState.state.weather || null;
+  if (current === key) return;
+  const newState = JSON.parse(JSON.stringify(tableState.state));
+  newState.weather = key;
+  await pushState(newState);
+  const { error } = await supabaseClient.from("table_chat_messages").insert({
+    table_id: tableId, player_id: currentPlayer.id, sender_name: currentPlayer.display_name,
+    message: key ? `🌦️ changed the weather to ${weatherInfo(key).label}` : "☀️ cleared the weather",
+  });
+  if (error) console.error("Failed to announce the weather:", error);
+}
+
 function renderSpectatorMat() {
   if (!tableState) return;
+  renderWeather();
   const setupLocked = !!tableState.state.setup_locked;
   const p1State = tableState.state.player_1 || { active: null, bench: [null, null, null], item_slot: null, discard: [], score: 0 };
   const p2State = tableState.state.player_2 || { active: null, bench: [null, null, null], item_slot: null, discard: [], score: 0 };
@@ -1284,6 +1356,7 @@ function renderReadOnlyBench(bench, revealed) {
 function renderMat() {
   if (!tableState) return;
   if (isSpectator) { renderSpectatorMat(); return; }
+  renderWeather();
   const myState = tableState.state[mySeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
   const oppState = tableState.state[oppSeat] || { active: null, bench: [null,null,null], hand: [], deck: [], discard: [] };
 
