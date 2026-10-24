@@ -200,14 +200,40 @@ function wireThemeSwitch() {
   };
 
   applyTheme(document.documentElement.dataset.bakemonTheme || "felt");
+  bakemonApplyTheme = applyTheme;
 
   options.forEach(opt => {
     opt.addEventListener("click", () => {
       localStorage.setItem(BAKEMON_THEME_KEY, opt.dataset.theme);
       applyTheme(opt.dataset.theme);
       wrapper.classList.remove("open"); // picking a theme closes the dropdown too
+      saveThemeToProfile(opt.dataset.theme);
     });
   });
+}
+
+// The theme lives in this browser's localStorage (so the page paints in the right
+// colors instantly), and also on your profile (player_settings), so a new device
+// picks it up the first time you visit. If the two disagree, the profile wins.
+var bakemonApplyTheme = null;   // var, not let: wireThemeSwitch() sets it
+
+async function syncThemeFromProfile() {
+  const player = getBakemonPlayer();
+  if (!player || !bakemonChallengesSb) return;
+  const { data, error } = await bakemonChallengesSb.from("player_settings").select("theme").eq("player_id", player.id).maybeSingle();
+  if (error || !data || !data.theme) return;   // no table yet, or nothing saved: keep this browser's choice
+  if (data.theme !== document.documentElement.dataset.bakemonTheme) {
+    localStorage.setItem(BAKEMON_THEME_KEY, data.theme);
+    if (bakemonApplyTheme) bakemonApplyTheme(data.theme);
+  }
+}
+
+async function saveThemeToProfile(theme) {
+  const player = getBakemonPlayer();
+  if (!player || !bakemonChallengesSb) return;
+  const { error } = await bakemonChallengesSb.from("player_settings")
+    .upsert({ player_id: player.id, theme, updated_at: new Date().toISOString() }, { onConflict: "player_id" });
+  if (error) console.warn("shared-header.js: couldn't save the theme to your profile", error.message);
 }
 
 function wireRulesDrawer() {
@@ -343,6 +369,7 @@ async function updateChallengeBadge() {
   if (!ready) return; // a missed notification badge isn't worth failing the page over
   bakemonChallengesSb = bakemonChallengesSb || window.supabase.createClient(BAKEMON_SUPABASE_URL, BAKEMON_SUPABASE_ANON_KEY);
 
+  syncThemeFromProfile();
   await refreshChallengeBadge();
   wireChallengesDrawer();
   watchChallenges();
