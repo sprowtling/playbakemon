@@ -33,6 +33,9 @@ are how to read it. I check here before deciding a report.
   damage reduction, like Starfall) means 10–60 or 10–30.
 - **Parrot copies only the attack its target made on the opponent's most recent turn.** If that
   Bakemon was knocked out or replaced, or the opponent didn't attack, there's nothing to copy.
+- **Weather belongs to the whole table, but remembers who called it.** Only one weather at a time, and
+  anyone can replace it. Its effect can still single out one side ("your opponent's Bakemon…"), written
+  from the summoner's point of view. Frost already works this way. (Bryan, Oct 24.)
 - **Iveldyr's Spore Bloom lands after four turns**, at the start of Iveldyr's side's turn. The caster
   chooses which mushroom Bakemon share the 60 HP of healing.
 - **Practice mode reshuffles the discard pile when the deck runs out.** At the table you can discard

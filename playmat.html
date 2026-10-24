@@ -1229,7 +1229,8 @@ function renderReadOnlySidePanel(slot) {
 // ---------- Weather ----------
 // One weather for the whole table (tableState.state.weather holds its key, or null for clear skies).
 // Either player can change it from the dropdown on the center line, and each change is announced in
-// the table chat. To add a weather, add a line here. The practice bots keep their own list (with the
+// the table chat. state.weather_by remembers which seat brought it in: some weathers only hit the
+// summoner's opponent (Frost does), so the bar says whose weather it is. To add a weather, add a line here. The practice bots keep their own list (with the
 // rules that make it work) in gameguy/data/moves.js, so a new weather goes in both places.
 const PLAYMAT_WEATHER = {
   hailstorm:  { label: "Hailstorm",  text: "Clears and prevents elemental effects." },
@@ -1244,9 +1245,11 @@ function weatherInfo(key) {
 
 function renderWeather() {
   const key = tableState && tableState.state ? tableState.state.weather || null : null;
+  const by = key ? tableState.state.weather_by || null : null;
   const info = weatherInfo(key);
   if (isSpectator) {
-    document.getElementById("spec-weather-name").textContent = info.label;
+    const owner = by && spectatorNames[by];
+    document.getElementById("spec-weather-name").textContent = info.label + (owner ? ` (${owner}'s)` : "");
     document.getElementById("spec-weather-text").textContent = key ? info.text : "";
     document.getElementById("spec-weather-row").classList.toggle("active", !!key);
     return;
@@ -1258,7 +1261,8 @@ function renderWeather() {
     select.addEventListener("change", () => setWeather(select.value || null));
   }
   if (document.activeElement !== select) select.value = key || "";
-  document.getElementById("weather-text").textContent = key ? info.text : "";
+  const owner = !by ? "" : by === mySeat ? "Yours" : `${oppDisplayName || "Your opponent"}'s`;
+  document.getElementById("weather-text").textContent = key ? (owner ? `${owner}. ` : "") + info.text : "";
   document.getElementById("weather-row").classList.toggle("active", !!key);
 }
 
@@ -1268,6 +1272,7 @@ async function setWeather(key) {
   if (current === key) return;
   const newState = JSON.parse(JSON.stringify(tableState.state));
   newState.weather = key;
+  newState.weather_by = key ? mySeat : null;
   await pushState(newState);
   const { error } = await supabaseClient.from("table_chat_messages").insert({
     table_id: tableId, player_id: currentPlayer.id, sender_name: currentPlayer.display_name,
