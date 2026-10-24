@@ -117,8 +117,7 @@ const MOVES = {
   // "water-based" / "water-type" is read as: an attack whose cost includes water energy.
   // (The same way the rules page defines weakness.)
   '005': { 'Leafbrella':      { ability: 'passive', tag: 'immuneWater' },
-           // Slosh's printed text still carries Umbrella's old line; it changes nothing next to Leafbrella.
-           'Slosh':           { ops: [{ shield: 'all', lasts: 'nextTurn', onlyFrom: 'water' }] } },
+           'Slosh':           { ops: [] } },
   // Acid Rain: the weather starts by itself (see refreshAcidRain); using the ability is the once-a-turn roll.
   '006': { 'Acid Rain':       { ability: 'activated', oncePerTurn: true, tag: 'acidRain', ops: [{ acidRainConvert: true }] },
            'Acid Wash':       { ops: [{ discardEnergy: 1, from: 'target' }] } },
