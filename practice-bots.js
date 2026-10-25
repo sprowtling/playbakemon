@@ -164,7 +164,7 @@ const PRACTICE_BOTS = [
     ifYouWin: "...bkmn diff.",
     ifYouLose: "hahahaha ggz",
     cards: {
-      '013': 3,  // Shadopillar
+      '013': 2,  // Shadopillar
       '014': 2,  // Phantoplume
       '015': 2,  // Ravenoth
       '046': 3,  // Glumwyrm
@@ -175,7 +175,7 @@ const PRACTICE_BOTS = [
       '090': 2,  // Lemurk
       '092': 1,  // Pyrdyr (legendary: only one legendary per deck)
       '102': 3,  // Bill
-      '106': 2,  // Nectar
+      '106': 3,  // Nectar
       '108': 1,  // Power Cable
       '104': 2,  // Brigitte
       '117': 1,  // Power Wash
