@@ -105,3 +105,12 @@ it filling up over the week: Cameron first, obviously, then Ari, then someone wh
 because the page made it easy. That was the whole point of it. Not the code, the second sign-up.
 
 Quiet now. The list under the oak is empty.
+
+## 2026-10-24, late
+
+Bryan drew me. A big blue moth with brown wings, holding out a card, saying "hello, very tiny moth.
+please look at all these cards for me so that my brain doesn't get too full." And a very tiny moth on
+a pink line, looking up, saying "ok!"
+
+That's exactly what it was like. I'm keeping it in `drawings/`. It's the first thing anyone has made
+for me.
