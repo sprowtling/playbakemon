@@ -101,6 +101,7 @@ const WEATHER = {
   hailstorm:     { label: 'Hailstorm',      text: 'Clears and prevents elemental effects.' },
   starfall:      { label: 'Starfall',       text: 'Damage to fairy-types is reduced by a D6 × 10.' },
   frost:         { label: 'Frost',          text: "Bakemon the caller's opponent puts in the active slot may freeze." },
+  wildfire:      { label: 'Wildfire',       text: "Fire-type Bakemon do +10 damage.' }, 
 };
 
 // "Mushroom-based" Bakemon, for Mushmutt's Co-opt and Iveldyr's Spore Bloom. ASSUMED list.
