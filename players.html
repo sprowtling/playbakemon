@@ -35,7 +35,7 @@
     padding: 10px 14px;
     border-left: 4px solid var(--text-muted);
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;   /* every row the same height: nothing wraps onto a second line */
     text-decoration: none;
     color: inherit;
     overflow: hidden;   /* the favorite-card strip bleeds to the row's edges */
@@ -53,14 +53,14 @@
   }
   .player-row.ranked .player-rank { color: var(--accent); }
 
-  .player-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .player-info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .player-name, .player-meta, .player-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .player-name { font-size: 14px; font-weight: 600; color: var(--text-light); }
   .player-meta { font-size: 11px; color: var(--text-muted); }
   .player-status {
     font-size: 11px;
     color: var(--accent-2, var(--accent));
     font-style: italic;
-    overflow-wrap: anywhere;
   }
 
   /* Not a win/loss signal — a 0% win rate is just as "green" as 100% would
@@ -68,6 +68,7 @@
      theme-accent chip instead of the --success tokens used for actual
      win/loss outcomes elsewhere (match history, tournament status). */
   .player-winrate {
+    flex-shrink: 0;
     font-size: 13px;
     font-weight: 700;
     padding: 4px 12px;
@@ -267,7 +268,7 @@ function playerRowHtml(p, rank, ranked) {
       <div class="player-info">
         <div class="player-name">${escapeHtml(p.display_name)}</div>
         <div class="player-meta">${metaLabel}</div>
-        ${p.status_message ? `<div class="player-status">${escapeHtml(p.status_message)}</div>` : ''}
+        <div class="player-status"${p.status_message ? ` title="${escapeHtml(p.status_message)}"` : ''}>${p.status_message ? escapeHtml(p.status_message) : '&nbsp;'}</div>
       </div>
       ${p.favorites.length ? `<div class="fav-strip" aria-hidden="true">${p.favorites.map(c =>
         `<span class="fav"><img src="${CARD_IMAGE_BASE}${encodeURIComponent(c.image_filename)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>`).join("")}</div>` : ''}

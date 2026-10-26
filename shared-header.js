@@ -63,8 +63,8 @@ window.clearBakemonPlayer = clearBakemonPlayer;
   slot.innerHTML = html;
 
   await loadRulesContent();
-  highlightCurrentNavLink();
   renderIdentity();
+  highlightCurrentNavLink();          // after renderIdentity: the "Playing as" menu holds some of the links
   wireRulesDrawer();
   wireFeedbackDrawer();
   wireNavDropdowns();
@@ -116,7 +116,9 @@ function highlightCurrentNavLink() {
   } else if (path === "players.html") {
     markCurrent("nav-link-directory");
   } else if (path === "patches.html") {
-    markCurrent("nav-link-patches", "nav-group-cards");
+    markCurrent("nav-link-patches", "nav-group-me");
+  } else if (path === "player.html" && !new URLSearchParams(location.search).get("id")) {
+    markCurrent("nav-link-profile", "nav-group-me");
   } else if (path === "card-maker.html") {
     markCurrent("nav-link-cardmaker", "nav-group-cards");
   }
@@ -129,20 +131,43 @@ function renderIdentity() {
   el.innerHTML = "";
   if (!player) return;
 
-  const profileLink = document.createElement("a");
-  profileLink.href = "player.html";
-  profileLink.append("Playing as ");
+  // "Playing as [name]" is a menu: your profile, your challenges, and the patch notes.
+  // wireNavDropdowns() runs after this and gives it the same hover/tap/keyboard behavior as Cards/Battle.
+  const menu = document.createElement("div");
+  menu.className = "bakemon-nav-item has-dropdown";
+  menu.id = "nav-group-me";
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "bakemon-nav-trigger";
+  trigger.append("Playing as ");
   const strong = document.createElement("strong");
   strong.textContent = player.display_name;
-  profileLink.append(strong);
-  // Filled in by updateChallengeBadge() once it knows how many pending
-  // challenges are waiting — the actual list lives on the profile this
-  // link already goes to, not here.
+  trigger.append(strong);
+  // Filled in by refreshChallengeBadge() when a challenge needs a decision or a reply came in.
   const badge = document.createElement("span");
   badge.className = "bakemon-identity-badge";
   badge.id = "bakemon-identity-badge";
-  profileLink.append(badge);
-  el.append(profileLink);
+  trigger.append(badge);
+  trigger.append(" ▾");
+  menu.append(trigger);
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "bakemon-dropdown";
+  const profile = document.createElement("a");
+  profile.href = "player.html"; profile.id = "nav-link-profile"; profile.textContent = "My Profile";
+  const challenges = document.createElement("button");
+  challenges.type = "button"; challenges.className = "menu-item"; challenges.textContent = "Challenges";
+  challenges.addEventListener("click", () => {
+    menu.classList.remove("open");
+    // The drawer is part of the shared header, so it opens on any page once it's wired up.
+    if (window.openChallengesDrawer) window.openChallengesDrawer();
+    else location.href = "player.html";
+  });
+  const patches = document.createElement("a");
+  patches.href = "patches.html"; patches.id = "nav-link-patches"; patches.textContent = "Patch Notes";
+  dropdown.append(profile, challenges, patches);
+  menu.append(dropdown);
+  el.append(menu);
 
   const switchBtn = document.createElement("button");
   switchBtn.id = "switch-player-btn";
