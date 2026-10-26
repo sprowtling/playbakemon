@@ -103,6 +103,19 @@
     white-space: nowrap;
   }
   .bakemon-identity a { color: inherit; }
+  /* "Playing as [name]" opens a small menu, like Cards/Battle. It sits at the right edge, so it opens leftward. */
+  .bakemon-identity .bakemon-nav-trigger { color: inherit; font-weight: 400; font-size: inherit; text-transform: none; letter-spacing: normal; }
+  .bakemon-identity .bakemon-nav-trigger:hover { font-weight: 400; text-decoration: underline; }
+  .bakemon-identity .bakemon-nav-trigger:hover, .bakemon-identity .bakemon-nav-trigger:focus { background: none; }
+  .bakemon-identity .bakemon-dropdown { left: auto; right: 0; }
+  /* On narrow screens the name wraps to the left side, so the menu opens rightward instead. */
+  @media (max-width: 760px) { .bakemon-identity .bakemon-dropdown { left: 0; right: auto; } }
+  .bakemon-identity .bakemon-dropdown button.menu-item {
+    all: unset; display: block; cursor: pointer; padding: 7px 10px; border-radius: 6px;
+    color: var(--text-light, #cfe8db); font-size: 13px; font-weight: 600; white-space: nowrap;
+    text-transform: var(--nav-text-transform, none); letter-spacing: var(--nav-letter-spacing, normal);
+  }
+  .bakemon-identity .bakemon-dropdown button.menu-item:hover { background: rgba(255,255,255,0.08); }
   .bakemon-identity a strong { color: var(--accent-2, var(--accent, #d8e04a)); }
   .bakemon-identity button.small { padding: 4px 10px; }
 
@@ -358,7 +371,6 @@
       <div class="bakemon-dropdown">
         <a href="deckbuilder.html?tab=collection" id="nav-link-collection">Collection</a>
         <a href="deckbuilder.html?tab=deck" id="nav-link-deckbuilder">Deckbuilder</a>
-        <a href="patches.html" id="nav-link-patches">Patch Notes</a>
       </div>
     </div>
     <div class="bakemon-nav-item has-dropdown" id="nav-group-battle">
