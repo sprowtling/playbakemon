@@ -259,6 +259,27 @@
   .card-face.active-size .zoom-btn { width: 26px; height: 26px; font-size: 15px; }
   .card-face.active-size .label { font-size: 12px; padding: 3px 4px; }
 
+  /* Looking through a discard pile: every card in it, newest first. Click one to see it full size. */
+  #discard-viewer {
+    display: none; position: fixed; inset: 0; z-index: 190;
+    background: rgba(0,0,0,0.6); align-items: center; justify-content: center; padding: 20px;
+  }
+  #discard-viewer .panel {
+    background: var(--mat-green); border: 1px solid var(--card-border); border-radius: 12px;
+    box-shadow: var(--panel-shadow); padding: 16px 18px; max-width: 720px; width: 100%;
+    max-height: 80vh; display: flex; flex-direction: column;
+  }
+  #discard-viewer h3 { margin: 0 0 4px; color: var(--accent); font-size: 15px; }
+  #discard-viewer .sub { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+  #discard-viewer .grid {
+    overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; padding: 2px;
+  }
+  #discard-viewer .grid button { padding: 0; border: none; background: none; cursor: zoom-in; }
+  #discard-viewer .grid img { width: 100%; border-radius: 6px; display: block; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  #discard-viewer .grid .no-img { font-size: 11px; color: var(--text-light); background: var(--card-cream); border-radius: 6px; padding: 30px 4px; text-align: center; }
+  #discard-viewer .close-row { text-align: right; margin-top: 12px; }
+  .discard-clickable { cursor: pointer; }
+
   #lightbox-overlay {
     display: none;
     position: fixed;
@@ -547,6 +568,15 @@
 <div id="status-picker"></div>
 <div id="buff-picker"></div>
 <div id="end-match-picker"></div>
+
+<div id="discard-viewer">
+  <div class="panel">
+    <h3 id="discard-viewer-title">Discard pile</h3>
+    <div class="sub" id="discard-viewer-sub"></div>
+    <div class="grid" id="discard-viewer-grid"></div>
+    <div class="close-row"><button class="small" id="discard-viewer-close">Close</button></div>
+  </div>
+</div>
 
 <div id="lightbox-overlay">
   <img id="lightbox-img" src="" alt="">
@@ -1316,6 +1346,7 @@ function renderSpectatorMat() {
   // so it's safe to reuse here even though most of its selectors only ever
   // match the interactive player board, never this read-only one.
   attachHandlers();
+  wireDiscardViewers();
 }
 
 function renderReadOnlyDiscard(discard) {
@@ -1473,6 +1504,7 @@ function renderMat() {
   updateSelectionHint();
   updateUndoButton();
   attachHandlers();
+  wireDiscardViewers();
 }
 
 let flashMessage = null;
@@ -1528,7 +1560,9 @@ function attachHandlers() {
   });
   document.querySelectorAll(".card-face[data-seat]:not([data-view-only])").forEach(el => {
     if (el.dataset.seat === "__discard__") {
-      el.addEventListener("click", () => handleDiscardClick());
+      // onclick, not addEventListener: this pile is re-wired on every render, and stacked
+      // listeners would handle one click several times (discard it, then open the viewer too).
+      el.onclick = () => handleDiscardClick();
     } else {
       el.addEventListener("click", () => handleCardClick(el.dataset.seat, el.dataset.zone, parseInt(el.dataset.index)));
     }
@@ -1572,8 +1606,55 @@ function setSlot(state, zone, index, value) {
 }
 
 function handleDiscardClick() {
-  if (!selection) return; // nothing selected, clicking discard alone does nothing
+  // With a card selected, clicking your pile discards it; otherwise it opens the pile to look through.
+  if (!selection) { openDiscardViewer("Your discard pile", (tableState.state[mySeat] || {}).discard); return; }
   moveSelectedCardTo("discard", 0);
+}
+
+// ---------- Looking through a discard pile ----------
+// Anyone at the table (and spectators) can look through either pile, the way you could at a real table.
+function openDiscardViewer(title, discard) {
+  const cards = (discard || []).slice().reverse();          // newest first
+  document.getElementById("discard-viewer-title").textContent = title;
+  document.getElementById("discard-viewer-sub").textContent = cards.length
+    ? `${cards.length} card${cards.length === 1 ? "" : "s"}, most recent first. Click one to see it bigger.` : "Nothing here yet.";
+  document.getElementById("discard-viewer-grid").innerHTML = cards.map(id => {
+    const card = allCards[id];
+    if (!card) return "";
+    const src = card.image_filename ? CARD_IMAGE_BASE + card.image_filename : "";
+    return src
+      ? `<button type="button" data-zoom-src="${src}" data-zoom-alt="${escapeHtml(card.name)}" title="${escapeHtml(card.name)}"><img src="${src}" alt="${escapeHtml(card.name)}"></button>`
+      : `<div class="no-img">${escapeHtml(card.name)}</div>`;
+  }).join("");
+  document.querySelectorAll("#discard-viewer-grid [data-zoom-src]").forEach(b => {
+    b.addEventListener("click", () => openLightbox(b.dataset.zoomSrc, b.dataset.zoomAlt));
+  });
+  document.getElementById("discard-viewer").style.display = "flex";
+}
+function closeDiscardViewer() { document.getElementById("discard-viewer").style.display = "none"; }
+document.getElementById("discard-viewer-close").addEventListener("click", closeDiscardViewer);
+document.getElementById("discard-viewer").addEventListener("click", (e) => { if (e.target.id === "discard-viewer") closeDiscardViewer(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDiscardViewer(); });
+
+// The read-only piles (your opponent's, and both piles for a spectator) open the viewer on click.
+// onclick (not addEventListener), because these containers are re-wired on every render.
+function wireDiscardViewers() {
+  const st = tableState && tableState.state;
+  if (!st) return;
+  const pile = (elId, title, seat) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.classList.add("discard-clickable");
+    el.title = "Look through this discard pile";
+    el.onclick = (e) => { if (e.target.closest(".zoom-btn")) return; openDiscardViewer(title, (st[seat] || {}).discard); };
+  };
+  if (isSpectator) {
+    pile("spec-p1-discard", `${spectatorNames.player_1 || "Player 1"}'s discard pile`, "player_1");
+    pile("spec-p2-discard", `${spectatorNames.player_2 || "Player 2"}'s discard pile`, "player_2");
+  } else {
+    pile("opp-discard-pile", `${oppDisplayName || "Your opponent"}'s discard pile`, oppSeat);
+    document.getElementById("my-discard-pile").classList.add("discard-clickable");
+  }
 }
 
 function handleCardClick(seat, zone, index) {
