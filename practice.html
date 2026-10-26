@@ -859,7 +859,7 @@ function showResult(result) {
   document.getElementById("result-box").innerHTML = `
     <h2>${escapeHtml(words)}</h2>
     ${line ? `<p><em>${escapeHtml(bot.name)}: “${escapeHtml(line)}”</em></p>` : ""}
-    ${result === "broken" ? "<p>A card effect hit a bug. If you can, tell Claude which cards were in play (the details are in the browser console).</p>" : ""}
+    ${result === "broken" ? "<p>A card effect hit a bug. If you can, leave feedback about which cards were in play (the details are in the browser console).</p>" : ""}
     <p style="font-size:11px; color:var(--text-muted);" id="save-note">Practice matches don't count toward your rank.</p>
     <div class="buttons">
       <button class="primary" id="rematch-btn">Rematch</button>
