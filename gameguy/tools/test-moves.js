@@ -673,11 +673,16 @@ await test('Moira needs a benched Bakemon that can evolve at all', async () => {
   ok(ctx.legalActions(G, G.players[0]).some(a => a.type === 'item'), 'Leapod does');
 });
 
-await test('Leap: fire-types in play hit 10 harder, and hitting Flairees burns on a D3 of 1', async () => {
+await test('Blaze Leap: Wildfire makes fire-types hit 10 harder, and hitting Flairees burns on a D3 of 1', async () => {
   const fire = { name: 'Poke', damage: 30, cost: { types: {}, any: 1, total: 1 }, ops: [], fx: {}, isAbility: false };
   const G = game({ active: 'Pyroat', bench: ['Flairees'] }, { active: 'Leapod', big: ['Leapod'] });
+  await ctx.perform(G, G.players[0], { type: 'noop' });
+  ok(E.weatherIs(G, 'wildfire'), 'Wildfire is out with Flairees in play');
   await ctx.resolveAttack(G, G.players[0], act(G, 0), fire);
   eq(act(G, 1).maxHp - act(G, 1).hp, 40, 'benched Flairees adds 10 to fire-type Pyroat');
+  // Cleared by the other side, it comes back on Flairees' side's turn.
+  G.weather = null; G.turn = 1; await ctx.startTurn(G, G.players[1]); ok(!E.weatherIs(G, 'wildfire'), "not on the other side's turn");
+  G.turn = 0; await ctx.startTurn(G, G.players[0]); ok(E.weatherIs(G, 'wildfire'), 'back on its own turn');
   const H = game({ active: 'Flairees', big: ['Flairees'] }, { active: 'Raizado' });
   rig(d(3, 1)); await ctx.resolveAttack(H, H.players[1], act(H, 1), fire);
   ok(act(H, 1).status.burned, 'a 1 burns the attacker');
@@ -1001,6 +1006,18 @@ await test('Overcast: a grass attack fails on a D6 of 1', async () => {
   G.weather = { name: 'overcast', owner: 1 };
   rig(d(6, 1)); await attack(G, 0, 'Vine Slap'); eq(act(G, 1).maxHp - act(G, 1).hp, 0, 'smothered');
   rig(d(6, 4)); await attack(G, 0, 'Vine Slap'); ok(act(G, 1).maxHp - act(G, 1).hp > 0, 'lands otherwise');
+});
+
+await test('Lucky Whomps: each D6 result does its own thing', async () => {
+  const setup = (who) => game({ active: 'Whompwhomp', bench: ['Boowhomp'], hp: { Whompwhomp: 40 } }, { active: 'Raizado', big: ['Raizado'] },
+    [{ hurtOwn: (G, P, req) => req.options.find(m => m.card.name === who) || req.options[0] }, null]);
+  let G = setup(); rig(d(6, 1)); await attack(G, 0, 'Lucky Whomps'); ok(act(G, 1).status.haunted, '1: haunted');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 60, 'the 60 lands too');
+  G = setup(); rig(d(6, 2)); await attack(G, 0, 'Lucky Whomps'); eq(act(G, 1).maxHp - act(G, 1).hp, 40, '2: the target heals 20 of it');
+  G = setup(); rig(d(6, 3)); await attack(G, 0, 'Lucky Whomps'); ok(act(G, 1).status.confused, '3: confused');
+  G = setup(); rig(d(6, 4)); await attack(G, 0, 'Lucky Whomps'); eq(act(G, 0).hp, 60, '4: Whompwhomp heals 20');
+  G = setup('Boowhomp'); rig(d(6, 5)); await attack(G, 0, 'Lucky Whomps'); eq(bn(G, 0).maxHp - bn(G, 0).hp, 20, '5: 20 to one of your own');
+  G = setup(); rig(d(6, 6)); await attack(G, 0, 'Lucky Whomps'); ok(act(G, 0).status.asleep, '6: Whompwhomp falls asleep');
 });
 
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {

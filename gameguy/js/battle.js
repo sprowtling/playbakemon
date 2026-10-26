@@ -482,14 +482,19 @@ async function perform(G, P, action) {
 // Leapek's Acid Rain: "While five dark energy are attached to Bakemon in your zone, acid rain falls."
 // It only stops when that side drops below five or Leapek leaves. If someone clears it (Stare at Sky)
 // or brings in another weather, it falls again on Leapek's side's next turn (Bryan's ruling).
+// Flairees' Wildfire works the same way: it comes with Flairees, and if it's cleared or replaced,
+// it returns on Flairees' side's next turn. (Assumed to match Acid Rain; Bryan to confirm.)
 async function refreshAcidRain(G) {
   if (G.winner || !G.t) return;
   const P = G.players[G.turn];
-  if (weatherIs(G, 'acidRain') && weatherOwner(G) === P) return;
-  const leapek = zone(P).find(m => hasTag(m, 'acidRain'));
-  if (!leapek || darkInZone(P) < 5) return;
-  G.weather = { name: 'acidRain', source: leapek };
-  await say2(G, 'Acid rain begins to fall!', { kind: 'weather' });
+  for (const [name, ok, line] of [['acidRain', () => darkInZone(P) >= 5, 'Acid rain begins to fall!'], ['wildfire', () => true, 'Wildfire spreads across the field!']]) {
+    if (weatherIs(G, name) && weatherOwner(G) === P) return;
+    const source = zone(P).find(m => hasTag(m, name));
+    if (!source || !ok()) continue;
+    G.weather = { name, source };
+    await say2(G, line, { kind: 'weather' });
+    return;
+  }
 }
 
 async function performAction(G, P, action) {
@@ -735,7 +740,7 @@ async function dealDamage(G, source, victim, amount, o) {
       if (P) for (const m of zone(P)) for (const aura of m.auras) if (costIncludes(move, aura.costIncludes)) amount += aura.damage;
       if (P && fluttershineOn(P) && costIncludes(move, 'grass')) amount += 20;
       if (costIncludes(move, 'dark')) amount += 10 * tagCount(G, 'darkPulse');                              // Lemurk: everyone's dark attacks
-      if (source.card.types.includes('fire') && tagCount(G, 'fireAura')) amount += 10;                      // Flairees: every fire-type in play
+      if (source.card.types.includes('fire') && weatherIs(G, 'wildfire')) amount += 10;                     // Flairees' Wildfire: every fire-type
       if (victim.status.frozen && costIncludes(move, 'electric') && tagCount(G, 'ionCharge')) amount += 10 * move.cost.types.electric;   // Cryodyr
       if (G.t.amp && G.t.amp.types.some(t => costIncludes(move, t))) amount += G.t.amp.amount;                // Eclidyr's Celestial Bodies
     }
@@ -1043,6 +1048,10 @@ async function runOps(G, ctx, ops) {
       for (const mon of targets) if (mon) await dealDamage(G, null, mon, op.damageBench, {});
     }
     else if (op.selfDamage)      await dealDamage(G, null, me, op.selfDamage, { why: 'the recoil' });
+    else if (op.hurtOwn) {                                 // Whompwhomp: "Deal 20 damage to one of your Bakemon."
+      const mon = await pick(G, P, zone(P), 'hurtOwn', 'Which of your Bakemon takes ' + op.hurtOwn + '?');
+      if (mon) await dealDamage(G, null, mon, op.hurtOwn, { why: me.card.name });
+    }
     else if (op.selfDamageIfHit) { if (ctx.dealt > 0) await dealDamage(G, null, me, op.selfDamageIfHit, { why: 'the recoil' }); }
 
     else if (op.shield) {
