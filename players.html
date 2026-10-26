@@ -150,7 +150,7 @@ function escapeHtml(str) {
 }
 
 let allPlayers = []; // [{ id, display_name, wins, total, rate }]
-let currentSort = "name"; // "name" | "winrate"
+let currentSort = "winrate"; // "name" | "winrate"
 
 async function init() {
   const [{ data: players, error: playersErr }, { data: matches, error: matchesErr }, { data: favorites }] = await Promise.all([
