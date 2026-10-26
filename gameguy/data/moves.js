@@ -101,7 +101,7 @@ const WEATHER = {
   hailstorm:     { label: 'Hailstorm',      text: 'Clears and prevents elemental effects.' },
   starfall:      { label: 'Starfall',       text: 'Damage to fairy-types is reduced by a D6 × 10.' },
   frost:         { label: 'Frost',          text: "Bakemon the caller's opponent puts in the active slot may freeze." },
-  wildfire:      { label: 'Wildfire',       text: 'Fire-type Bakemon do +10 damage.' },
+  wildfire:        { label: 'Wildfire',        text: 'Fire-type Bakemon do +10 damage.' },
 };
 
 // "Mushroom-based" Bakemon, for Mushmutt's Co-opt and Iveldyr's Spore Bloom. ASSUMED list.
@@ -149,7 +149,8 @@ const MOVES = {
            'Headbutt':        { ops: [{ ifTargetWeakTo: 'fire', then: [{ status: 'burned' }] }] } },
   // Leap does two things: fire-type Bakemon in play (both sides) hit 10 harder while Flairees is in play,
   // and whoever damages Flairees rolls a D3, burned on a 1.
-  '019': { 'Blaze Leap':      { ability: 'whenHit', tag: 'fireAura', ops: [{ roll: 3, why: 'Leap', table: { 1: [{ status: 'burned', on: 'attacker' }] } }] } },
+  // Blaze Leap brings Wildfire (Bryan, Patch A1): while Flairees is in play, fire-types do +10. The burn chance stays on the card.
+  '019': { 'Blaze Leap':      { ability: 'whenHit', tag: 'wildfire', ops: [{ roll: 3, why: 'Leap', table: { 1: [{ status: 'burned', on: 'attacker' }] } }] } },
   '020': { 'Contact Zap':     { ability: 'whenHit', ops: [{ flip: 1, heads: [{ status: 'paralyzed', on: 'attacker' }] }] } },
   // "...to any Bakemon in the play area that does not have any water attached."
   '021': { 'Soak':            { ability: 'activated', oncePerTurn: true, ops: [{ addEnergy: 'water', to: 'any', withoutType: 'water' }] } },
@@ -292,6 +293,9 @@ const MOVES = {
                                  ops: [{ amplify: { heads: ['fire', 'electric', 'ground', 'fighting'], tails: ['ice', 'water', 'dark', 'steel'], amount: 20 } }] } },
   '097': { 'Fluff It Up':     { ops: [{ status: 'haunted' }] },
            'Mister Fister':   { ops: [{ ifUsedLastTurn: 'Fluff It Up', damage: -30, then: [{ status: 'confused' }] }] } },
+  '098': { 'Lucky Whomps':    { ops: [{ roll: 6, why: 'Lucky Whomps', table: {
+             1: [{ status: 'haunted' }], 2: [{ heal: 20, who: 'target' }], 3: [{ status: 'confused' }],
+             4: [{ heal: 20, who: 'self' }], 5: [{ hurtOwn: 20 }], 6: [{ status: 'asleep', on: 'self' }] } }] } },
   '096': { 'Purify':          { ability: 'activated', oncePerTurn: true, ops: [{ purify: true }] } },
   '099': { 'Secret Frequency': { ability: 'activated', oncePerTurn: true, ops: [{ bothDraw: 1 }] } },
 };
