@@ -1099,17 +1099,6 @@ async function finishEndMatch(outcome) {
   const p1DeckId = tableState.state.player_1 ? tableState.state.player_1.deck_id : null;
   const p2DeckId = tableState.state.player_2 ? tableState.state.player_2.deck_id : null;
 
-  const { error: historyError } = await supabaseClient.from("match_history").insert({
-    room_code: roomCode,
-    player_1_id: tableState.player_1_id,
-    player_1_deck_id: p1DeckId,
-    player_2_id: tableState.player_2_id,
-    player_2_deck_id: p2DeckId,
-    winner_id: winnerId
-  });
-  if (historyError) console.error("Failed to save match history:", historyError);
-  // Don't block ending the match on a history-save failure — the match itself still needs to end cleanly.
-
   if (realtimeChannel) {
     supabaseClient.removeChannel(realtimeChannel);
     realtimeChannel = null;
@@ -1119,11 +1108,27 @@ async function finishEndMatch(outcome) {
     chatChannel = null;
   }
 
-  const { error } = await supabaseClient.from("battle_tables").delete().eq("id", tableId);
+  // Delete the table first and ask for the deleted row back. If both players
+  // press End Match at the same moment, only one delete actually removes the
+  // row, so only that player records the match — no more double entries.
+  const { data: removed, error } = await supabaseClient.from("battle_tables").delete().eq("id", tableId).select("id");
   if (error) {
     console.error(error);
     alert("Couldn't end the match — try again.");
     return;
+  }
+
+  if (removed && removed.length) {
+    const { error: historyError } = await supabaseClient.from("match_history").insert({
+      room_code: roomCode,
+      player_1_id: tableState.player_1_id,
+      player_1_deck_id: p1DeckId,
+      player_2_id: tableState.player_2_id,
+      player_2_deck_id: p2DeckId,
+      winner_id: winnerId
+    });
+    // Don't block ending the match on a history-save failure — the match itself still needs to end cleanly.
+    if (historyError) console.error("Failed to save match history:", historyError);
   }
 
   clearSavedTable();
