@@ -507,6 +507,24 @@ async function loadChallengesDrawer() {
   refreshChallengeBadge();
 }
 
+// "just now", "5 min ago", "3 hours ago", "yesterday, 3:14 PM", then "Oct 26, 3:14 PM".
+// The full date and time are in the tooltip.
+function bakemonSentWhen(createdAt) {
+  if (!createdAt) return "";
+  const then = new Date(createdAt);
+  const mins = Math.floor((Date.now() - then) / 60000);
+  const time = then.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  let text;
+  if (mins < 1) text = "just now";
+  else if (mins < 60) text = `${mins} min ago`;
+  else if (mins < 12 * 60) text = `${Math.floor(mins / 60)} hour${mins < 120 ? "" : "s"} ago`;
+  else if (then.toDateString() === new Date().toDateString()) text = `today, ${time}`;
+  else if (then.toDateString() === yesterday.toDateString()) text = `yesterday, ${time}`;
+  else text = then.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + time;
+  return `<div class="when" title="${bakemonEscapeHtml(then.toLocaleString())}">Sent ${text}</div>`;
+}
+
 function bakemonResponseTag(response) {
   if (response === "accepted") return `<span class="response-tag accepted">Accepted</span>`;
   if (response === "rejected") return `<span class="response-tag rejected">Rejected</span>`;
@@ -523,6 +541,7 @@ function renderReceivedPanel(challenges, nameFor) {
     <div class="challenge-drawer-item">
       <button type="button" class="hide-btn" data-hide="${c.id}" title="Remove from this list">✕</button>
       <div class="who">${bakemonEscapeHtml(nameFor(c.from_player_id))} challenged you!</div>
+      ${bakemonSentWhen(c.created_at)}
       ${c.message ? `<div class="msg">"${bakemonEscapeHtml(c.message)}"</div>` : ""}
       <div class="code">Room code: <strong>${bakemonEscapeHtml(c.room_code)}</strong></div>
       ${bakemonResponseTag(c.response)}
@@ -548,6 +567,7 @@ function renderSentPanel(challenges, nameFor) {
     <div class="challenge-drawer-item">
       <button type="button" class="hide-btn" data-hide="${c.id}" title="Remove from this list">✕</button>
       <div class="who">Challenged ${bakemonEscapeHtml(nameFor(c.to_player_id))}</div>
+      ${bakemonSentWhen(c.created_at)}
       ${c.message ? `<div class="msg">"${bakemonEscapeHtml(c.message)}"</div>` : ""}
       <div class="code">Room code: <strong>${bakemonEscapeHtml(c.room_code)}</strong></div>
       ${bakemonResponseTag(c.response)}

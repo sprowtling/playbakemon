@@ -237,6 +237,7 @@
       <select id="deck-select"></select>
       <button id="new-deck-btn">+ New Deck</button>
       <button id="rename-deck-btn">Rename</button>
+      <button id="copy-deck-btn" title="Make a copy of this deck to change without touching the original">Copy</button>
       <button id="delete-deck-btn">Delete</button>
     </div>
 
@@ -641,6 +642,38 @@ document.getElementById("rename-deck-btn").addEventListener("click", async () =>
   if (error) { console.error(error); alert("Couldn't rename deck."); return; }
   await loadDecksForPlayer();
   document.getElementById("deck-select").value = currentDeckId;
+});
+
+// Copy the deck: same cards, named "[name] (copy)". The original isn't touched,
+// so players can keep a main deck and try variations on the side.
+document.getElementById("copy-deck-btn").addEventListener("click", async () => {
+  if (!currentDeckId) return;
+  const sel = document.getElementById("deck-select");
+  const name = (sel.options[sel.selectedIndex]?.textContent || "Deck") + " (copy)";
+  const { data: cards, error: cardsError } = await supabaseClient
+    .from("deck_cards").select("card_id, quantity").eq("deck_id", currentDeckId);
+  if (cardsError) { console.error(cardsError); alert("Couldn't copy deck."); return; }
+
+  const { data: deck, error } = await supabaseClient
+    .from("decks").insert({ player_id: currentPlayer.id, deck_name: name }).select().single();
+  if (error) { console.error(error); alert("Couldn't copy deck."); return; }
+
+  if (cards.length) {
+    const { error: insertError } = await supabaseClient
+      .from("deck_cards").insert(cards.map(c => ({ deck_id: deck.id, card_id: c.card_id, quantity: c.quantity })));
+    if (insertError) {
+      // Don't leave a half-copied deck behind.
+      console.error(insertError);
+      await supabaseClient.from("decks").delete().eq("id", deck.id);
+      alert("Couldn't copy deck.");
+      return;
+    }
+  }
+  await loadDecksForPlayer();
+  currentDeckId = deck.id;
+  sel.value = currentDeckId;
+  await loadDeckCards();
+  setStatus(`Made "${name}". Rename it whenever you like.`);
 });
 
 document.getElementById("delete-deck-btn").addEventListener("click", async () => {
