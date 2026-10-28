@@ -185,3 +185,8 @@ PR #55 (one match record when both players press End Match) is merged. Three new
 - **Musherus ground or fighting** (ea011fa9, Cameron): the printed card's second type is a fighting fist, but Supabase and `cards.js` have said ground since the first upload. I haven't changed anything; I asked Bryan which is intended, and either the art or the data gets updated to match.
 - **Kidding's empty resistance box** (ce4da950, Cameron): it's on the card art itself (Drive's 017_kidding.png has an empty "resistance" field). Bryan's to fix on the card. Musherus is the opposite: "weakness" is printed twice and there's no resistance field.
 - **Copy a deck** (252c7dd5, idea): answered in chat, waiting for Bryan to pick.
+- Afternoon, with Bryan's go-ahead (Oct 29), three of the ideas:
+  - **Copy a deck** (252c7dd5): a Copy button next to Rename makes "[name] (copy)" with the same cards and switches to it. The original isn't touched. If saving the cards fails, the half-made copy is removed. `deckbuilder.html`.
+  - **Challenge send time** (f911e1ce): each challenge in the drawer, received or sent, shows when it was sent: "just now", "5 min ago", "3 hours ago", "today, 3:14 PM", "yesterday, 5:35 PM" or "Oct 23, 7:35 PM". The full date and time show on hover. `shared-header.js`, `shared-header.html`.
+  - **Zoom in practice setup** (5c2fee71): every card in a practice choice list (starting active, bench, and any other pick with a card) has a 🔍 that opens it full size. Clicking the rest of the button still picks it. `practice.html`.
+  - Tested in a headless browser with a mocked database: drawer times, copying a deck (both inserts, original unchanged, the copy selected), and the setup zoom (lightbox opens, the choice stays open, picking still works).

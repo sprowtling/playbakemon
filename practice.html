@@ -163,6 +163,8 @@
   .choice-btn .choice-text { font-size: 11px; font-weight: 400; opacity: 0.85; }
   .choice-btn .choice-note { font-size: 10px; font-style: italic; opacity: 0.75; }
   .choice-btn img.thumb { width: 44px; height: 62px; object-fit: cover; border-radius: 4px; border: 1px solid var(--card-border); }
+  .choice-btn .thumb-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+  .choice-btn .thumb-wrap .zoom-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; font-size: 12px; bottom: -4px; right: -6px; }
   .choice-btn[disabled] { opacity: 0.5; cursor: default; }
 
   #result-panel {
@@ -715,7 +717,9 @@ function openMonMenu(mon) {
 function showAskChoices(req) {
   const items = req.options.map(o => {
     const card = o.cardId ? CARD_BY_ID[o.cardId] : null;
-    const thumb = card && card.image ? `<img class="thumb" src="${CARD_IMAGE_BASE + card.image}" alt="" onerror="this.style.display='none'">` : "";
+    // The 🔍 opens the card full size (handy when choosing your starting Bakemon); the rest of the button picks it.
+    const src = card && card.image ? CARD_IMAGE_BASE + card.image : "";
+    const thumb = src ? `<span class="thumb-wrap"><img class="thumb" src="${src}" alt="" onerror="this.parentNode.style.display='none'"><span class="zoom-btn" data-zoom-src="${src}" title="View larger">🔍</span></span>` : "";
     const dot = o.energy ? `<span class="energy-dot" style="background:${ENERGY_COLORS[o.energy] || "#999"}"></span>` : "";
     const html = thumb ? `<span class="choice-top">${thumb}${escapeHtml(o.label)}</span>` : `<span class="choice-top">${dot}${escapeHtml(o.label)}</span>`;
     return { html, run: () => answer(o.value) };
@@ -729,7 +733,11 @@ function showChoices(title, items, cancellable) {
     `<button class="small choice-btn" data-choice="${i}" ${it.run ? "" : "disabled"}>${it.html}</button>`).join("")}</div>
     ${cancellable ? '<button class="small" id="choice-cancel">Cancel</button>' : ""}`;
   panel.style.display = "flex";
-  panel.querySelectorAll("[data-choice]").forEach(btn => btn.onclick = () => { const it = items[+btn.dataset.choice]; if (it.run) { hideChoices(); it.run(); } });
+  panel.querySelectorAll("[data-choice]").forEach(btn => btn.onclick = e => {
+    const zoom = e.target.closest("[data-zoom-src]");
+    if (zoom) return openLightbox(zoom.dataset.zoomSrc);
+    const it = items[+btn.dataset.choice]; if (it.run) { hideChoices(); it.run(); }
+  });
   const cancel = document.getElementById("choice-cancel");
   if (cancel) cancel.onclick = () => { hideChoices(); if (uiPick) { uiPick = null; renderAll(); } };
 }
@@ -777,8 +785,7 @@ document.getElementById("mat-screen").addEventListener("click", e => {
   const zoom = e.target.closest("[data-zoom-src]");
   if (zoom) {
     e.stopPropagation();
-    document.getElementById("lightbox-img").src = zoom.dataset.zoomSrc;
-    document.getElementById("lightbox-overlay").style.display = "flex";
+    openLightbox(zoom.dataset.zoomSrc);
     return;
   }
   const monEl = e.target.closest("[data-mon-uid]");
@@ -786,6 +793,10 @@ document.getElementById("mat-screen").addEventListener("click", e => {
   const handEl = e.target.closest("[data-hand-index]");
   if (handEl) return clickHand(+handEl.dataset.handIndex);
 });
+function openLightbox(src) {
+  document.getElementById("lightbox-img").src = src;
+  document.getElementById("lightbox-overlay").style.display = "flex";
+}
 document.getElementById("lightbox-overlay").addEventListener("click", () => { document.getElementById("lightbox-overlay").style.display = "none"; });
 
 function clickMon(mon) {
