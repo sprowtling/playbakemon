@@ -179,3 +179,9 @@ PR #54 (name menu, even directory rows) is merged. Seven new rows: one bug, one 
 - **Double-recorded matches** (8fc82988): when both players pressed End Match at once, both saved the match. Now the table is deleted first, asking for the deleted row back. Postgres lets only one delete actually remove it, so only that player records the match; the other just leaves. `playmat.html`.
 - **Nectar** (225b2a1e, JC): not a bug. The printed card says "Restore 50 HP to one of your Bakemon", and the engine asks which one when two or more are hurt. With only one hurt, it heals that one without asking (healing a full-HP Bakemon does nothing).
 - Ideas answered in chat, waiting for Bryan to pick: Battle Standard button (aa5d1688, Cameron), bigger cards in practice setup (5c2fee71), challenge send time (f911e1ce), playmat chat lines for draws and energy (b33eeecc), and out-of-game notifications and login security (b004795e).
+
+## 2026-10-28
+PR #55 (one match record when both players press End Match) is merged. Three new rows, none of them code bugs.
+- **Musherus ground or fighting** (ea011fa9, Cameron): the printed card's second type is a fighting fist, but Supabase and `cards.js` have said ground since the first upload. I haven't changed anything; I asked Bryan which is intended, and either the art or the data gets updated to match.
+- **Kidding's empty resistance box** (ce4da950, Cameron): it's on the card art itself (Drive's 017_kidding.png has an empty "resistance" field). Bryan's to fix on the card. Musherus is the opposite: "weakness" is printed twice and there's no resistance field.
+- **Copy a deck** (252c7dd5, idea): answered in chat, waiting for Bryan to pick.
