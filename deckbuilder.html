@@ -198,6 +198,11 @@
     <div style="margin-bottom:12px; font-size:13px; color:var(--text-light);">
       Click a card to add a copy you've found. Use the minus button to remove one (e.g. if traded away or lost).
     </div>
+    <div id="battle-standard-row" style="margin-bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <button id="battle-standard-btn" class="primary" title="Own every card up to the number a deck may hold">Battle Standard</button>
+      <span style="font-size:12px; color:var(--text-muted);">Not tracking cards from a campaign? Fill your collection with every card at its deck limit.</span>
+      <span id="battle-standard-status" style="font-size:12px; color:var(--accent);"></span>
+    </div>
     <div id="filters">
       <input type="text" id="collection-search-input" placeholder="Search by name...">
       <select id="collection-type-filter"><option value="">All types</option></select>
@@ -469,6 +474,32 @@ async function removeFromCollection(cardId) {
   playerCollection[cardId] = newQty;
   renderCollectionGrid();
 }
+
+// Battle Standard: own every card up to the most a deck may hold, by rarity.
+// Common, uncommon and rare (1-3): 3 copies. Double rare (4): 2. Ultra rare (5): 1.
+// Legendary (6): 1 of each, since a deck holds one legendary (or one of each
+// card in a legendary line, like Eclidyr and Ionodyr). Never lowers a count.
+const BATTLE_STANDARD = { 1: 3, 2: 3, 3: 3, 4: 2, 5: 1, 6: 1 };
+
+document.getElementById("battle-standard-btn").addEventListener("click", async () => {
+  const statusEl = document.getElementById("battle-standard-status");
+  const rows = allCards
+    .filter(c => BATTLE_STANDARD[c.rarity] && (playerCollection[c.id] || 0) < BATTLE_STANDARD[c.rarity])
+    .map(c => ({ player_id: currentPlayer.id, card_id: c.id, quantity: BATTLE_STANDARD[c.rarity] }));
+  if (!rows.length) { statusEl.textContent = "Your collection already has every card at its deck limit."; return; }
+  if (!confirm("Fill your collection to the Battle Standard?\n\n" +
+    "Common, uncommon and rare: 3 of each\nDouble rare: 2 of each\nUltra rare and legendary: 1 of each\n\n" +
+    "Cards you already have more of stay as they are.")) return;
+
+  statusEl.textContent = "Filling your collection...";
+  const { error } = await supabaseClient.from("player_cards").upsert(rows, { onConflict: "player_id,card_id" });
+  if (error) { console.error(error); statusEl.textContent = "Couldn't fill your collection. Try again?"; return; }
+  rows.forEach(r => { playerCollection[r.card_id] = r.quantity; });
+  renderCollectionGrid();
+  renderCardGrid();
+  renderDeckPanel();
+  statusEl.textContent = `Done! Topped up ${rows.length} card${rows.length === 1 ? "" : "s"}.`;
+});
 
 // ---- Card data ----
 async function loadCards() {
