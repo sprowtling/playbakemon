@@ -67,3 +67,9 @@ are how to read it. I check here before deciding a report.
   Legendary: one legendary card per deck, except a legendary line counts as one (one of each card in
   it; today only Eclidyr → Ionodyr). The Battle Standard button fills a collection to these numbers.
   (Bryan, Oct 31.)
+- **A move is every type of energy it costs.** If a move needs grass energy, it's a grass move (for
+  Fluttershine, weakness and every other boost), even if it also costs fairy. (Bryan, Oct 31.)
+- **Arclight's "+20 to lightning attacks" is the Lightningshower itself**, not a second boost on top
+  of it: Arclight under Lightningshower does 70, not 90. (Bryan, Oct 31.)
+- **The same ability on several Bakemon stacks.** Each Lemurk's Dark Pulse adds +10 to dark
+  attacks, so three Lemurks make +30. (Bryan, Oct 31.)
