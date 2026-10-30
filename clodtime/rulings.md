@@ -60,3 +60,10 @@ are how to read it. I check here before deciding a report.
 - **Weaknesses aren't relics.** Shrizzle and Lobscorch are weak to fighting on purpose. The fighting →
   ground change only applied to cards Bryan actually changed. Go by the printed card.
 - **The bots don't need to be optimal.** As long as a move is possible, Nyx not choosing it is fine.
+- **An "x" after damage means "times something", and the card's text says what.** Sporesprinkle's
+  10x is 10 for each Bakemon it hits; on other cards it can be 10 for each hit or each flip. It's
+  never a leftover. (Bryan, Oct 31.)
+- **Deck limits by rarity:** common, uncommon and rare: 3 copies. Double rare: 2. Ultra rare: 1.
+  Legendary: one legendary card per deck, except a legendary line counts as one (one of each card in
+  it; today only Eclidyr → Ionodyr). The Battle Standard button fills a collection to these numbers.
+  (Bryan, Oct 31.)

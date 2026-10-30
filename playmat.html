@@ -1893,6 +1893,8 @@ async function drawCard() {
   const drawn = myState.deck.shift();
   myState.hand.push(drawn);
   pushState(newState);
+  // A quiet reminder for this turn, shown only to you (like /help), so the chat stays clear.
+  showLocalMessage("You drew a card.");
 }
 
 async function shuffleHandIntoDeck() {
@@ -1965,6 +1967,7 @@ function addEnergy(type) {
   slot.energy.push(type);
   document.getElementById("energy-picker").style.display = "none";
   pushState(newState);
+  showLocalMessage(`You added ${/^[aeiou]/i.test(type) ? "an" : "a"} ${type} energy.`);
 }
 function removeEnergy(panelEl, energyIndex) {
   if (!panelEl) return;
