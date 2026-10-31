@@ -62,14 +62,14 @@ are how to read it. I check here before deciding a report.
 - **The bots don't need to be optimal.** As long as a move is possible, Nyx not choosing it is fine.
 - **An "x" after damage means "times something", and the card's text says what.** Sporesprinkle's
   10x is 10 for each Bakemon it hits; on other cards it can be 10 for each hit or each flip. It's
-  never a leftover. (Bryan, Oct 31.)
+  never a leftover. (Bryan, Oct 30.)
 - **Deck limits by rarity:** common, uncommon and rare: 3 copies. Double rare: 2. Ultra rare: 1.
   Legendary: one legendary card per deck, except a legendary line counts as one (one of each card in
   it; today only Eclidyr → Ionodyr). The Battle Standard button fills a collection to these numbers.
-  (Bryan, Oct 31.)
+  (Bryan, Oct 30.)
 - **A move is every type of energy it costs.** If a move needs grass energy, it's a grass move (for
-  Fluttershine, weakness and every other boost), even if it also costs fairy. (Bryan, Oct 31.)
+  Fluttershine, weakness and every other boost), even if it also costs fairy. (Bryan, Oct 30.)
 - **Arclight's "+20 to lightning attacks" is the Lightningshower itself**, not a second boost on top
-  of it: Arclight under Lightningshower does 70, not 90. (Bryan, Oct 31.)
+  of it: Arclight under Lightningshower does 70, not 90. (Bryan, Oct 30.)
 - **The same ability on several Bakemon stacks.** Each Lemurk's Dark Pulse adds +10 to dark
-  attacks, so three Lemurks make +30. (Bryan, Oct 31.)
+  attacks, so three Lemurks make +30. (Bryan, Oct 30.)
