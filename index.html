@@ -81,6 +81,21 @@
   #leaderboard a.leader-row:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
   #leaderboard a.leader-row:hover .leader-name { color: var(--accent); }
 
+  #live-list a.live-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    color: inherit;
+    text-decoration: none;
+  }
+  #live-list a.live-row:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  #live-list a.live-row:hover .live-players { color: var(--accent); }
+  #live-list .live-meta { color: var(--text-muted); white-space: nowrap; }
+
   /* Each update gets its own breathing room and a faint rule between them,
      so a multi-line update doesn't run into the next one. */
   #news-list { display: flex; flex-direction: column; }
@@ -127,6 +142,11 @@
   <div class="welcome-card">
     <h3><a href="players.html">Top Players →</a></h3>
     <div id="leaderboard"></div>
+  </div>
+
+  <div class="welcome-card" id="live-card" style="display:none;">
+    <h3>🔴 Live Matches</h3>
+    <div id="live-list"></div>
   </div>
 
   <div class="welcome-card">
@@ -320,7 +340,49 @@ function showWelcome(player) {
   document.getElementById("welcome-screen").style.display = "block";
   document.getElementById("welcome-name").textContent = player.display_name;
   loadLeaderboard();
+  loadLiveMatches();
   loadNews();
+  if (!liveTimer) liveTimer = setInterval(loadLiveMatches, 60 * 1000);
+}
+
+let liveTimer = null;
+
+// Live matches: tables with both seats taken that changed in the last hour.
+// Only full tables: opening a table with an empty seat would sit you down in it
+// instead of letting you watch. The card stays hidden when nothing is live.
+async function loadLiveMatches() {
+  const card = document.getElementById("live-card");
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data: tables, error } = await supabaseClient
+    .from("battle_tables")
+    .select("room_code, player_1_id, player_2_id, updated_at")
+    .not("player_1_id", "is", null)
+    .not("player_2_id", "is", null)
+    .gte("updated_at", since)
+    .order("updated_at", { ascending: false });
+  if (error) console.error(error);
+  if (error || !tables || tables.length === 0) { card.style.display = "none"; return; }
+
+  const ids = [...new Set(tables.flatMap(t => [t.player_1_id, t.player_2_id]))];
+  const { data: players } = await supabaseClient.from("players").select("id, display_name").in("id", ids);
+  const nameById = Object.fromEntries((players || []).map(p => [p.id, p.display_name]));
+  const name = id => escapeHtml(nameById[id] || "Someone");
+  const ago = iso => {
+    const mins = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 60000));
+    return mins < 1 ? "just now" : `${mins} min ago`;
+  };
+
+  document.getElementById("live-list").innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${tables.map(t => `
+        <a class="live-row" href="playmat.html?join=${encodeURIComponent(t.room_code)}" title="Watch this match">
+          <span class="live-players">${name(t.player_1_id)} vs ${name(t.player_2_id)}</span>
+          <span class="live-meta">Watch → · ${ago(t.updated_at)}</span>
+        </a>
+      `).join("")}
+    </div>
+  `;
+  card.style.display = "block";
 }
 
 async function loadLeaderboard() {

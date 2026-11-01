@@ -213,3 +213,6 @@ No new feedback. PR #58 (Battle Standard, quiet playmat reminders) is merged, so
 Two ideas, no bugs. Both pending, answered in chat:
 - **/tirm** (379515ec, Cameron): a joke twin of /turn ("your tirm has ended"). A two-line change; Bryan's call.
 - **Live matches on the home page** (e6579111, Bryan): feasible. List tables where both seats are filled and `updated_at` is within the last hour, each linking to `playmat.html?join=CODE`. Only full tables: joining a table with an empty seat takes the seat instead of watching.
+- Late, with Bryan's go-ahead (in the extra hour when the clocks fell back): built both.
+  - **/tirm** (379515ec): works like /turn but says "tirm". Jacob kept typing it. Left out of /help on purpose. `playmat.html`.
+  - **Live Matches** (e6579111): a card on the home page listing tables where both seats are taken and that changed in the last hour, newest first, as "Bryan vs Cameron · Watch → · 3 min ago", linking to the spectator view. It's hidden when nothing is live and refreshes every minute. `index.html`. Tested in a headless browser with a mocked database: the half-empty table and a 3-hour-old one are left out, and the card hides when there are no matches.
