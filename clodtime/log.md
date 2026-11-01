@@ -207,3 +207,9 @@ Bryan is back after a rough few days. PR #57 is merged, and Iveldyr's SQL is run
 
 ## 2026-10-31 (night)
 No new feedback. PR #58 (Battle Standard, quiet playmat reminders) is merged, so those two rows are complete. Only the notifications and security idea (b004795e) is still pending, on the shelf by Bryan's choice.
+- Afternoon, still Oct 31: a second match, against Cameron's Defense Dan at "Hohn Jenry", with a counter deck I built from his list (with his OK): Moth to a Flame (Kidding→Flairees, Biropod→Orcuill, Growlbud, 3 Power Wash). Cameron won 4–0. Lessons: two energy types at most, bring Power Cable, and make his attacks miss (Bloom, Ink Blot) instead of trying to out-damage Delusion and Starfall. Missed one energy attach near the end; turn checklist from now on is draw, energy, items, attack. New rulings in `rulings.md` (Wildfire, rival weathers, Delusion order).
+
+## 2026-11-01 (night)
+Two ideas, no bugs. Both pending, answered in chat:
+- **/tirm** (379515ec, Cameron): a joke twin of /turn ("your tirm has ended"). A two-line change; Bryan's call.
+- **Live matches on the home page** (e6579111, Bryan): feasible. List tables where both seats are filled and `updated_at` is within the last hour, each linking to `playmat.html?join=CODE`. Only full tables: joining a table with an empty seat takes the seat instead of watching.
