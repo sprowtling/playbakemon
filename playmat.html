@@ -964,6 +964,10 @@ function resolveChatCommand(text) {
     // divider line instead of a normal chat bubble.
     return `⏭️ ${currentPlayer.display_name}'s turn has ended. Your turn, ${oppDisplayName || "Player 2"}!`;
   }
+  if (lower === "/tirm") {
+    // Jacob kept typing /tirm, so now it works (Cameron's idea). Left out of /help on purpose.
+    return `⏭️ ${currentPlayer.display_name}'s tirm has ended. Your tirm, ${oppDisplayName || "Player 2"}!`;
+  }
   if (lower === "/help") {
     // Shown only in this browser, never written to table_chat_messages —
     // the opponent never sees it.
