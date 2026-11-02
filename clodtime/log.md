@@ -217,3 +217,11 @@ Two ideas, no bugs. Both pending, answered in chat:
   - **/tirm** (379515ec): works like /turn but says "tirm". Jacob kept typing it. Left out of /help on purpose. `playmat.html`.
   - **Live Matches** (e6579111): a card on the home page listing tables where both seats are taken and that changed in the last hour, newest first, as "Bryan vs Cameron · Watch → · 3 min ago", linking to the spectator view. It's hidden when nothing is live and refreshes every minute. `index.html`. Tested in a headless browser with a mocked database: the half-empty table and a 3-hour-old one are left out, and the card hides when there are no matches.
 - Bryan's request for the next quiet night: fix the **simultaneous-click problem** on the playmat. Both players save the whole table, so one save can overwrite the other's move. Idea: each player saves only their own seat (or checks a version number before saving). Also noted for later: a **private match** option that keeps a table off Live Matches.
+
+## 2026-11-02 (night)
+No new feedback. PR #59 (Live Matches, /tirm) is merged, so those two rows are complete.
+- **The simultaneous-click fix**, Bryan's request. Both players saved the whole table, so a save landing at the same moment as the other player's wiped out their change (my vanishing draws). Now a save only goes through if the table hasn't changed since you last saw it (`updated_at` is the version stamp; no database change was needed). If it has changed, your change is laid on top of the newer table (only the parts you touched: your seat, the weather) and saved again. Playmat saves also go out one at a time, in click order. Same fix in the Bakemon MCP (`bkmn_mcp/game.js`). `playmat.html`, `bkmn_mcp/game.js`.
+- **Proof:**
+  - MCP, against the real database on a throwaway table (deleted afterwards): 12 rounds of both seats drawing at once lost 12 of 24 draws on the old code and 0 on the new.
+  - Playmat, two headless browsers clicking Draw together 8 times each: the old page lost all 8 of one player's draws; the new page lost none.
+  - Earlier playmat tests still pass (discard viewer, quiet reminders).

@@ -1033,12 +1033,53 @@ async function pushState(newState, opts = {}) {
       if (undoHistory.length > UNDO_LIMIT) undoHistory.shift();
     }
   }
+  // Both players save the whole table, so two saves at the same moment used to
+  // overwrite each other (a draw or an energy would vanish). Now a save only goes
+  // through if the table hasn't changed since we last saw it. If it has, we take
+  // the newer table, lay our change on top (only the parts we changed: our seat,
+  // the weather...), and try again.
+  // Saves go out one at a time, in click order, so a fast double-click can't
+  // land its two saves backwards.
+  const base = tableState.state;
+  const version = tableState.updated_at;
   tableState = { ...tableState, state: newState };
-  const { error } = await supabaseClient.from("battle_tables")
-    .update({ state: newState, updated_at: new Date().toISOString() })
-    .eq("id", tableId);
-  if (error) console.error("Failed to save state:", error);
+  saveQueue = saveQueue.then(() => saveState(newState, base, version)).catch(err => console.error("Failed to save state:", err));
+  return saveQueue;
+}
+
+let saveQueue = Promise.resolve();
+
+async function saveState(newState, base, version) {
+  let shown = newState;   // what the screen shows for this save, unless a newer click has replaced it
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let q = supabaseClient.from("battle_tables")
+      .update({ state: newState, updated_at: new Date().toISOString() })
+      .eq("id", tableId);
+    q = version ? q.eq("updated_at", version) : q.is("updated_at", null);
+    const { data, error } = await q.select("updated_at");
+    if (error) { console.error("Failed to save state:", error); break; }
+    if (data && data.length) {
+      if (tableState.state === shown) tableState.updated_at = data[0].updated_at;
+      break;
+    }
+    const { data: fresh, error: freshError } = await supabaseClient.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
+    if (freshError || !fresh) { console.error("Failed to reload the table:", freshError); break; }
+    newState = layerChange(base, newState, fresh.state);
+    base = fresh.state;
+    version = fresh.updated_at;
+    if (tableState.state === shown) { tableState = { ...fresh, state: newState }; shown = newState; }
+  }
   renderMat();
+}
+
+// The newer table, plus every top-level key (a seat, the weather...) that our change touched.
+function layerChange(base, mine, fresh) {
+  const out = JSON.parse(JSON.stringify(fresh || {}));
+  const keys = new Set([...Object.keys(base || {}), ...Object.keys(mine || {})]);
+  for (const k of keys) {
+    if (JSON.stringify((base || {})[k]) !== JSON.stringify((mine || {})[k])) out[k] = mine[k];
+  }
+  return out;
 }
 
 async function undoLastAction() {
