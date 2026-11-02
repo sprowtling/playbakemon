@@ -983,7 +983,14 @@ function subscribeToTable() {
     .channel(`battle_table_${tableId}`)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "battle_tables", filter: `id=eq.${tableId}` },
       async (payload) => {
+        // Every save is announced back to both players, including the one who made
+        // it. While our own saves are still on their way, an announcement can be an
+        // echo of an older click (HP 50 arriving after we've already clicked down to
+        // 30), so keep our own side as the screen has it and take everything else.
+        const stale = pendingSaves > 0 || (lastSavedAt && new Date(payload.new.updated_at) < lastSavedAt);
+        const mine = stale && mySeat && tableState && tableState.state ? tableState.state[mySeat] : undefined;
         tableState = payload.new;
+        if (mine !== undefined) tableState = { ...payload.new, state: { ...payload.new.state, [mySeat]: mine } };
         if (!isSpectator) await refreshOppName();
         renderMat();
       })
@@ -1043,11 +1050,16 @@ async function pushState(newState, opts = {}) {
   const base = tableState.state;
   const version = tableState.updated_at;
   tableState = { ...tableState, state: newState };
-  saveQueue = saveQueue.then(() => saveState(newState, base, version)).catch(err => console.error("Failed to save state:", err));
+  pendingSaves++;
+  saveQueue = saveQueue.then(() => saveState(newState, base, version))
+    .catch(err => console.error("Failed to save state:", err))
+    .finally(() => { pendingSaves--; });
   return saveQueue;
 }
 
 let saveQueue = Promise.resolve();
+let pendingSaves = 0;     // our saves not yet confirmed; see the Realtime UPDATE handler
+let lastSavedAt = null;   // when our newest confirmed save was written
 
 async function saveState(newState, base, version) {
   let shown = newState;   // what the screen shows for this save, unless a newer click has replaced it
@@ -1060,6 +1072,8 @@ async function saveState(newState, base, version) {
     if (error) { console.error("Failed to save state:", error); break; }
     if (data && data.length) {
       if (tableState.state === shown) tableState.updated_at = data[0].updated_at;
+      const savedAt = new Date(data[0].updated_at);
+      if (!lastSavedAt || savedAt > lastSavedAt) lastSavedAt = savedAt;
       break;
     }
     const { data: fresh, error: freshError } = await supabaseClient.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
