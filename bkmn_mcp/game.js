@@ -105,20 +105,44 @@ async function joinTable(sb, player, roomCode, deckId) {
     }
     const newSeatState = { active: null, bench: [null, null, null], item_slot: null, hand: [], deck: pile, discard: [], score: 0, deck_id: deckId };
     const newState = { ...table.state, [seat]: newSeatState };
-    const { data: updated, error } = await sb.from("battle_tables").update({ state: newState, updated_at: new Date().toISOString() }).eq("id", table.id).select().single();
-    if (error) throw new Error(`Couldn't seat deck: ${error.message}`);
-    table = updated;
+    table = await pushState(sb, table.id, newState, table);
   }
 
   return { tableId: table.id, seat, oppSeat, table };
 }
 
-async function pushState(sb, tableId, newState) {
-  const { data, error } = await sb.from("battle_tables")
-    .update({ state: newState, updated_at: new Date().toISOString() })
-    .eq("id", tableId).select().single();
-  if (error) throw new Error(`Failed to save state: ${error.message}`);
-  return data;
+// Both players save the whole table, so two saves at the same moment used to
+// overwrite each other (a draw would vanish). Now a save only goes through if
+// the table hasn't changed since we read it (base). If it has, we take the
+// newer table, lay our change on top of it (only the top-level keys we
+// changed: our seat, the weather...), and try again.
+function layerChange(base, mine, fresh) {
+  const out = JSON.parse(JSON.stringify(fresh || {}));
+  const keys = new Set([...Object.keys(base || {}), ...Object.keys(mine || {})]);
+  for (const k of keys) {
+    if (JSON.stringify((base || {})[k]) !== JSON.stringify((mine || {})[k])) out[k] = mine[k];
+  }
+  return out;
+}
+
+async function pushState(sb, tableId, newState, base) {
+  let baseState = base ? base.state : null;
+  let version = base ? base.updated_at : undefined;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let q = sb.from("battle_tables")
+      .update({ state: newState, updated_at: new Date().toISOString() })
+      .eq("id", tableId);
+    if (version !== undefined) q = version ? q.eq("updated_at", version) : q.is("updated_at", null);
+    const { data, error } = await q.select();
+    if (error) throw new Error(`Failed to save state: ${error.message}`);
+    if (data && data.length) return data[0];
+    const { data: fresh } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
+    if (!fresh) throw new Error("Failed to save state: the table is gone.");
+    newState = layerChange(baseState, newState, fresh.state);
+    baseState = fresh.state;
+    version = fresh.updated_at;
+  }
+  throw new Error("Failed to save state: the table kept changing. Look at the board and try again.");
 }
 
 // join_table only seats a deck when deck_name was actually provided (it's
@@ -250,7 +274,7 @@ async function drawCard(sb, tableId, seat) {
   if (!my.deck || my.deck.length === 0) return { drew: null, reason: "Deck is empty." };
   const drawn = my.deck.shift();
   my.hand.push(drawn);
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   const cards = await getAllCards(sb);
   return { drew: cards[drawn] ? cards[drawn].name : drawn };
 }
@@ -288,7 +312,7 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
     my.hand.splice(handIndex, 1);
     my.discard = my.discard || [];
     my.discard.push(cardId);
-    await pushState(sb, tableId, newState);
+    await pushState(sb, tableId, newState, table);
     return { ok: true, played: card.name, destZone: "discard" };
   }
 
@@ -301,7 +325,7 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
     }
     my.hand.splice(handIndex, 1);
     my.item_slot = { card_id: cardId };
-    await pushState(sb, tableId, newState);
+    await pushState(sb, tableId, newState, table);
     return { ok: true, played: card.name, destZone: "item_slot" };
   }
 
@@ -339,7 +363,7 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
     };
     my.hand.splice(handIndex, 1);
     if (destZone === "active") my.active = newSlot; else my.bench[destIndex] = newSlot;
-    await pushState(sb, tableId, newState);
+    await pushState(sb, tableId, newState, table);
     return { ok: true, played: card.name, destZone, destIndex, evolved: true, evolvedFrom: cards[existing.card_id].name };
   }
 
@@ -351,7 +375,7 @@ async function playCardFromHand(sb, tableId, seat, cardId, destZone, destIndex =
   my.hand.splice(handIndex, 1);
   const newSlot = { card_id: cardId, evolved_from: [], damage: 0, energy: [], status: [] };
   if (destZone === "active") my.active = newSlot; else my.bench[destIndex] = newSlot;
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, played: card.name, destZone, destIndex };
 }
 
@@ -364,7 +388,7 @@ async function addEnergy(sb, tableId, seat, zone, index, energyType) {
   if (!slot) return { ok: false, reason: "No Bakemon in that slot." };
   slot.energy = slot.energy || [];
   slot.energy.push(energyType);
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, zone, index, energyType, totalEnergy: slot.energy.length };
 }
 
@@ -409,7 +433,7 @@ async function moveInPlayCard(sb, tableId, seat, fromZone, fromIndex, toZone, to
     if (toZone !== "hand" && toZone !== "discard") return { ok: false, reason: "An equipped item can only move to hand or discard." };
     my.item_slot = null;
     if (toZone === "hand") my.hand.push(source.card_id); else my.discard.push(source.card_id);
-    await pushState(sb, tableId, newState);
+    await pushState(sb, tableId, newState, table);
     return { ok: true, moved: sourceName, from: "item_slot", to: toZone };
   }
 
@@ -422,7 +446,7 @@ async function moveInPlayCard(sb, tableId, seat, fromZone, fromIndex, toZone, to
     if (source.evolved_from && source.evolved_from.length) my.discard.push(...source.evolved_from);
     my.discard.push(source.card_id);
     setSlot(fromZone, fromIndex, null);
-    await pushState(sb, tableId, newState);
+    await pushState(sb, tableId, newState, table);
     return { ok: true, moved: sourceName, from: fromZone, to: "discard", discardedChain: (source.evolved_from || []).map(id => cards[id]?.name || "Unknown").concat(sourceName) };
   }
 
@@ -439,13 +463,13 @@ async function moveInPlayCard(sb, tableId, seat, fromZone, fromIndex, toZone, to
     const destCard = cards[dest.card_id];
     setSlot(fromZone, fromIndex, dest);
     setSlot(toZone, toIndex, source);
-    await pushState(sb, tableId, newState);
+    await pushState(sb, tableId, newState, table);
     return { ok: true, swapped: [sourceName, destCard?.name || "Unknown"], from: fromZone, to: toZone };
   }
 
   setSlot(fromZone, fromIndex, null);
   setSlot(toZone, toIndex, source);
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, moved: sourceName, from: fromZone, to: toZone, toIndex };
 }
 
@@ -459,7 +483,7 @@ async function removeEnergy(sb, tableId, seat, zone, index, energyIndex) {
   if (!slot || !slot.energy || slot.energy.length === 0) return { ok: false, reason: "No energy to remove there." };
   if (energyIndex < 0 || energyIndex >= slot.energy.length) return { ok: false, reason: `energy_index must be 0-${slot.energy.length - 1}.` };
   const removed = slot.energy.splice(energyIndex, 1)[0];
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, removed, remainingEnergy: slot.energy };
 }
 
@@ -472,7 +496,7 @@ async function adjustDamage(sb, tableId, seat, zone, index, delta) {
   const slot = zone === "active" ? my.active : (my.bench || [])[index];
   if (!slot) return { ok: false, reason: "No Bakemon in that slot." };
   slot.damage = Math.max(0, (slot.damage || 0) + delta);
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   const cards = await getAllCards(sb);
   const card = cards[slot.card_id];
   return { ok: true, damage: slot.damage, hp_remaining: card ? Math.max(0, card.hp - slot.damage) : null, hp_max: card ? card.hp : null };
@@ -491,7 +515,7 @@ async function setStatus(sb, tableId, seat, zone, index, statusType, add) {
   slot.status = slot.status || [];
   if (add) { if (!slot.status.includes(statusType)) slot.status.push(statusType); }
   else slot.status = slot.status.filter(s => s !== statusType);
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, status: slot.status };
 }
 
@@ -512,7 +536,7 @@ async function shuffleHandIntoDeck(sb, tableId, seat) {
   const handSize = (my.hand || []).length;
   my.deck = shuffle([...(my.deck || []), ...(my.hand || [])]);
   my.hand = [];
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, shuffledIn: handSize, deckCount: my.deck.length };
 }
 
@@ -525,7 +549,7 @@ async function reshuffleDiscardIntoDeck(sb, tableId, seat) {
   const discardSize = my.discard.length;
   my.deck = shuffle([...(my.deck || []), ...my.discard]);
   my.discard = [];
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, shuffledIn: discardSize, deckCount: my.deck.length };
 }
 
@@ -537,7 +561,7 @@ async function setScore(sb, tableId, seat, score) {
   const newState = JSON.parse(JSON.stringify(table.state));
   requireSeated(newState, seat);
   newState[seat].score = score;
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, score };
 }
 
@@ -546,7 +570,7 @@ async function startMatch(sb, tableId) {
   const { data: table } = await sb.from("battle_tables").select("*").eq("id", tableId).maybeSingle();
   const newState = JSON.parse(JSON.stringify(table.state));
   newState.setup_locked = true;
-  await pushState(sb, tableId, newState);
+  await pushState(sb, tableId, newState, table);
   return { ok: true, message: "Both fields are now revealed." };
 }
 
