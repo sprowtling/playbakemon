@@ -91,6 +91,8 @@ function makeAI(style) {
       }
 
       const attacks = of('attack');
+      // Sleeping Bag: badly hurt with nothing to attack with, so nap and heal 40.
+      if (of('sleep').length && !attacks.length && P.active.hp <= P.active.maxHp * 0.5) return of('sleep')[0];
       const stuck = !attacks.length && P.active && neededType(P.active);
       if (of('retreat').length && wantsOut(P)) return of('retreat')[0];
       if (of('retreat').length && ((P.active.hp <= 20 && Math.random() < 0.6) || (stuck && bench(P).some(m => cardMoves(m.card).some(mv => !mv.isAbility && canPay(m, mv.cost))))))

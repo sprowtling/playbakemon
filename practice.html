@@ -709,6 +709,8 @@ function openMonMenu(mon) {
     for (const a of usable.filter(x => x.notepad)) items.push({ html: moveButtonHtml(a.move, "From the Notepad"), run: () => answer(a) });
     const retreat = acts.find(a => a.type === "retreat");
     if (retreat) items.push({ html: `<span class="choice-top">${escapeHtml(retreat.label)}</span>`, run: () => startRetreat(retreat) });
+    const sleep = acts.find(a => a.type === "sleep");
+    if (sleep) items.push({ html: `<span class="choice-top">💤 Go to sleep</span><span class="choice-text">Sleeping Bag: heals 40 HP at the end of each of your turns it sleeps through. It can't attack while asleep.</span>`, run: () => answer(sleep) });
   }
   if (!items.length) { flashHint(`${mon.card.name} has nothing it can do right now.`); return; }
   showChoices(mon.card.name, items, true);

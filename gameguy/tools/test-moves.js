@@ -1020,6 +1020,68 @@ await test('Lucky Whomps: each D6 result does its own thing', async () => {
   G = setup(); rig(d(6, 6)); await attack(G, 0, 'Lucky Whomps'); ok(act(G, 0).status.asleep, '6: Whompwhomp falls asleep');
 });
 
+/* ================= item patch (cards 100–120) ================= */
+await test('Alarm Clock: the wearer wakes at the start of its turn, no flip needed', async () => {
+  const G = game({ active: 'Raizado', equip: { Raizado: '100' } }, { active: 'Poteplant' });
+  act(G, 0).status.asleep = true;
+  rig(TAILS); G.turnNumber = 12; await ctx.startTurn(G, G.players[0]);
+  ok(!act(G, 0).status.asleep, 'awake even though the coin would have said tails'); eq(G.t.canAttack, true, 'it can attack');
+  const H = game({ active: 'Raizado' }, { active: 'Poteplant' });
+  act(H, 0).status.asleep = true;
+  rig(TAILS); H.turnNumber = 12; await ctx.startTurn(H, H.players[0]);
+  ok(act(H, 0).status.asleep, 'without the clock, tails keeps it asleep');
+});
+await test('Alarm Clock is equipped now, not used up', async () => {
+  const G = game({ active: 'Raizado', hand: ['100'] }, { active: 'Poteplant' });
+  await ctx.perform(G, G.players[0], { type: 'item', handIndex: 0, cardId: '100' });
+  eq(act(G, 0).equip, '100', 'worn'); ok(!G.players[0].discard.includes('100'), 'not discarded');
+});
+await test('Brigitte only blocks attacks that do damage', async () => {
+  const asked = [];
+  const G = game({ active: 'Huangban', energy: { Huangban: ['normal'] } }, { active: 'Raizado', equip: { Raizado: '104' } },
+    [{}, { optional: (G, P, req) => { asked.push(req.prompt); return true; } }]);
+  await attack(G, 0, 'Xìqǔ');
+  ok(act(G, 1).status.asleep, 'the sleep landed'); eq(act(G, 1).equip, '104', 'shield untouched'); eq(asked.length, 0, 'never offered');
+  const H = game({ active: 'Lemurk', energy: { Lemurk: ['normal', 'normal'] } }, { active: 'Raizado', equip: { Raizado: '104' } }, [{}, { optional: () => true }]);
+  const hp = act(H, 1).hp; rig(d(6, 3)); await attack(H, 0, 'Tail Slap');
+  eq(act(H, 1).hp, hp, 'a damaging attack is still blocked'); eq(act(H, 1).equip, null, 'and the shield breaks');
+});
+await test('Bike Helmet: no weakness bonus at all, and nothing to choose', async () => {
+  const G = game({ active: 'Kidding', energy: { Kidding: ['fire'] } }, { active: 'Raizado', equip: { Raizado: '109' } });
+  await attack(G, 0, 'Chew');
+  eq(act(G, 1).maxHp - act(G, 1).hp, 20, 'Chew does 20, with no fire weakness bonus');
+  const H = game({ active: 'Kidding', energy: { Kidding: ['fire'] } }, { active: 'Raizado' });
+  await attack(H, 0, 'Chew');
+  eq(act(H, 1).maxHp - act(H, 1).hp, 30, 'without the helmet, weakness adds 10');
+  const asked = [];
+  const K = game({ active: 'Raizado', hand: ['109'] }, { active: 'Poteplant' }, [{ generic: (G, P, req) => { asked.push(req.prompt); return req.options[0].value; } }]);
+  await ctx.perform(K, K.players[0], { type: 'item', handIndex: 0, cardId: '109' });
+  eq(act(K, 0).equip, '109', 'worn'); eq(asked.length, 0, 'no "which weakness?" question');
+});
+await test('Sleeping Bag: go to sleep on your turn, heal 40 at the end of it', async () => {
+  const G = game({ active: 'Raizado', equip: { Raizado: '110' } }, { active: 'Poteplant' });
+  const P = G.players[0], r = act(G, 0); r.hp = r.maxHp - 60;
+  const sleep = ctx.legalActions(G, P).find(a => a.type === 'sleep');
+  ok(sleep, 'the wearer can choose to sleep');
+  await ctx.perform(G, P, sleep);
+  ok(r.status.asleep, 'asleep'); eq(G.t.canAttack, false, 'no attacking after lying down');
+  ok(!ctx.legalActions(G, P).some(a => a.type === 'sleep' || a.type === 'attack'), 'no second nap, no attack');
+  await ctx.endTurn(G, P);
+  eq(r.maxHp - r.hp, 20, 'healed 40 at the end of its own turn');
+  await ctx.endTurn(G, G.players[1]);
+  eq(r.maxHp - r.hp, 20, 'no healing at the end of the opponent\'s turn');
+  const H = game({ active: 'Raizado' }, { active: 'Poteplant' });
+  ok(!ctx.legalActions(H, H.players[0]).some(a => a.type === 'sleep'), 'no Sleeping Bag, no sleep action');
+});
+await test('Moira: more than eleven cards drawn sends the whole hand back to start over', async () => {
+  const G = game({ active: 'Poteplant', bench: ['Leapod'], hand: ['102'] }, { active: 'Raizado' }, [{ discardFromHand: (G, P, req) => req.options[0].value }]);
+  const P = G.players[0];
+  P.deck = [idOf('Leapol')].concat(Array(12).fill('101'));           // the evolution is 13 cards down
+  await ctx.runOps(G, { P, self: act(G, 0), target: act(G, 1) }, vm.runInContext("ITEMS['118'].ops", ctx));
+  ok(/starts? over/.test(log(G)), 'started over'); ok(P.hand.includes(idOf('Leapol')), 'found it in the end');
+  ok(P.hand.length + P.deck.length + P.discard.length === 14, 'no cards lost: 13 from the deck plus the Bill');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

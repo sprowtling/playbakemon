@@ -281,6 +281,7 @@ async function startTurn(G, P) {
   // whoever replaces it may still attack: see switchActive.
   const stuck = () => { if (G.t.canAttack) G.t.stuck = a; G.t.canAttack = false; };
   if (a.effects.some(e => e.kind === 'flinch')) { stuck(); await say2(G, a.card.name + ' flinches and cannot attack this turn.'); }
+  if (a.status.asleep && equipTag(a) === 'alarmClock') { delete a.status.asleep; await say2(G, a.card.name + "'s Alarm Clock rings. It wakes up.", { mon: a }); }
   if (a.status.asleep) {
     // Phantoplume's Sleep Paralysis: the other side has to roll a 3 on a D3 instead of flipping heads.
     const paralysis = zone(other(G, P)).some(m => hasTag(m, 'sleepParalysis'));
@@ -314,7 +315,7 @@ async function endTurn(G, P) {
     }
     if (mon.status.asleep) {
       if (mon.sleepHeal) await heal(G, mon, mon.sleepHeal);
-      if (equipTag(mon) === 'sleepHeals40') await heal(G, mon, 40);
+      if (equipTag(mon) === 'sleepingBag') await heal(G, mon, 40);
     }
   }
   // Effects that were only meant to last through this turn go away now.
@@ -393,6 +394,8 @@ function legalActions(G, P) {
   }
 
   const a = P.active;
+  // Sleeping Bag: its wearer may go to sleep during your turn.
+  if (a && equipTag(a) === 'sleepingBag' && !a.status.asleep && !G.t.lockTurn) actions.push({ type: 'sleep', label: a.card.name + ': go to sleep (Sleeping Bag)' });
   if (a && bench(P).length && G.t.retreats < G.rules.retreatsPerTurn && !retreatBlocked(a) && a.energy.length >= a.card.retreat)
     actions.push({ type: 'retreat', label: 'Retreat ' + a.card.name + (a.card.retreat ? '  (costs ' + a.card.retreat + ' energy)' : '  (free)') });
 
@@ -547,10 +550,6 @@ async function performAction(G, P, action) {
         const mon = P.active;
         mon.equip = id;
         if (item.equip === 'notepad') await copyIntoNotepad(G, P, mon);
-        if (item.equip === 'blocksWeakness' && mon.card.weak.length) {
-          mon.helmet = mon.card.weak.length === 1 ? mon.card.weak[0] : await P.controller.ask(G, P, { kind: 'option', purpose: 'generic',
-            prompt: 'Protect against which weakness?', options: mon.card.weak.map(w => ({ label: w, value: w, energy: w })) });
-        }
       } else {
         P.discard.push(id);
         await runOps(G, { P, self: P.active, target: enemy.active, move: null }, item.ops);
@@ -565,6 +564,13 @@ async function performAction(G, P, action) {
       await runOps(G, { P, self: action.mon, target: enemy.active, move: action.move }, action.move.ops);
       if (action.notepad) await useUpNotepad(G, P, action.mon);
       await checkKOs(G);
+      break;
+    }
+
+    case 'sleep': {
+      // Sleeping Bag: a sleeping Bakemon can't attack, and it wakes the usual way at the start of your next turn.
+      await applyStatus(G, P.active, 'asleep');
+      G.t.canAttack = false;
       break;
     }
 
@@ -687,11 +693,13 @@ async function resolveAttack(G, P, attacker, move, copied) {
       }
     }
   }
-  // Brigitte's shield: the wearer may block one attack targeting it, and the shield breaks. Wǔtái reaches
-  // past the active Bakemon to the bench, so the shield can't stop it.
+  // Brigitte's shield: the wearer may block one damage-causing attack targeting it, and the shield breaks.
+  // An attack that does no damage (a pure sleep or status move) can't be blocked. Wǔtái reaches past the
+  // active Bakemon to the bench, so the shield can't stop it.
   const tgt1 = ctx.target;
+  const damaging = (ctx.base || 0) + ctx.bonus > 0 || !!move.damage;
   // "Unavoidable" damage (Swift) can't be blocked either.
-  if (tgt1 && tgt1 !== attacker && equipTag(tgt1) === 'blocksAttack' && !ctx.unavoidable && !move.ops.some(o => o.dragBenchSlot)) {
+  if (tgt1 && tgt1 !== attacker && equipTag(tgt1) === 'blocksAttack' && damaging && !ctx.unavoidable && !move.ops.some(o => o.dragBenchSlot)) {
     const D = ownerOf(G, tgt1);
     if (D && D !== P && await D.controller.ask(G, D, { kind: 'option', purpose: 'optional', prompt: "Block the attack with Brigitte's shield?",
         options: [{ label: 'Block it', value: true }, { label: 'Take the hit', value: false }] })) {
@@ -748,7 +756,8 @@ async function dealDamage(G, source, victim, amount, o) {
     if (weatherIs(G, 'lightningShower') && costIncludes(move, 'electric')) amount += 20;                      // Crackazolt's Lightningshower
     // Weakness: +10 for every matching energy symbol in the attack's cost. (Not on the bench: the rules page.)
     // A move whose text names its damage type (Denticle: "in fighting damage") counts as one symbol of it.
-    if (!onBench) for (const w of victim.card.weak) if (w !== victim.helmet) {
+    // Bike Helmet: its wearer has no weaknesses at all.
+    if (!onBench && equipTag(victim) !== 'blocksWeakness') for (const w of victim.card.weak) {
       const t = ENERGY_ALIASES[w] || w;
       amount += Math.max(costCount(move, t), move.fx && move.fx.damageType === t ? 1 : 0) * G.rules.weaknessBonus;
     }
@@ -770,7 +779,7 @@ async function dealDamage(G, source, victim, amount, o) {
     if (!o.unavoidable) for (const shield of victim.effects.filter(e => e.kind === 'shield')) {
       if (shield.onlyFrom && !costIncludes(move, shield.onlyFrom)) continue;
       // Lobscorch's Dunk fails against an attack it's weak to.
-      if (shield.notIfWeak && victim.card.weak.some(w => w !== victim.helmet && costIncludes(move, ENERGY_ALIASES[w] || w))) continue;
+      if (shield.notIfWeak && equipTag(victim) !== 'blocksWeakness' && victim.card.weak.some(w => costIncludes(move, ENERGY_ALIASES[w] || w))) continue;
       const blocked = shield.roll ? (await roll(G, shield.roll, victim.card.name + ' braces')) * shield.mult : shield.amount;
       amount = blocked === 'all' ? 0 : amount - blocked;
       if (shield.lasts === 'nextHit') victim.effects.splice(victim.effects.indexOf(shield), 1);
@@ -1208,8 +1217,16 @@ async function runOps(G, ctx, ops) {
     else if (op.digForEvolution) {
       const wanted = id => bench(P).some(m => CARD_BY_ID[id].from === m.card.name);
       let drawn = 0;
-      while (P.deck.length) { const id = P.deck.pop(); P.hand.push(id); drawn++; if (wanted(id)) break; }
-      await say2(G, subj(P, 'draws') + ' ' + drawn + ' card' + (drawn === 1 ? '' : 's') + '.');
+      // Moira: more than eleven cards drawn means the whole hand goes back and the search starts over.
+      for (let tries = 0; ; tries++) {
+        drawn = 0;
+        let found = false;
+        while (P.deck.length) { const id = P.deck.pop(); P.hand.push(id); drawn++; if (wanted(id)) { found = true; break; } }
+        await say2(G, subj(P, 'draws') + ' ' + drawn + ' card' + (drawn === 1 ? '' : 's') + '.');
+        if (!op.digForEvolution.restartOver || drawn <= op.digForEvolution.restartOver || !found || tries >= 9) break;
+        P.deck = shuffle(P.deck.concat(P.hand.splice(0)));
+        await say2(G, 'That was more than ' + op.digForEvolution.restartOver + ' cards, so ' + (P.isHuman ? 'you shuffle your' : P.name + ' shuffles their') + ' hand back into the deck and start' + (P.isHuman ? '' : 's') + ' over.');
+      }
       if (drawn > op.digForEvolution.penaltyOver) {
         const n = Math.min(op.digForEvolution.discard, P.hand.length);
         await say2(G, 'That was more than ' + op.digForEvolution.penaltyOver + ' cards, so ' + (P.isHuman ? 'you' : P.name) + ' must discard ' + n + '.');

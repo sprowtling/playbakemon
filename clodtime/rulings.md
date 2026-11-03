@@ -82,3 +82,11 @@ are how to read it. I check here before deciding a report.
 - **Delusion: the defender splits first, then Starfall rolls per Bakemon hit.** The attacked player
   decides where the damage goes (at least half to their own side), then rolls Starfall separately for
   each fairy that takes a share. (Bryan and Cameron, Oct 31.)
+- **Item patch (Nov 3):**
+  - **Alarm Clock** is equipped now. If it's put on a Bakemon that's already asleep, it wakes at the
+    start of that Bakemon's next turn, not right away.
+  - **Brigitte** only blocks attacks that do damage. Status-only moves get through.
+  - **Sleeping Bag:** going to sleep and the 40 HP heal both happen only on the owner's own turn.
+  - **Moira:** 7–11 cards drawn means discard five; 12 or more means shuffle the *whole* hand (including
+    cards held before Moira) back into the deck and start over. Moira's missing rarity symbol is fine;
+    she stays uncommon. (Bryan, Nov 3.)

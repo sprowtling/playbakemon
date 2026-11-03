@@ -305,7 +305,7 @@ const MOVES = {
    Equippables sit on a Bakemon and are checked by  tag.
    ------------------------------------------------------------- */
 const ITEMS = {
-  '100': { ops: [{ cure: ['asleep'], who: 'any', withStatus: 'asleep' }] },
+  '100': { equip: 'alarmClock' },
   '101': { ops: [{ heal: 20, who: 'own_any' }] },
   '102': { ops: [{ draw: 2 }] },
   '103': { ops: [{ freeRetreat: true }] },
@@ -315,7 +315,7 @@ const ITEMS = {
   '107': { ops: [{ newHand: 3 }] },
   '108': { equip: 'extraEnergy' },
   '109': { equip: 'blocksWeakness' },
-  '110': { equip: 'sleepHeals40', approx: 'heals whenever asleep, whoever caused it' },
+  '110': { equip: 'sleepingBag' },
   '111': { equip: 'humidifier' },
   '112': { equip: 'notepad' },
   '113': { ops: [{ moveSomeEnergy: true }] },
@@ -323,7 +323,7 @@ const ITEMS = {
   '115': { ops: [{ evolveFreelyThisTurn: true }] },
   '116': { ops: [{ transmute: true }] },
   '117': { ops: [{ removeEnemyEquip: true }] },
-  '118': { ops: [{ digForEvolution: { penaltyOver: 6, discard: 5 } }] },
+  '118': { ops: [{ digForEvolution: { penaltyOver: 6, discard: 5, restartOver: 11 } }] },
   '119': { ops: [{ cure: 'all', who: 'any', activeOnly: true, withStatus: 'any' }] },
   '120': { ops: [{ drawUntilBasic: true }] },
 };
