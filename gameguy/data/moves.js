@@ -265,7 +265,7 @@ const MOVES = {
   '081': { 'Flash Freeze':    { ops: [{ flashFreeze: true }] },
            'Scareglare':      { ops: [{ ifWeather: 'hailstorm', then: [{ status: 'frozen' }] }] } },
   '082': { 'Reorganise':      { ops: [{ swapEnemyEnergy: true }] },
-           'Tail Lasso':      { ops: [{ noEnergy: true, on: 'enemy_any' }] } },
+           'Tail Lasso':      { ops: [{ pre: true, retarget: 'enemy_any', prompt: 'Tail Lasso: which Bakemon?' }, { noEnergy: true }] } },
   '083': { 'Xìqǔ':            { ops: [{ status: 'asleep' }] },
            'Chǒu':            { needsTargetStatus: 'asleep' } },
   '084': { 'Wǔtái':           { ops: [{ dragBenchSlot: true }] },
