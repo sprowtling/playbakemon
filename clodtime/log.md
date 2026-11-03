@@ -242,3 +242,7 @@ Bryan sent notes for eight items and uploaded the new cards; a helper transcribe
 - **SQL:** `clodtime/patch-items.sql` for Bryan to run.
 - **Patch notes:** Patch A2 on `patches.html`, with Bryan's text (Power Wash's line corrected to double rare). The how-to comment was rewritten to match the real layout.
 - **Open:** 22 saved decks now break the new limits (3 Nectar, Brigitte or Power Wash). Asked Bryan how to handle them.
+
+## 2026-11-03 (night)
+PR #62 (Patch A2) is merged, and the item SQL has been run (checked: Alarm Clock is equip; Brigitte, Nectar and Power Wash are rarity 4).
+- **Tail Lasso** (2e046318, Bryan): Silooper's 30 damage always hit the opponent's active, and only the energy lock went on the chosen Bakemon. The card says "Target any Bakemon in your opponent's zone", so now you pick one, and it takes both the hit and the lock (per the "any target" ruling; the same pattern as Ivyconstrictor). `moves.js`. 1 new test (fails on the old code); 137 pass; the simulator runs 200 matches with 0 crashes.

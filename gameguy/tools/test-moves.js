@@ -716,6 +716,15 @@ await test('Reorganise: one orb from each of two enemy Bakemon trade places', as
   eq(act(G, 1).energy.join(), 'water', 'Raizado got the water'); eq(bn(G, 1, 1).energy.join(), 'fire', 'Leapod got the fire'); eq(bn(G, 1, 0).energy.length, 0, 'Poteplant (no energy) left out');
 });
 
+await test('Tail Lasso: the chosen Bakemon takes the hit and the energy lock', async () => {
+  const G = game({ active: 'Silooper', energy: { Silooper: ['normal', 'normal', 'normal'] } }, { active: 'Raizado', bench: ['Poteplant'] },
+    [{ hurt: (G, P, req) => req.options.find(m => m.card.name === 'Poteplant') }, null]);
+  await attack(G, 0, 'Tail Lasso');
+  const pote = bn(G, 1);
+  eq(pote.maxHp - pote.hp, 30, 'the benched Poteplant took the 30'); eq(act(G, 1).hp, act(G, 1).maxHp, 'the active was untouched');
+  ok(pote.effects.some(e => e.kind === 'noEnergy'), 'and Poteplant is the one locked'); ok(!act(G, 1).effects.some(e => e.kind === 'noEnergy'), 'not the active');
+});
+
 await test('Lightning Storm counts lightning energy on both sides of the play area', async () => {
   const G = game({ active: 'Amptiel', bench: ['Raizado'], energy: { Amptiel: ['electric', 'electric', 'electric', 'grass'], Raizado: ['electric'] } },
                  { active: 'Poteplant', energy: { Poteplant: ['electric', 'electric'] }, big: ['Poteplant'] });
