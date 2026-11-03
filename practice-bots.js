@@ -175,7 +175,8 @@ const PRACTICE_BOTS = [
       '090': 2,  // Lemurk
       '092': 1,  // Pyrdyr (legendary: only one legendary per deck)
       '102': 3,  // Bill
-      '106': 3,  // Nectar
+      '106': 2,  // Nectar (double rare since the item patch)
+      '101': 1,  // Band-aid
       '108': 1,  // Power Cable
       '104': 2,  // Brigitte
       '117': 1,  // Power Wash

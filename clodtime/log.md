@@ -227,3 +227,18 @@ No new feedback. PR #59 (Live Matches, /tirm) is merged, so those two rows are c
   - Earlier playmat tests still pass (discard viewer, quiet reminders).
 - Morning, with Bryan: **fast HP clicks flickering back and not saving.** Bryan suspected Supabase's free-tier write speed. The real cause was echoes: every save is announced back to both players, including the one who made it. An echo of an older click (HP 100) could land after you'd already clicked to 80, so the screen jumped back and the next click built on the stale number. Now, while your own saves are still pending, or when an announcement is older than your newest confirmed save, the playmat keeps your side as the screen has it and takes everything else (your opponent's moves still show at once). `playmat.html`.
 - Tested in a headless browser with a mocked database that answers slowly and echoes every save. Six fast −10 clicks from 120 HP: the site as it is saved 70 (one click lost, with a flicker); PR #60 without this fix saved 100 (four lost); with the fix, 60 every time across three runs. The two-player draw race, the discard viewer and the quiet reminders still pass.
+
+## 2026-11-03 (with Bryan): Patch A2, The Great Rebalancing: Items
+Bryan sent notes for eight items and uploaded the new cards; a helper transcribed them, and they match the notes. Power Wash goes to double rare (Bryan's correction; the notes said ultra rare).
+- **Engine:**
+  - Alarm Clock is equipped and wakes its wearer at the start of its turn, with no flip.
+  - Brigitte only blocks damaging attacks.
+  - Bike Helmet ignores every weakness, with no choosing.
+  - Sleeping Bag adds a "Go to sleep" action that ends attacking for the turn, and still heals 40 at the end of its owner's turn.
+  - Moira starts over after 12 or more cards.
+  - Files: `battle.js`, `moves.js`, `cards.js`, the bot AI (naps when badly hurt with nothing to attack with), and practice's Bakemon menu.
+- **Bots:** Nyx had 3 Nectars, now 2 plus a Band-aid.
+- **Tests:** 6 new (all fail on the old code); 136 pass. The simulator runs 200 matches with 0 crashes.
+- **SQL:** `clodtime/patch-items.sql` for Bryan to run.
+- **Patch notes:** Patch A2 on `patches.html`, with Bryan's text (Power Wash's line corrected to double rare). The how-to comment was rewritten to match the real layout.
+- **Open:** 22 saved decks now break the new limits (3 Nectar, Brigitte or Power Wash). Asked Bryan how to handle them.
