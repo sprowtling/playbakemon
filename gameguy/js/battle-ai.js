@@ -25,6 +25,19 @@ function makeAI(style) {
     return null;
   }
 
+  // Our own Bakemon can give up an energy if it isn't the one in front, and it would still have
+  // enough for its own biggest attack afterwards.
+  function canSpare(P, mon) {
+    if (mon === P.active || !mon.energy.length) return false;
+    const need = Math.max(0, ...cardMoves(mon.card).filter(m => !m.isAbility).map(m => m.cost.total));
+    return mon.energy.length - 1 >= need;
+  }
+  // Who an energy-taking ability (Co-opt) could take from without hurting our own side.
+  function spareSources(G, P, self, op) {
+    const all = zone(P).concat(zone(other(G, P))).filter(m => m !== self && m.energy.length && (!op.names || op.names.includes(m.card.name)));
+    return all.filter(m => !zone(P).includes(m) || canSpare(P, m));
+  }
+
   // The most damage this Bakemon could ever do, fully powered. Zero means "pure support".
   const potential = mon => Math.max(0, ...cardMoves(mon.card).filter(m => !m.isAbility).map(m =>
     m.damage + m.ops.reduce((n, op) => n + ((op.perHeads && op.perHeads.damage) || op.damagePerEnergy || (op.chooseDamage && op.chooseDamage.max) || 0), 0)));
@@ -80,6 +93,9 @@ function makeAI(style) {
         const ops = a.move.ops, op = ops[0] || {};
         if (ops.some(o => o.hydraulic || o.swapPartner || o.cling || o.convertEnergy)) continue;   // too easy to fiddle forever, or never worth it
         if (op.moveEnergy && a.move.fx.oncePerTurn === false) continue;                              // ...same
+        // Co-opt (Mushmutt): only when Mushmutt needs the energy, and only from someone who can spare it.
+        // (It used to pull from its own Shimejirus every turn, so they never had enough to attack.)
+        if (op.moveEnergy && op.to === 'self' && (!neededType(a.mon) || !spareSources(G, P, a.mon, op).length)) continue;
         if (ops.some(o => o.discardEnergy && o.from === 'self')) continue;                           // Hungry Ghost: shedding energy is never the plan
         if (ops.some(o => o.lockTurn) && (of('attack').length || a.mon.hp > a.mon.maxHp * 0.5)) continue;   // Brumate costs the whole turn
         if (ops.some(o => o.purify) && !zone(P).some(m => Object.keys(m.status).length)) continue;
@@ -133,7 +149,8 @@ function makeAI(style) {
         }
         case 'energyFrom': {                                                          // take from the other side when we can
           const theirs = opts.filter(m => !mine(m));
-          return (theirs.length ? theirs : opts).slice().sort((a, b) => b.energy.length - a.energy.length)[0];
+          const spare = opts.filter(m => mine(m) && canSpare(P, m));
+          return (theirs.length ? theirs : spare.length ? spare : opts).slice().sort((a, b) => b.energy.length - a.energy.length)[0];
         }
         case 'redirect': {                                                            // Lightning Rod: only if someone sturdier can take it
           const best = opts.filter(o => o.value).sort((a, b) => b.value.hp - a.value.hp)[0];

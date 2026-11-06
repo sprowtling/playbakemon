@@ -1091,6 +1091,19 @@ await test('Moira: more than eleven cards drawn sends the whole hand back to sta
   ok(P.hand.length + P.deck.length + P.discard.length === 14, 'no cards lost: 13 from the deck plus the Bill');
 });
 
+await test('Bot Co-opt: never robs its own Shimejirus of the energy it needs, but still takes from the enemy', async () => {
+  const brain = ctx.makeAI({ mistakes: 0 });
+  const G = game({ active: 'Shimejirus', bench: ['Mushmutt'], energy: { Shimejirus: ['grass', 'dark'] } }, { active: 'Raizado' });
+  const P = G.players[0], noEnergy = acts => acts.filter(a => a.type !== 'energy');
+  ok(ctx.legalActions(G, P).some(a => a.type === 'ability' && a.move.name === 'Co-opt'), 'Co-opt is legal');
+  const pick = await brain.chooseAction(G, P, noEnergy(ctx.legalActions(G, P)));
+  ok(!(pick.type === 'ability' && pick.move.name === 'Co-opt'), 'but the bot leaves Shimejirus its energy (chose ' + pick.type + ')');
+  eq(pick.type, 'attack', 'and attacks with Poison Spore instead');
+  const H = game({ active: 'Shimejirus', bench: ['Mushmutt'], energy: { Shimejirus: ['grass', 'dark'] } }, { active: 'Musherus', energy: { Musherus: ['grass'] } });
+  const pick2 = await brain.chooseAction(H, H.players[0], noEnergy(ctx.legalActions(H, H.players[0])));
+  ok(pick2.type === 'ability' && pick2.move.name === 'Co-opt', 'an enemy mushroom with energy is fair game');
+});
+
 await test('Birthday Boy: each one allows one same-turn evolution', async () => {
   const G = game({ active: 'Poteplant', hand: [idOf('Quetzalil'), '115', idOf('Quexcell'), '115', idOf('Quetzillian')] }, { active: 'Raizado' });
   const P = G.players[0];

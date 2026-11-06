@@ -90,3 +90,6 @@ are how to read it. I check here before deciding a report.
   - **Moira:** 7–11 cards drawn means discard five; 12 or more means shuffle the *whole* hand (including
     cards held before Moira) back into the deck and start over. Moira's missing rarity symbol is fine;
     she stays uncommon. (Bryan, Nov 3.)
+- **Copied attacks use the copied attack's energy.** When Mushmutt's Head Tilt (or anything that
+  copies) uses another Bakemon's attack, that attack's own energy symbols decide weakness and boosts.
+  Head Tilt's printed cost (ground, dark) doesn't count. (Bryan, Nov 6.)
